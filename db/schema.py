@@ -83,6 +83,7 @@ CREATE TABLE IF NOT EXISTS paper_positions (
     net_pnl_cents               INTEGER,
     mfe_cents                   INTEGER,
     mae_cents                   INTEGER,
+    settlement_status           TEXT,
     created_at                  TEXT NOT NULL,
     updated_at                  TEXT NOT NULL
 );
@@ -309,6 +310,68 @@ CREATE TABLE IF NOT EXISTS mlb_game_snapshots (
 );
 
 CREATE INDEX IF NOT EXISTS idx_mlb_game_snapshots_pk ON mlb_game_snapshots(game_pk, snapped_at);
+
+-- ── MLB normalized game data ───────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS mlb_games (
+    game_pk          INTEGER PRIMARY KEY,
+    game_date        TEXT NOT NULL,
+    away_team        TEXT NOT NULL,
+    home_team        TEXT NOT NULL,
+    away_abbr        TEXT NOT NULL,
+    home_abbr        TEXT NOT NULL,
+    status           TEXT NOT NULL DEFAULT 'Scheduled',
+    game_id          TEXT,
+    final_away_score INTEGER,
+    final_home_score INTEGER,
+    final_total      INTEGER,
+    is_final         INTEGER NOT NULL DEFAULT 0,
+    last_checked_at  TEXT NOT NULL,
+    created_at       TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_mlb_games_date  ON mlb_games(game_date);
+CREATE INDEX IF NOT EXISTS idx_mlb_games_final ON mlb_games(is_final);
+
+CREATE TABLE IF NOT EXISTS mlb_game_states (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_pk          INTEGER NOT NULL,
+    checked_at       TEXT NOT NULL,
+    status           TEXT,
+    inning           INTEGER,
+    inning_half      TEXT,
+    outs             INTEGER,
+    away_score       INTEGER,
+    home_score       INTEGER,
+    balls            INTEGER,
+    strikes          INTEGER,
+    runner_state     TEXT,
+    current_batter   TEXT,
+    current_pitcher  TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_mlb_game_states_pk ON mlb_game_states(game_pk, checked_at);
+
+CREATE TABLE IF NOT EXISTS mlb_play_events (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_pk          INTEGER NOT NULL,
+    at_bat_index     INTEGER NOT NULL,
+    play_index       INTEGER NOT NULL DEFAULT 0,
+    event_time       TEXT,
+    inning           INTEGER,
+    inning_half      TEXT,
+    description      TEXT,
+    event_type       TEXT,
+    is_scoring_play  INTEGER NOT NULL DEFAULT 0,
+    is_home_run      INTEGER NOT NULL DEFAULT 0,
+    rbi              INTEGER NOT NULL DEFAULT 0,
+    outs             INTEGER NOT NULL DEFAULT 0,
+    away_score       INTEGER,
+    home_score       INTEGER,
+    batter_name      TEXT,
+    pitcher_name     TEXT,
+    raw_json         TEXT,
+    UNIQUE(game_pk, at_bat_index, play_index)
+);
+CREATE INDEX IF NOT EXISTS idx_mlb_play_events_pk ON mlb_play_events(game_pk, inning);
 """
 
 
@@ -321,6 +384,7 @@ def _apply_migrations(conn: sqlite3.Connection) -> None:
     _migrations = [
         "ALTER TABLE signal_events    ADD COLUMN signal_subtype TEXT",
         "ALTER TABLE paper_positions  ADD COLUMN signal_subtype TEXT",
+        "ALTER TABLE paper_positions  ADD COLUMN settlement_status TEXT",
     ]
     for sql in _migrations:
         try:
