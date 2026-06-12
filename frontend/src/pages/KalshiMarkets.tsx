@@ -22,11 +22,28 @@ import { formatDateTime } from '../lib/format'
 
 const MARKET_TYPES = [
   { value: '', label: 'All types' },
+  // Game-level
+  { value: 'moneyline', label: 'Moneyline' },
+  { value: 'spread_run_line', label: 'Run Line' },
   { value: 'full_game_total', label: 'Total (O/U)' },
   { value: 'team_total', label: 'Team Total' },
-  { value: 'spread_run_line', label: 'Run Line' },
-  { value: 'moneyline', label: 'Moneyline' },
+  // First 5 innings
+  { value: 'f5_winner', label: 'F5 Winner' },
+  { value: 'f5_spread', label: 'F5 Spread' },
+  { value: 'f5_total', label: 'F5 Total' },
+  // Game props
+  { value: 'extra_innings', label: 'Extra Innings' },
+  { value: 'run_first_inning', label: 'Run in 1st' },
+  // Player props
   { value: 'player_hr', label: 'Player HR' },
+  { value: 'player_hrr', label: 'Player H/R/RBI' },
+  { value: 'player_strikeouts', label: 'Player Ks' },
+  { value: 'player_total_bases', label: 'Player Total Bases' },
+  { value: 'player_hits', label: 'Player Hits' },
+  { value: 'player_rbi', label: 'Player RBI' },
+  { value: 'player_stolen_bases', label: 'Player SB' },
+  // Futures / other
+  { value: 'championship_futures', label: 'Championship Futures' },
   { value: 'unknown', label: 'Unknown' },
 ]
 
@@ -39,12 +56,24 @@ const MSG_TYPES = [
 
 function marketTypeVariant(mtype: string): 'blue' | 'green' | 'yellow' | 'red' | 'slate' {
   switch (mtype) {
-    case 'full_game_total': return 'blue'
-    case 'team_total':      return 'green'
-    case 'spread_run_line': return 'yellow'
-    case 'moneyline':       return 'red'
-    case 'player_hr':       return 'green'
-    default:                return 'slate'
+    case 'moneyline':             return 'red'
+    case 'spread_run_line':       return 'yellow'
+    case 'full_game_total':       return 'blue'
+    case 'team_total':            return 'green'
+    case 'f5_winner':             return 'red'
+    case 'f5_spread':             return 'yellow'
+    case 'f5_total':              return 'blue'
+    case 'extra_innings':         return 'green'
+    case 'run_first_inning':      return 'green'
+    case 'player_hr':             return 'green'
+    case 'player_hrr':            return 'green'
+    case 'player_strikeouts':     return 'green'
+    case 'player_total_bases':    return 'green'
+    case 'player_hits':           return 'green'
+    case 'player_rbi':            return 'green'
+    case 'player_stolen_bases':   return 'green'
+    case 'championship_futures':  return 'blue'
+    default:                      return 'slate'
   }
 }
 

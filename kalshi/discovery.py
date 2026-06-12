@@ -16,23 +16,103 @@ from kalshi.logger import KalshiLogger
 
 # ── Market type classification ────────────────────────────────────────────────
 
+# Series-prefix map is checked FIRST (most specific signal).
+# Keys are sorted longest-first (see _SERIES_PREFIXES below) so longer
+# prefixes like KXMLBF5SPREAD/KXMLBF5TOTAL shadow the shorter KXMLBF5, and
+# KXMLBHRR shadows KXMLBHR.
+# Confirmed active counts from GET /series probe on 2026-06-12.
+_SERIES_PREFIX_MAP: dict[str, str] = {
+    # Game-level derivatives
+    "KXMLBGAME":      "moneyline",           # 90  markets — full game winner
+    "KXMLBSPREAD":    "spread_run_line",      # 90  markets — full game run line
+    "KXMLBTOTAL":     "full_game_total",      # 165 markets — full game O/U
+    "KXMLBTEAMTOTAL": "team_total",           # 210 markets — team total
+    "KXMLBF5SPREAD":  "f5_spread",            # 60  markets — F5 spread
+    "KXMLBF5TOTAL":   "f5_total",             # 105 markets — F5 total
+    "KXMLBF5":        "f5_winner",            # 45  markets — F5 3-way winner
+    "KXMLBEXTRAS":    "extra_innings",        # 45  markets — go to extras?
+    "KXMLBRFI":       "run_first_inning",     # 45  markets — run in 1st inning
+    # Player props
+    "KXMLBHRR":       "player_hrr",           # 215 markets — hits/runs/rbis
+    "KXMLBHR":        "player_hr",            # 85  markets — player home runs
+    "KXMLBKS":        "player_strikeouts",    # 208 markets — player strikeouts
+    "KXMLBTB":        "player_total_bases",   # 199 markets — player total bases
+    "KXMLBHIT":       "player_hits",          # player hits
+    "KXMLBRBI":       "player_rbi",           # player RBIs
+    "KXMLBSB":        "player_stolen_bases",  # player stolen bases
+    # Championship futures: KXMLB-26-NYY (hyphen after KXMLB)
+    "KXMLB-":         "championship_futures",
+}
+
+# Text-regex fallback, applied only when no series prefix matched.
+# Most-specific patterns first; use \b on short tokens to avoid false matches.
 _CLASSIFY_RULES: list[tuple[re.Pattern, str]] = [
-    (re.compile(r'team total', re.I), "team_total"),
+    (re.compile(r'team total', re.I),                           "team_total"),
+    (re.compile(r'total bases',                                 re.I), "player_total_bases"),
     (re.compile(r'total runs|runs? over|over.under|o/u|\bou\b', re.I), "full_game_total"),
-    (re.compile(r'run line|spread|\-1\.5|\+1\.5|rl\b', re.I), "spread_run_line"),
-    (re.compile(r'moneyline|to win(?! by)|ml\b|\bwinner\b', re.I), "moneyline"),
-    (re.compile(r'home run|hit a hr|\bhr\b|homer', re.I), "player_hr"),
+    (re.compile(r'run line|spread|\-1\.5|\+1\.5|\brl\b',        re.I), "spread_run_line"),
+    (re.compile(r'moneyline|to win(?! by)|\bml\b|\bwinner\b',   re.I), "moneyline"),
+    (re.compile(r'home run|hit a hr|\bhr\b|homer',              re.I), "player_hr"),
+    (re.compile(r'extra inning',                                re.I), "extra_innings"),
+    (re.compile(r'first inning|run in.*1st',                    re.I), "run_first_inning"),
+    (re.compile(r'hits.*runs.*rbi',                             re.I), "player_hrr"),
+    (re.compile(r'strikeouts?',                                 re.I), "player_strikeouts"),
 ]
 
-_SERIES_PREFIX_MAP: dict[str, str] = {
-    "KXMLBT":  "full_game_total",
-    "KXMLBR":  "spread_run_line",
-    "KXMLBM":  "moneyline",
-    "KXMLBHM": "moneyline",
-    "KXMLBAM": "moneyline",
-    "KXMLBHR": "player_hr",
-    "KXMLBTT": "team_total",
-}
+# Sorted longest-first so longer prefixes shadow their shorter prefixes
+# (e.g. KXMLBF5SPREAD before KXMLBF5, KXMLBHRR before KXMLBHR).
+_SERIES_PREFIXES: list[tuple[str, str]] = sorted(
+    _SERIES_PREFIX_MAP.items(), key=lambda kv: -len(kv[0])
+)
+
+# Default series for discover_mlb() — game-level markets + HR props.
+_DEFAULT_MLB_SERIES: list[str] = [
+    "KXMLBGAME",       # moneyline
+    "KXMLBSPREAD",     # run line / spread
+    "KXMLBTOTAL",      # full game O/U
+    "KXMLBTEAMTOTAL",  # team total
+    "KXMLBF5",         # F5 winner
+    "KXMLBF5SPREAD",   # F5 spread
+    "KXMLBF5TOTAL",    # F5 total
+    "KXMLBHR",         # player HR
+]
+
+# Extended list for --include-unknown: adds prop series.
+_ALL_MLB_SERIES: list[str] = _DEFAULT_MLB_SERIES + [
+    "KXMLBEXTRAS",
+    "KXMLBRFI",
+    "KXMLBHRR",
+    "KXMLBKS",
+    "KXMLBTB",
+    "KXMLBHIT",
+    "KXMLBRBI",
+    "KXMLBSB",
+]
+
+
+def classify_market_type_with_reason(
+    ticker: str,
+    title: str,
+    subtitle: str = "",
+    rules: str = "",
+) -> tuple[str, str]:
+    """
+    Return (market_type, reason).
+
+    Series-prefix check runs before text-regex so that e.g. a KXMLBTT
+    market with "over X runs" in its title isn't mis-tagged full_game_total.
+    """
+    ticker_upper = ticker.upper()
+    for prefix, mtype in _SERIES_PREFIXES:
+        if ticker_upper.startswith(prefix):
+            return mtype, f"series_prefix:{prefix}"
+
+    text = f"{ticker} {title} {subtitle} {rules}"
+    for pattern, mtype in _CLASSIFY_RULES:
+        if pattern.search(text):
+            return mtype, f"regex:{mtype}"
+
+    return "unknown", "no_match"
 
 
 def classify_market_type(
@@ -41,15 +121,56 @@ def classify_market_type(
     subtitle: str = "",
     rules: str = "",
 ) -> str:
-    text = f"{ticker} {title} {subtitle} {rules}"
-    for pattern, mtype in _CLASSIFY_RULES:
-        if pattern.search(text):
-            return mtype
-    ticker_upper = ticker.upper()
-    for prefix, mtype in _SERIES_PREFIX_MAP.items():
-        if ticker_upper.startswith(prefix):
-            return mtype
-    return "unknown"
+    mtype, _ = classify_market_type_with_reason(ticker, title, subtitle, rules)
+    return mtype
+
+
+# ── Debug / probe dataclasses ─────────────────────────────────────────────────
+
+@dataclass
+class DiscoveryRawRow:
+    """One market's full raw fields plus classifier output — used by --debug-raw."""
+    event_ticker: str
+    series_ticker: str
+    market_ticker: str
+    title: str
+    subtitle: str
+    yes_sub_title: str
+    no_sub_title: str
+    rules_primary: str
+    category: str
+    market_type: str
+    classifier_reason: str
+
+
+@dataclass
+class SeriesProbeResult:
+    """Result of probing one Kalshi series ticker."""
+    series_ticker: str
+    events_found: int
+    markets_found: int
+    market_type_counts: dict = field(default_factory=dict)
+    error: Optional[str] = None
+
+    @property
+    def found(self) -> bool:
+        return self.error is None and (self.events_found > 0 or self.markets_found > 0)
+
+
+# ── Price helper ──────────────────────────────────────────────────────────────
+
+def _cents(mkt: dict, *keys) -> Optional[int]:
+    """Read the first present key; convert dollar-string to int cents if needed."""
+    for k in keys:
+        v = mkt.get(k)
+        if v is not None:
+            if isinstance(v, str):
+                try:
+                    return round(float(v) * 100)
+                except ValueError:
+                    continue
+            return int(v)
+    return None
 
 
 # ── Team name → abbreviation lookup ──────────────────────────────────────────
@@ -72,6 +193,36 @@ _TEAM_LOOKUP: dict[str, str] = {
     "toronto blue jays": "TOR",      "washington nationals": "WSH",
 }
 
+_MLB_ABBREVS: frozenset[str] = frozenset({
+    "ARI", "AZ", "ATL", "BAL", "BOS", "CHC", "CWS", "CIN", "CLE",
+    "COL", "DET", "HOU", "KC", "LAA", "LAD", "MIA", "MIL", "MIN",
+    "NYM", "NYY", "ATH", "OAK", "PHI", "PIT", "SD", "SF", "SEA",
+    "STL", "TB", "TEX", "TOR", "WSH",
+})
+
+
+def _split_mlb_abbrevs(s: str) -> tuple[Optional[str], Optional[str]]:
+    """Split 'NYYTOR' → ('NYY','TOR'), 'TBLAA' → ('TB','LAA') etc."""
+    for i in (3, 2):
+        away, home = s[:i], s[i:]
+        if away in _MLB_ABBREVS and home in _MLB_ABBREVS:
+            return away, home
+    return None, None
+
+
+def _extract_teams_from_game_ticker(event_ticker: str) -> tuple[Optional[str], Optional[str]]:
+    """
+    Parse KXMLBGAME-26JUN121937NYYTOR → ('NYY', 'TOR').
+    Format after prefix: {YY(2)}{MON(3)}{DD(2)}{HHMM(4)}{AWAY}{HOME} = 11 chars + teams.
+    """
+    prefix = "KXMLBGAME-"
+    if not event_ticker.startswith(prefix):
+        return None, None
+    rest = event_ticker[len(prefix):]
+    if len(rest) <= 11:
+        return None, None
+    return _split_mlb_abbrevs(rest[11:])
+
 
 def _extract_teams_from_title(title: str) -> tuple[Optional[str], Optional[str]]:
     """
@@ -80,7 +231,6 @@ def _extract_teams_from_title(title: str) -> tuple[Optional[str], Optional[str]]
     Returns (None, None) if extraction fails.
     """
     lower = title.lower()
-    # Split on common separators
     for sep in (" vs. ", " vs ", " @ ", " at "):
         if sep in lower:
             parts = lower.split(sep, 1)
@@ -90,7 +240,6 @@ def _extract_teams_from_title(title: str) -> tuple[Optional[str], Optional[str]]
             home = _TEAM_LOOKUP.get(home_raw)
             if away and home:
                 return away, home
-            # Try partial match
             for name, abbr in _TEAM_LOOKUP.items():
                 if away is None and name in away_raw:
                     away = abbr
@@ -163,8 +312,9 @@ def _upsert_market(
     subtitle = mkt.get("subtitle", "") or ""
     rules = mkt.get("rules_primary", "") or mkt.get("rules", "") or ""
     mtype = classify_market_type(ticker, title, subtitle, rules)
+    raw_status = mkt.get("status")
+    norm_status = "open" if raw_status == "active" else raw_status
 
-    # Extract numeric line from ticker or title
     line_val: Optional[float] = None
     m = re.search(r'[-_T](\d+\.?\d*)$', ticker)
     if m:
@@ -173,9 +323,9 @@ def _upsert_market(
         except ValueError:
             pass
 
-    yes_bid = mkt.get("yes_bid") or mkt.get("yes_bid_cents")
-    yes_ask = mkt.get("yes_ask") or mkt.get("yes_ask_cents")
-    last_price = mkt.get("last_price") or mkt.get("last_price_cents")
+    yes_bid    = _cents(mkt, "yes_bid", "yes_bid_cents", "yes_bid_dollars")
+    yes_ask    = _cents(mkt, "yes_ask", "yes_ask_cents", "yes_ask_dollars")
+    last_price = _cents(mkt, "last_price", "last_price_cents", "last_price_dollars")
 
     conn.execute(
         """
@@ -212,7 +362,7 @@ def _upsert_market(
             mkt.get("open_time"),
             mkt.get("close_time"),
             mkt.get("expiration_time"),
-            mkt.get("status"),
+            norm_status,
             yes_bid,
             yes_ask,
             last_price,
@@ -261,7 +411,7 @@ def _insert_orderbook_snapshot(conn: sqlite3.Connection, ticker: str, ob: dict) 
     )
 
 
-# ── Main discovery functions ──────────────────────────────────────────────────
+# ── Discovery result ──────────────────────────────────────────────────────────
 
 @dataclass
 class DiscoveryResult:
@@ -270,7 +420,49 @@ class DiscoveryResult:
     orderbooks_fetched: int = 0
     market_types: dict = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
+    raw_rows: list = field(default_factory=list)       # list[DiscoveryRawRow] when debug_raw
+    series_probed: list = field(default_factory=list)  # list[SeriesProbeResult] when probing
 
+
+# ── Probe: check which series tickers actually exist ─────────────────────────
+
+def probe_series(
+    client: KalshiClient,
+    series_list: list[str],
+    status: str = "open",
+) -> list[SeriesProbeResult]:
+    """
+    For each series ticker, query /events and count any markets found.
+    Returns one SeriesProbeResult per series — use to identify absent series.
+    """
+    results: list[SeriesProbeResult] = []
+    for series in series_list:
+        r = SeriesProbeResult(series_ticker=series, events_found=0, markets_found=0)
+        try:
+            events = client.iter_events(series_ticker=series, status=status)
+            r.events_found = len(events)
+            for ev in events:
+                event_ticker = ev.get("event_ticker") or ev.get("ticker", "")
+                try:
+                    mkts = client.iter_event_markets(event_ticker)
+                    r.markets_found += len(mkts)
+                    for mkt in mkts:
+                        mtype = classify_market_type(
+                            mkt.get("ticker", ""),
+                            mkt.get("title", "") or "",
+                            mkt.get("subtitle", "") or "",
+                            mkt.get("rules_primary", "") or "",
+                        )
+                        r.market_type_counts[mtype] = r.market_type_counts.get(mtype, 0) + 1
+                except Exception as exc:
+                    r.error = f"iter_event_markets({event_ticker}): {exc}"
+        except Exception as exc:
+            r.error = str(exc)
+        results.append(r)
+    return results
+
+
+# ── Main discovery functions ──────────────────────────────────────────────────
 
 def discover_event(
     client: KalshiClient,
@@ -278,6 +470,7 @@ def discover_event(
     logger: KalshiLogger,
     event_ticker: str,
     fetch_orderbooks: bool = False,
+    debug_raw: bool = False,
 ) -> DiscoveryResult:
     result = DiscoveryResult()
     try:
@@ -297,24 +490,37 @@ def discover_event(
     markets = ev_data.get("markets") or []
     if not markets:
         try:
-            mkts_data = client.iter_event_markets(event_ticker)
-            markets = mkts_data
+            markets = client.iter_event_markets(event_ticker)
         except Exception as exc:
             result.errors.append(f"iter_event_markets({event_ticker}): {exc}")
 
     logger.log_markets(markets)
     for mkt in markets:
         _upsert_market(conn, mkt, game_id, away, home)
-        mtype = classify_market_type(
-            mkt.get("ticker", ""),
-            mkt.get("title", "") or "",
-            mkt.get("subtitle", "") or "",
-        )
+        ticker  = mkt.get("ticker", "")
+        title   = mkt.get("title", "") or ""
+        sub     = mkt.get("subtitle", "") or ""
+        rules   = mkt.get("rules_primary", "") or ""
+        mtype, reason = classify_market_type_with_reason(ticker, title, sub, rules)
         result.market_types[mtype] = result.market_types.get(mtype, 0) + 1
         result.markets_found += 1
 
+        if debug_raw:
+            result.raw_rows.append(DiscoveryRawRow(
+                event_ticker=ev.get("event_ticker", ev.get("ticker", "")),
+                series_ticker=ev.get("series_ticker", ""),
+                market_ticker=ticker,
+                title=title,
+                subtitle=sub,
+                yes_sub_title=mkt.get("yes_sub_title", "") or "",
+                no_sub_title=mkt.get("no_sub_title", "") or "",
+                rules_primary=(rules[:120] + "…" if len(rules) > 120 else rules),
+                category=ev.get("category", ""),
+                market_type=mtype,
+                classifier_reason=reason,
+            ))
+
         if fetch_orderbooks:
-            ticker = mkt.get("ticker", "")
             if ticker and mkt.get("status") == "open":
                 try:
                     ob = client.get_orderbook(ticker)
@@ -335,52 +541,95 @@ def discover_mlb(
     logger: KalshiLogger,
     status: str = "open",
     fetch_orderbooks: bool = False,
+    series_list: Optional[list[str]] = None,
+    debug_raw: bool = False,
+    include_unknown: bool = False,
 ) -> DiscoveryResult:
+    """
+    Discover MLB markets across one or more Kalshi series tickers.
+
+    series_list defaults to _DEFAULT_MLB_SERIES (game + derivatives + HR).
+    Pass _ALL_MLB_SERIES to also include prop series.
+
+    When debug_raw=True, each market's raw fields and classifier reason are
+    collected in result.raw_rows.
+
+    When include_unknown=True, probe_series() is run across _ALL_MLB_SERIES
+    and the results are stored in result.series_probed so the caller can
+    report which series are absent vs present.
+    """
+    if series_list is None:
+        series_list = _DEFAULT_MLB_SERIES
+
     total = DiscoveryResult()
 
-    try:
-        events = client.iter_events(series_ticker="KXMLB", status=status)
-    except Exception as exc:
-        total.errors.append(f"iter_events: {exc}")
-        return total
-
-    logger.log_events(events)
-
-    for ev in events:
-        event_ticker = ev.get("event_ticker") or ev.get("ticker", "")
-        away, home = _extract_teams_from_title(ev.get("title", ""))
-        game_id = _build_game_id(away, home)
-        _upsert_event(conn, ev, game_id)
-        total.events_found += 1
-
+    for series in series_list:
         try:
-            markets = client.iter_event_markets(event_ticker)
+            events = client.iter_events(series_ticker=series, status=status)
         except Exception as exc:
-            total.errors.append(f"iter_event_markets({event_ticker}): {exc}")
+            total.errors.append(f"iter_events({series}): {exc}")
             continue
 
-        logger.log_markets(markets)
-        for mkt in markets:
-            _upsert_market(conn, mkt, game_id, away, home)
-            mtype = classify_market_type(
-                mkt.get("ticker", ""),
-                mkt.get("title", "") or "",
-                mkt.get("subtitle", "") or "",
-            )
-            total.market_types[mtype] = total.market_types.get(mtype, 0) + 1
-            total.markets_found += 1
+        if not events:
+            continue
 
-            if fetch_orderbooks and mkt.get("status") == "open":
-                ticker = mkt.get("ticker", "")
-                if ticker:
-                    try:
-                        ob = client.get_orderbook(ticker)
-                        ob_record = {"market_ticker": ticker, **ob}
-                        logger.log_orderbooks([ob_record])
-                        _insert_orderbook_snapshot(conn, ticker, ob)
-                        total.orderbooks_fetched += 1
-                    except Exception as exc:
-                        total.errors.append(f"orderbook({ticker}): {exc}")
+        logger.log_events(events)
+
+        for ev in events:
+            event_ticker = ev.get("event_ticker") or ev.get("ticker", "")
+            away, home = _extract_teams_from_game_ticker(event_ticker)
+            if not (away and home):
+                away, home = _extract_teams_from_title(ev.get("title", ""))
+            game_id = _build_game_id(away, home)
+            _upsert_event(conn, ev, game_id)
+            total.events_found += 1
+
+            try:
+                markets = client.iter_event_markets(event_ticker)
+            except Exception as exc:
+                total.errors.append(f"iter_event_markets({event_ticker}): {exc}")
+                continue
+
+            logger.log_markets(markets)
+            for mkt in markets:
+                _upsert_market(conn, mkt, game_id, away, home)
+                ticker  = mkt.get("ticker", "")
+                title   = mkt.get("title", "") or ""
+                sub     = mkt.get("subtitle", "") or ""
+                rules   = mkt.get("rules_primary", "") or ""
+                mtype, reason = classify_market_type_with_reason(ticker, title, sub, rules)
+                total.market_types[mtype] = total.market_types.get(mtype, 0) + 1
+                total.markets_found += 1
+
+                if debug_raw:
+                    total.raw_rows.append(DiscoveryRawRow(
+                        event_ticker=event_ticker,
+                        series_ticker=ev.get("series_ticker", series),
+                        market_ticker=ticker,
+                        title=title,
+                        subtitle=sub,
+                        yes_sub_title=mkt.get("yes_sub_title", "") or "",
+                        no_sub_title=mkt.get("no_sub_title", "") or "",
+                        rules_primary=(rules[:120] + "…" if len(rules) > 120 else rules),
+                        category=ev.get("category", ""),
+                        market_type=mtype,
+                        classifier_reason=reason,
+                    ))
+
+                if fetch_orderbooks and mkt.get("status") == "open":
+                    if ticker:
+                        try:
+                            ob = client.get_orderbook(ticker)
+                            ob_record = {"market_ticker": ticker, **ob}
+                            logger.log_orderbooks([ob_record])
+                            _insert_orderbook_snapshot(conn, ticker, ob)
+                            total.orderbooks_fetched += 1
+                        except Exception as exc:
+                            total.errors.append(f"orderbook({ticker}): {exc}")
 
     conn.commit()
+
+    if include_unknown:
+        total.series_probed = probe_series(client, _ALL_MLB_SERIES, status=status)
+
     return total

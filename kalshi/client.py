@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 from urllib.parse import urlencode
 
-_PROD_BASE = "https://trading-api.kalshi.com/trade-api/v2"
+_PROD_BASE = "https://api.elections.kalshi.com/trade-api/v2"
 _DEMO_BASE = "https://demo-api.kalshi.co/trade-api/v2"
 _TIMEOUT = 12.0
 _MAX_RETRIES = 3
@@ -41,6 +41,8 @@ class KalshiClient:
             raise KalshiAuthError("KALSHI_API_PRIVATE_KEY is not set")
         self._key_id = cfg.api_key_id
         self._base = _DEMO_BASE if cfg.env.lower() == "demo" else _PROD_BASE
+        from urllib.parse import urlparse
+        self._base_path = urlparse(self._base).path  # "/trade-api/v2"
         self._key = self._load_key(cfg.private_key_pem)
 
     @staticmethod
@@ -86,7 +88,7 @@ class KalshiClient:
 
         last_exc: Optional[Exception] = None
         for attempt in range(_MAX_RETRIES):
-            headers = self._headers(method, path)  # fresh timestamp each attempt
+            headers = self._headers(method, self._base_path + path)  # sign full path
             req = urllib.request.Request(url, headers=headers, method=method.upper())
             try:
                 with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:
@@ -173,6 +175,50 @@ class KalshiClient:
             if not cursor or not batch:
                 break
         return events
+
+    def get_series(
+        self,
+        category: Optional[str] = None,
+        limit: int = 100,
+        cursor: Optional[str] = None,
+    ) -> dict:
+        params: dict[str, Any] = {"limit": limit}
+        if category:
+            params["category"] = category
+        if cursor:
+            params["cursor"] = cursor
+        return self._request("GET", "/series", params)
+
+    def iter_series(self, category: Optional[str] = None) -> list[dict]:
+        """Return all series, optionally filtered by category."""
+        series: list[dict] = []
+        cursor: Optional[str] = None
+        while True:
+            page = self.get_series(category=category, limit=100, cursor=cursor)
+            batch = page.get("series", [])
+            series.extend(batch)
+            cursor = page.get("cursor")
+            if not cursor or not batch:
+                break
+        return series
+
+    def iter_series_markets(self, series_ticker: str, status: Optional[str] = None) -> list[dict]:
+        """Return all markets for a series directly (bypassing events)."""
+        markets: list[dict] = []
+        cursor: Optional[str] = None
+        while True:
+            page = self.get_markets(
+                series_ticker=series_ticker,
+                status=status,
+                limit=100,
+                cursor=cursor,
+            )
+            batch = page.get("markets", [])
+            markets.extend(batch)
+            cursor = page.get("cursor")
+            if not cursor or not batch:
+                break
+        return markets
 
     def iter_event_markets(self, event_ticker: str) -> list[dict]:
         """Return all markets for an event, handling cursor pagination."""
