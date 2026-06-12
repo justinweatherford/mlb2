@@ -355,3 +355,54 @@ class KalshiMarketOut(BaseModel):
             mtype = data.get("market_type", "unknown") or "unknown"
             data["market_type_label"] = MARKET_TYPE_LABELS.get(mtype, mtype.replace("_", " ").title())
         return data
+
+
+# ---------------------------------------------------------------------------
+# Kalshi WebSocket stream
+# ---------------------------------------------------------------------------
+
+class KalshiMarketUpdateOut(BaseModel):
+    id: int
+    market_ticker: str
+    event_ticker: Optional[str]
+    received_at: str
+    exchange_ts: Optional[str]
+    msg_type: str
+    yes_bid_cents: Optional[int]
+    yes_ask_cents: Optional[int]
+    no_bid_cents: Optional[int]
+    no_ask_cents: Optional[int]
+    last_price_cents: Optional[int]
+    volume: Optional[int]
+    open_interest: Optional[int]
+
+
+class KalshiLiveMarketOut(BaseModel):
+    """kalshi_markets row joined with its most-recent kalshi_market_updates row."""
+    market_ticker: str
+    event_ticker: str
+    market_type: str
+    market_type_label: str
+    title: Optional[str]
+    game_id: Optional[str]
+    away_team: Optional[str]
+    home_team: Optional[str]
+    line_value: Optional[float]
+    status: Optional[str]
+    # Latest prices (from kalshi_markets, kept in sync by WS collector)
+    yes_bid_cents: Optional[int]
+    yes_ask_cents: Optional[int]
+    last_price_cents: Optional[int]
+    volume: Optional[int]
+    # Latest WS update metadata
+    last_ws_received_at: Optional[str]
+    last_ws_msg_type: Optional[str]
+    ws_update_count: int
+
+    @model_validator(mode="before")
+    @classmethod
+    def _enrich(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            mtype = data.get("market_type", "unknown") or "unknown"
+            data["market_type_label"] = MARKET_TYPE_LABELS.get(mtype, mtype.replace("_", " ").title())
+        return data

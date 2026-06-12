@@ -9,6 +9,8 @@ import type {
   DryRunResponse,
   KalshiMarket,
   KalshiEvent,
+  KalshiMarketUpdate,
+  KalshiLiveMarket,
 } from '../types/api'
 
 type Params = Record<string, string | number | boolean | undefined | null>
@@ -100,6 +102,22 @@ export interface KalshiEventsParams {
   offset?: number
 }
 
+export interface KalshiUpdatesParams {
+  market_ticker?: string
+  event_ticker?: string
+  msg_type?: string
+  limit?: number
+  offset?: number
+}
+
+export interface KalshiLiveParams {
+  market_type?: string
+  game_id?: string
+  status?: string
+  limit?: number
+  offset?: number
+}
+
 export const api = {
   latestDate: () =>
     apiFetch<{ latest_date: string | null }>('/api/latest-date'),
@@ -133,4 +151,10 @@ export const api = {
 
   kalshiEvents: (params?: KalshiEventsParams) =>
     apiFetch<ListResponse<KalshiEvent>>('/api/kalshi/events', params as Params),
+
+  kalshiUpdates: (params?: KalshiUpdatesParams) =>
+    apiFetch<ListResponse<KalshiMarketUpdate>>('/api/kalshi/updates', params as Params),
+
+  kalshiLive: (params?: KalshiLiveParams) =>
+    apiFetch<ListResponse<KalshiLiveMarket>>('/api/kalshi/markets/live', params as Params),
 }

@@ -219,6 +219,42 @@ export interface KalshiEvent {
   updated_at: string
 }
 
+export interface KalshiMarketUpdate {
+  id: number
+  market_ticker: string
+  event_ticker: string | null
+  received_at: string
+  exchange_ts: string | null
+  msg_type: string
+  yes_bid_cents: number | null
+  yes_ask_cents: number | null
+  no_bid_cents: number | null
+  no_ask_cents: number | null
+  last_price_cents: number | null
+  volume: number | null
+  open_interest: number | null
+}
+
+export interface KalshiLiveMarket {
+  market_ticker: string
+  event_ticker: string
+  market_type: string
+  market_type_label: string
+  title: string | null
+  game_id: string | null
+  away_team: string | null
+  home_team: string | null
+  line_value: number | null
+  status: string | null
+  yes_bid_cents: number | null
+  yes_ask_cents: number | null
+  last_price_cents: number | null
+  volume: number | null
+  last_ws_received_at: string | null
+  last_ws_msg_type: string | null
+  ws_update_count: number
+}
+
 export interface KalshiMarket {
   id: number
   market_ticker: string

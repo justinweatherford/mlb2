@@ -258,6 +258,38 @@ CREATE INDEX IF NOT EXISTS idx_kalshi_markets_event   ON kalshi_markets(event_ti
 CREATE INDEX IF NOT EXISTS idx_kalshi_markets_type    ON kalshi_markets(market_type);
 CREATE INDEX IF NOT EXISTS idx_kalshi_markets_game_id ON kalshi_markets(game_id);
 CREATE INDEX IF NOT EXISTS idx_kalshi_ob_ticker       ON kalshi_orderbook_snapshots(market_ticker);
+
+-- ── Kalshi WebSocket stream ────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS kalshi_market_updates (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    market_ticker    TEXT NOT NULL,
+    event_ticker     TEXT,
+    received_at      TEXT NOT NULL,
+    exchange_ts      TEXT,
+    msg_type         TEXT NOT NULL,
+    yes_bid_cents    INTEGER,
+    yes_ask_cents    INTEGER,
+    no_bid_cents     INTEGER,
+    no_ask_cents     INTEGER,
+    last_price_cents INTEGER,
+    volume           INTEGER,
+    open_interest    INTEGER,
+    raw_json         TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS kalshi_ws_sessions (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    started_at    TEXT NOT NULL,
+    ended_at      TEXT,
+    tickers_json  TEXT NOT NULL DEFAULT '[]',
+    msg_count     INTEGER NOT NULL DEFAULT 0,
+    status        TEXT NOT NULL DEFAULT 'active'
+);
+
+CREATE INDEX IF NOT EXISTS idx_kalshi_updates_ticker  ON kalshi_market_updates(market_ticker);
+CREATE INDEX IF NOT EXISTS idx_kalshi_updates_recv    ON kalshi_market_updates(received_at);
+CREATE INDEX IF NOT EXISTS idx_kalshi_updates_type    ON kalshi_market_updates(msg_type);
 """
 
 

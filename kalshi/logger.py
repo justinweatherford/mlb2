@@ -54,3 +54,9 @@ class KalshiLogger:
         path = _raw_dir(d, self._base) / "orderbooks.jsonl"
         self._append(path, snapshots)
         return path
+
+    def log_ws_messages(self, messages: list[dict], date_str: Optional[str] = None) -> Path:
+        d = date_str or _today()
+        path = _raw_dir(d, self._base) / "ws_messages.jsonl"
+        self._append(path, messages)
+        return path
