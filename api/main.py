@@ -10,15 +10,29 @@ Interactive docs:
     http://localhost:8000/docs
     http://localhost:8000/redoc
 """
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routers import candidates, health, ingest, kalshi_markets, positions, signals, summary
+from api.routers import candidates, health, ingest, kalshi_markets, mlb, positions, signals, summary
+from api.deps import DB_PATH
+from db.schema import init_db
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Ensure schema is up to date and WAL mode is enabled once at startup.
+    conn = init_db(DB_PATH)
+    conn.close()
+    yield
+
 
 app = FastAPI(
     title="Kalshi MLB Dashboard API",
     description="Read-only backend for the paper-trading research dashboard.",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 # ---------------------------------------------------------------------------
@@ -52,6 +66,7 @@ app.include_router(candidates.router,      prefix=PREFIX, tags=["candidates"])
 app.include_router(health.router,          prefix=PREFIX, tags=["health"])
 app.include_router(ingest.router,          prefix=PREFIX, tags=["ingest"])
 app.include_router(kalshi_markets.router,  prefix=PREFIX, tags=["kalshi"])
+app.include_router(mlb.router, prefix=f"{PREFIX}/mlb/team-context", tags=["mlb"])
 
 
 @app.get("/", include_in_schema=False)

@@ -255,6 +255,35 @@ export interface KalshiLiveMarket {
   ws_update_count: number
 }
 
+export interface TeamContext {
+  id: number
+  team_abbr: string
+  team_name: string | null
+  season: string
+  games_played: number
+  runs_per_game: number | null
+  runs_allowed_per_game: number | null
+  home_runs_per_game: number | null
+  away_runs_per_game: number | null
+  recent_runs_per_game_7: number | null
+  recent_runs_allowed_per_game_7: number | null
+  f5_runs_per_game: number | null
+  f5_runs_allowed_per_game: number | null
+  late_runs_per_game: number | null
+  late_runs_allowed_per_game: number | null
+  offense_rating: number | null
+  defense_pitching_rating: number | null
+  f5_offense_rating: number | null
+  f5_pitching_risk_rating: number | null
+  bullpen_risk_rating: number | null
+  late_game_risk_rating: number | null
+  comeback_scoring_rating: number | null
+  overall_context_score: number | null
+  sample_size: number
+  f5_sample_size: number
+  last_updated: string
+}
+
 export interface KalshiMarket {
   id: number
   market_ticker: string

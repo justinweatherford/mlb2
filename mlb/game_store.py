@@ -197,16 +197,31 @@ def fetch_and_store_schedule(
                         or (raw_game.get("gameDate") or "")[:10]
                         or date_entry.get("date", date_str)
                     )
+                    status = (raw_game.get("status") or {}).get(
+                        "abstractGameState", "Scheduled"
+                    )
+                    is_final = 1 if status == "Final" else 0
+                    # Schedule response includes scores in teams.away.score / teams.home.score
+                    away_score = (teams.get("away") or {}).get("score") if is_final else None
+                    home_score = (teams.get("home") or {}).get("score") if is_final else None
+                    final_total = (
+                        (away_score + home_score)
+                        if is_final and away_score is not None and home_score is not None
+                        else None
+                    )
                     _upsert_game(conn, {
-                        "game_pk":   raw_game["gamePk"],
-                        "game_date": game_date,
-                        "away_team": away_t.get("name") or away_abbr,
-                        "home_team": home_t.get("name") or home_abbr,
-                        "away_abbr": away_abbr,
-                        "home_abbr": home_abbr,
-                        "game_id":   f"{away_abbr}@{home_abbr}",
-                        "status":    (raw_game.get("status") or {}).get(
-                                         "abstractGameState", "Scheduled"),
+                        "game_pk":          raw_game["gamePk"],
+                        "game_date":        game_date,
+                        "away_team":        away_t.get("name") or away_abbr,
+                        "home_team":        home_t.get("name") or home_abbr,
+                        "away_abbr":        away_abbr,
+                        "home_abbr":        home_abbr,
+                        "game_id":          f"{away_abbr}@{home_abbr}",
+                        "status":           status,
+                        "is_final":         is_final,
+                        "final_away_score": away_score,
+                        "final_home_score": home_score,
+                        "final_total":      final_total,
                     })
                     summary["games_seen"] += 1
                     summary["games_inserted_or_updated"] += 1

@@ -64,15 +64,24 @@ function MagnifyingGlassIcon({ className }: { className?: string }) {
   )
 }
 
+function TableCellsIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0 1 12 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m19.5 0v1.5c0 .621-.504 1.125-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0c-.621 0-1.125.504-1.125 1.125m18.375-1.125c.621 0 1.125.504 1.125 1.125m-1.125-1.125H3.375m15 0v7.5M3.375 8.25v7.5" />
+    </svg>
+  )
+}
+
 const NAV = [
-  { path: '/',           label: 'Overview',     Icon: HomeIcon },
-  { path: '/ingest',     label: 'Ingest',        Icon: ArrowUpTrayIcon },
-  { path: '/signals',    label: 'Signals',       Icon: BoltIcon },
-  { path: '/positions',  label: 'Positions',     Icon: ChartBarIcon },
-  { path: '/candidates', label: 'Candidates',    Icon: TargetIcon },
-  { path: '/summary',    label: 'Daily Summary', Icon: CalendarIcon },
-  { path: '/health',     label: 'Data Health',   Icon: ActivityIcon },
-  { path: '/kalshi',     label: 'Markets',       Icon: MagnifyingGlassIcon },
+  { path: '/',             label: 'Overview',     Icon: HomeIcon },
+  { path: '/ingest',       label: 'Ingest',        Icon: ArrowUpTrayIcon },
+  { path: '/signals',      label: 'Signals',       Icon: BoltIcon },
+  { path: '/positions',    label: 'Positions',     Icon: ChartBarIcon },
+  { path: '/candidates',   label: 'Candidates',    Icon: TargetIcon },
+  { path: '/summary',      label: 'Daily Summary', Icon: CalendarIcon },
+  { path: '/health',       label: 'Data Health',   Icon: ActivityIcon },
+  { path: '/kalshi',       label: 'Markets',       Icon: MagnifyingGlassIcon },
+  { path: '/mlb-context',  label: 'MLB Context',   Icon: TableCellsIcon },
 ]
 
 export function Layout() {

@@ -11,6 +11,7 @@ import type {
   KalshiEvent,
   KalshiMarketUpdate,
   KalshiLiveMarket,
+  TeamContext,
 } from '../types/api'
 
 type Params = Record<string, string | number | boolean | undefined | null>
@@ -157,4 +158,13 @@ export const api = {
 
   kalshiLive: (params?: KalshiLiveParams) =>
     apiFetch<ListResponse<KalshiLiveMarket>>('/api/kalshi/markets/live', params as Params),
+
+  mlbTeamContext: (params?: { season?: string }) =>
+    apiFetch<ListResponse<TeamContext>>('/api/mlb/team-context', params as Params),
+
+  mlbTeamContextRefresh: (season = '2026') =>
+    apiPost<{ refreshed: boolean; team_count: number; teams: string[]; errors: string[] }>(
+      `/api/mlb/team-context/refresh?season=${season}`,
+      {},
+    ),
 }

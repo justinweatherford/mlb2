@@ -372,6 +372,52 @@ CREATE TABLE IF NOT EXISTS mlb_play_events (
     UNIQUE(game_pk, at_bat_index, play_index)
 );
 CREATE INDEX IF NOT EXISTS idx_mlb_play_events_pk ON mlb_play_events(game_pk, inning);
+
+-- ── MLB team context ratings ───────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS mlb_team_context (
+    id                              INTEGER PRIMARY KEY AUTOINCREMENT,
+    team_abbr                       TEXT NOT NULL,
+    team_name                       TEXT,
+    season                          TEXT NOT NULL DEFAULT '2026',
+    games_played                    INTEGER NOT NULL DEFAULT 0,
+
+    -- Season-to-date raw metrics
+    runs_per_game                   REAL,
+    runs_allowed_per_game           REAL,
+    home_runs_per_game              REAL,
+    away_runs_per_game              REAL,
+
+    -- Last-7 game metrics
+    recent_runs_per_game_7          REAL,
+    recent_runs_allowed_per_game_7  REAL,
+
+    -- F5 (innings 1-5) metrics — NULL when no play-by-play data is stored
+    f5_runs_per_game                REAL,
+    f5_runs_allowed_per_game        REAL,
+
+    -- Late game (innings 6+) metrics
+    late_runs_per_game              REAL,
+    late_runs_allowed_per_game      REAL,
+
+    -- Derived ratings (0-100, ~50 = league average)
+    offense_rating                  REAL,
+    defense_pitching_rating         REAL,
+    f5_offense_rating               REAL,
+    f5_pitching_risk_rating         REAL,
+    bullpen_risk_rating             REAL,
+    late_game_risk_rating           REAL,
+    comeback_scoring_rating         REAL,
+    overall_context_score           REAL,
+
+    -- Metadata
+    sample_size                     INTEGER NOT NULL DEFAULT 0,
+    f5_sample_size                  INTEGER NOT NULL DEFAULT 0,
+    last_updated                    TEXT NOT NULL,
+
+    UNIQUE(team_abbr, season)
+);
+CREATE INDEX IF NOT EXISTS idx_mlb_team_context_season ON mlb_team_context(season);
 """
 
 

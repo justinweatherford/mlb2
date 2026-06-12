@@ -406,3 +406,36 @@ class KalshiLiveMarketOut(BaseModel):
             mtype = data.get("market_type", "unknown") or "unknown"
             data["market_type_label"] = MARKET_TYPE_LABELS.get(mtype, mtype.replace("_", " ").title())
         return data
+
+
+# ---------------------------------------------------------------------------
+# MLB Team Context
+# ---------------------------------------------------------------------------
+
+class TeamContextOut(BaseModel):
+    id: int
+    team_abbr: str
+    team_name: Optional[str] = None
+    season: str
+    games_played: int
+    runs_per_game: Optional[float] = None
+    runs_allowed_per_game: Optional[float] = None
+    home_runs_per_game: Optional[float] = None
+    away_runs_per_game: Optional[float] = None
+    recent_runs_per_game_7: Optional[float] = None
+    recent_runs_allowed_per_game_7: Optional[float] = None
+    f5_runs_per_game: Optional[float] = None
+    f5_runs_allowed_per_game: Optional[float] = None
+    late_runs_per_game: Optional[float] = None
+    late_runs_allowed_per_game: Optional[float] = None
+    offense_rating: Optional[float] = None
+    defense_pitching_rating: Optional[float] = None
+    f5_offense_rating: Optional[float] = None
+    f5_pitching_risk_rating: Optional[float] = None
+    bullpen_risk_rating: Optional[float] = None
+    late_game_risk_rating: Optional[float] = None
+    comeback_scoring_rating: Optional[float] = None
+    overall_context_score: Optional[float] = None
+    sample_size: int
+    f5_sample_size: int
+    last_updated: str

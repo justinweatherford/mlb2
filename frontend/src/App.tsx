@@ -8,6 +8,7 @@ import { Candidates } from './pages/Candidates'
 import { DailySummary } from './pages/DailySummary'
 import { DataHealth } from './pages/DataHealth'
 import { KalshiMarkets } from './pages/KalshiMarkets'
+import { MLBTeamContext } from './pages/MLBTeamContext'
 
 export default function App() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
         <Route path="/summary" element={<DailySummary />} />
         <Route path="/health" element={<DataHealth />} />
         <Route path="/kalshi" element={<KalshiMarkets />} />
+        <Route path="/mlb-context" element={<MLBTeamContext />} />
       </Route>
     </Routes>
   )
