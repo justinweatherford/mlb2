@@ -290,14 +290,34 @@ CREATE TABLE IF NOT EXISTS kalshi_ws_sessions (
 CREATE INDEX IF NOT EXISTS idx_kalshi_updates_ticker  ON kalshi_market_updates(market_ticker);
 CREATE INDEX IF NOT EXISTS idx_kalshi_updates_recv    ON kalshi_market_updates(received_at);
 CREATE INDEX IF NOT EXISTS idx_kalshi_updates_type    ON kalshi_market_updates(msg_type);
+
+-- ── MLB live game snapshots ────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS mlb_game_snapshots (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_pk        INTEGER NOT NULL,
+    game_date      TEXT NOT NULL,
+    away_team      TEXT NOT NULL,
+    home_team      TEXT NOT NULL,
+    away_score     INTEGER NOT NULL DEFAULT 0,
+    home_score     INTEGER NOT NULL DEFAULT 0,
+    inning         INTEGER NOT NULL DEFAULT 1,
+    inning_half    TEXT NOT NULL DEFAULT 'top',
+    outs           INTEGER NOT NULL DEFAULT 0,
+    abstract_state TEXT,
+    snapped_at     TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_mlb_game_snapshots_pk ON mlb_game_snapshots(game_pk, snapped_at);
 """
 
 
 def _apply_migrations(conn: sqlite3.Connection) -> None:
     """
-    Add columns introduced after initial schema creation.
-    Each ALTER is caught silently — SQLite has no ADD COLUMN IF NOT EXISTS.
+    Ensure all tables exist (CREATE TABLE IF NOT EXISTS is idempotent) then
+    apply any column-level migrations that predate the current schema.
     """
+    conn.executescript(DDL)
     _migrations = [
         "ALTER TABLE signal_events    ADD COLUMN signal_subtype TEXT",
         "ALTER TABLE paper_positions  ADD COLUMN signal_subtype TEXT",
@@ -311,8 +331,10 @@ def _apply_migrations(conn: sqlite3.Connection) -> None:
 
 
 def init_db(db_path: str) -> sqlite3.Connection:
-    conn = sqlite3.connect(db_path, check_same_thread=False)
+    conn = sqlite3.connect(db_path, check_same_thread=False, timeout=10)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
     conn.executescript(DDL)
     _apply_migrations(conn)
     conn.commit()

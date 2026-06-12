@@ -1,50 +1,17 @@
-# Python
-.venv/
+.env
 __pycache__/
-*.py[cod]
+*.pyc
 *.pyo
 *.pyd
-.Python
-*.egg-info/
+*.db
+*.db-shm
+*.db-wal
+*.log
+.venv/
+venv/
+node_modules/
 dist/
 build/
-*.egg
-.eggs/
-
-# Pytest
+*.egg-info/
+test_results.txt
 .pytest_cache/
-.coverage
-htmlcov/
-
-# Environment / secrets
-.env
-*.env.local
-
-# Database (local data, not for repo)
-*.db
-*.sqlite
-*.sqlite3
-
-# Logs and raw data dumps
-data/raw/
-
-# Node / frontend build
-frontend/node_modules/
-frontend/dist/
-frontend/.vite/
-
-# Streamlit
-.streamlit/secrets.toml
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Editor
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Claude Code local settings
-.claude/settings.local.json
