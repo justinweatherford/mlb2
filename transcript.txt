@@ -1,0 +1,954 @@
+Run: WSH @ SF 5-0 (T6) -- Nasim Nuñez singles on a ground ball to left fielder Drew Gilbert. Daylen Lile scores. Jacob Young scores @here
+⚾ WSH @ SF — 5-0  (T6)
+Score
+5-0
+Inning
+T6
+Kalshi YES
+WSH 94c SF 5c
+Outs
+2
+Count
+2-2
+Runners
+1B
+Scored
+Daylen Lile
+Kalshi lead
++4.54 s
+Pitch
+SI · 96.1mph · zone 8
+Hit
+EV 91.2 · LA -13.0 · dist 7ft · ground ball
+Play
+Nasim Nuñez singles on a ground ball to left fielder Drew Gilbert. Daylen Lile scores. Jacob Young scores.
+⚾ WSH @ SF — 5-0  (T6)
+Over  5.5 : 90/91¢     o+5¢
+Over  6.5 : 75/76¢     o+10¢
+Over  7.5 : 60/61¢     o+8¢
+Over  8.5 : 46/47¢     o+0¢
+Over  9.5 : 31/32¢     u-1¢
+Over 10.5 : 22/24¢     u+4¢
+Over 11.5 : 15/16¢     u+6¢
+Over 12.5 : 11/12¢     u+7¢
+Over 13.5 : —       
+Over 14.5 : —       
+gamePk 823215 • KXMLBGAME-26JUN101545WSHSF-SF•Yesterday at 5:22 PM
+Run: WSH @ SF 6-0 (T6) -- Jorbit Vivas singles on a ground ball to right fielder Jung Hoo Lee. Nasim Nuñez scores. Jorbit Vivas to 2nd @here
+⚾ WSH @ SF — 6-0  (T6)
+Score
+6-0
+Inning
+T6
+Kalshi YES
+WSH 97c SF 2c
+Outs
+2
+Count
+1-1
+Runners
+2B
+Scored
+Nasim Nuñez
+Kalshi lead
++1.88 s
+Pitch
+FC · 93.1mph · zone 3
+Hit
+EV 96.3 · LA 5.0 · dist 100ft · ground ball
+Play
+Jorbit Vivas singles on a ground ball to right fielder Jung Hoo Lee. Nasim Nuñez scores. Jorbit Vivas to 2nd.
+⚾ WSH @ SF — 6-0  (T6)
+Over  6.5 : 92/93¢     o+3¢
+Over  7.5 : 77/78¢     o+8¢
+Over  8.5 : 61/62¢     o+7¢
+Over  9.5 : 45/46¢     o+1¢
+Over 10.5 : 35/36¢     u+3¢
+Over 11.5 : 24/26¢     u+6¢
+Over 12.5 : 17/18¢     u+8¢
+Over 13.5 : —       
+Over 14.5 : —       
+gamePk 823215 • KXMLBGAME-26JUN101545WSHSF-SF•Yesterday at 5:25 PM
+MLB10
+APP
+ — Yesterday at 5:28 PM
+Run: CIN @ SD 2-2 (B5) -- Fernando Tatis Jr. singles on a ground ball to right fielder Noelvi Marte. Rodolfo Durán scores @here
+⚾ CIN @ SD — 2-2  (B5)
+Score
+2-2
+Inning
+B5
+Kalshi YES
+CIN 41c SD 59c
+Outs
+2
+Count
+2-0
+Runners
+1B
+Scored
+Rodolfo Durán
+Kalshi lead
++7.01 s
+Pitch
+SI · 91.1mph · zone 6
+Hit
+EV 113.4 · LA -8.0 · dist 18ft · ground ball
+Play
+Fernando Tatis Jr. singles on a ground ball to right fielder Noelvi Marte. Rodolfo Durán scores.
+⚾ CIN @ SD — 2-2  (B5)
+Over  4.5 : 99/—¢      u+1¢
+Over  5.5 : 85/86¢     o-0¢
+Over  6.5 : 72/73¢     u+1¢
+Over  7.5 : 49/51¢     u-0¢
+Over  8.5 : 38/39¢     u+8¢
+Over  9.5 : 20/26¢     u+3¢
+Over 10.5 : 16/38¢     u+8¢
+Over 11.5 : 9/24¢      u+5¢
+Over 12.5 : 7/9¢       u+5¢
+Over 13.5 : —       
+Over 14.5 : —       
+gamePk 823287 • KXMLBGAME-26JUN101610CINSD-CIN•Yesterday at 5:28 PM
+MLB1
+APP
+ — Yesterday at 5:31 PM
+Run: WSH @ SF 6-1 (B6) -- Matt Chapman homers (5) on a fly ball to left center field @here
+⚾ WSH @ SF — 6-1  (B6)
+Score
+6-1
+Inning
+B6
+Kalshi YES
+WSH 95c SF 4c
+Outs
+1
+Count
+0-2
+Runners
+bases empty
+Scored
+Matt Chapman
+Kalshi lead
++4.21 s
+Pitch
+CU · 78.2mph · zone 9
+Hit
+EV 107.0 · LA 22.0 · dist 421ft · fly ball
+Play
+Matt Chapman homers (5) on a fly ball to left center field.
+⚾ WSH @ SF — 6-1  (B6)
+Over  7.5 : 71/83¢     o+12¢
+Over  8.5 : 64/72¢     o+10¢
+Over  9.5 : 50/53¢     o+9¢
+Over 10.5 : 36/40¢     o+0¢
+Over 11.5 : 25/26¢     u-1¢
+Over 12.5 : 11/21¢     u-2¢
+Over 13.5 : —       
+Over 14.5 : —       
+gamePk 823215 • KXMLBGAME-26JUN101545WSHSF-SF•Yesterday at 5:31 PM
+MLB1
+APP
+ — Yesterday at 5:43 PM
+Run: WSH @ SF 7-1 (T7) -- Luis García Jr. doubles (12) on a fly ball to left fielder Drew Gilbert. James Wood scores. Curtis Mead to 3rd @here
+⚾ WSH @ SF — 7-1  (T7)
+Score
+7-1
+Inning
+T7
+Kalshi YES
+WSH 99c SF 1c
+Outs
+0
+Count
+2-1
+Runners
+2B • 3B
+Scored
+James Wood
+Kalshi lead
++4.83 s
+Pitch
+SI · 95.5mph · zone 11
+Hit
+EV 98.2 · LA 34.0 · dist 355ft · fly ball
+Play
+Luis García Jr. doubles (12) on a fly ball to left fielder Drew Gilbert. James Wood scores. Curtis Mead to 3rd.
+⚾ WSH @ SF — 7-1  (T7)
+Over  8.5 : 94/95¢     o-1¢
+Over  9.5 : 82/88¢     u+0¢
+Over 10.5 : 62/73¢     u+3¢
+Over 11.5 : 59/60¢     u+22¢
+Over 12.5 : 42/44¢     u+22¢
+Over 13.5 : —       
+Over 14.5 : —       
+gamePk 823215 • KXMLBGAME-26JUN101545WSHSF-SF•Yesterday at 5:43 PM
+Run: WSH @ SF 8-1 (T7) -- Dylan Crews grounds out, shortstop Casey Schmitt to first baseman Rafael Devers. Curtis Mead scores. Luis García Jr. to 3rd @here
+⚾ WSH @ SF — 8-1  (T7)
+Score
+8-1
+Inning
+T7
+Kalshi YES
+WSH 99c SF 0c
+Outs
+1
+Count
+0-1
+Runners
+3B
+Scored
+Curtis Mead
+Pitch
+SI · 96.0mph · zone 2
+Hit
+EV 100.0 · LA -1.0 · dist 45ft · ground ball
+Play
+Dylan Crews grounds out, shortstop Casey Schmitt to first baseman Rafael Devers. Curtis Mead scores. Luis García Jr. to 3rd.
+⚾ WSH @ SF — 8-1  (T7)
+Over  9.5 : 92/93¢     o+0¢
+Over 10.5 : 77/79¢     u-2¢
+Over 11.5 : 61/62¢     u+6¢
+Over 12.5 : 43/44¢     u+10¢
+Over 13.5 : —       
+Over 14.5 : —       
+gamePk 823215 • KXMLBGAME-26JUN101545WSHSF-SF•Yesterday at 5:44 PM
+Run: WSH @ SF 9-1 (T7) -- Daylen Lile singles on a sharp line drive to right fielder Jung Hoo Lee. Luis García Jr. scores @here
+⚾ WSH @ SF — 9-1  (T7)
+Score
+9-1
+Inning
+T7
+Kalshi YES
+WSH 99c SF 0c
+Outs
+1
+Count
+1-1
+Runners
+1B
+Scored
+Luis García Jr.
+Kalshi lead
++1.92 s
+Pitch
+FF · 96.3mph · zone 3
+Hit
+EV 103.3 · LA 14.0 · dist 235ft · line drive
+Play
+Daylen Lile singles on a sharp line drive to right fielder Jung Hoo Lee. Luis García Jr. scores.
+⚾ WSH @ SF — 9-1  (T7)
+Over 10.5 : 71/84¢     o+9¢
+Over 11.5 : 63/69¢     o+6¢
+Over 12.5 : 45/54¢     o-3¢
+Over 13.5 : —       
+Over 14.5 : —       
+gamePk 823215 • KXMLBGAME-26JUN101545WSHSF-SF•Yesterday at 5:45 PM
+MLB10
+APP
+ — Yesterday at 5:49 PM
+Run: CIN @ SD 3-2 (T7) -- JJ Bleday homers (11) on a fly ball to right field @here
+⚾ CIN @ SD — 3-2  (T7)
+Score
+3-2
+Inning
+T7
+Kalshi YES
+CIN 62c SD 37c
+Outs
+2
+Count
+1-0
+Runners
+bases empty
+Scored
+JJ Bleday
+Pitch
+CH · 86.2mph · zone 8
+Hit
+EV 108.7 · LA 26.0 · dist 391ft · fly ball
+Play
+JJ Bleday homers (11) on a fly ball to right field.
+⚾ CIN @ SD — 3-2  (T7)
+Over  5.5 : 80/85¢     o+4¢
+Over  6.5 : 65/67¢     o-3¢
+Over  7.5 : 31/43¢     o-5¢
+Over  8.5 : 28/38¢     u+7¢
+Over  9.5 : 13/22¢     u+4¢
+Over 10.5 : 9/18¢      u+5¢
+Over 11.5 : 5/8¢       u+3¢
+Over 12.5 : 3/6¢       u+2¢
+Over 13.5 : —       
+Over 14.5 : —       
+gamePk 823287 • KXMLBGAME-26JUN101610CINSD-CIN•Yesterday at 5:49 PM
+MLB1
+APP
+ — Yesterday at 6:08 PM
+Run: WSH @ SF 9-2 (B8) -- Matt Chapman homers (6) on a fly ball to center field @here
+⚾ WSH @ SF — 9-2  (B8)
+Score
+9-2
+Inning
+B8
+Kalshi YES
+WSH 99c SF 0c
+Outs
+0
+Count
+0-0
+Runners
+bases empty
+Scored
+Matt Chapman
+Pitch
+FC · 88.5mph · zone 2
+Hit
+EV 101.4 · LA 31.0 · dist 399ft · fly ball
+Play
+Matt Chapman homers (6) on a fly ball to center field.
+⚾ WSH @ SF — 9-2  (B8)
+Over 11.5 : 56/63¢     o+13¢
+Over 12.5 : 32/39¢     o+3¢
+Over 13.5 : —       
+Over 14.5 : —       
+gamePk 823215 • KXMLBGAME-26JUN101545WSHSF-SF•Yesterday at 6:08 PM
+Run: WSH @ SF 9-3 (B8) -- Rafael Devers homers (9) on a fly ball to center field @here
+⚾ WSH @ SF — 9-3  (B8)
+Score
+9-3
+Inning
+B8
+Kalshi YES
+WSH 99c SF 0c
+Outs
+0
+Count
+1-0
+Runners
+bases empty
+Scored
+Rafael Devers
+Pitch
+FC · 89.8mph · zone 6
+Hit
+EV 101.3 · LA 37.0 · dist 408ft · fly ball
+Play
+Rafael Devers homers (9) on a fly ball to center field.
+⚾ WSH @ SF — 9-3  (B8)
+Over 12.5 : 45/51¢     o+25¢
+Over 13.5 : —       
+Over 14.5 : —       
+gamePk 823215 • KXMLBGAME-26JUN101545WSHSF-SF•Yesterday at 6:09 PM
+MLB10
+APP
+ — Yesterday at 6:10 PM
+Run: CIN @ SD 4-2 (T8) -- Eugenio Suárez homers (5) on a fly ball to left field @here
+⚾ CIN @ SD — 4-2  (T8)
+Score
+4-2
+Inning
+T8
+Kalshi YES
+CIN 86c SD 13c
+Outs
+1
+Count
+1-0
+Runners
+bases empty
+Scored
+Eugenio Suárez
+Kalshi lead
++5.14 s
+Pitch
+FC · 87.1mph · zone 5
+Hit
+EV 104.8 · LA 43.0 · dist 365ft · fly ball
+Play
+Eugenio Suárez homers (5) on a fly ball to left field.
+⚾ CIN @ SD — 4-2  (T8)
+Over  6.5 : 61/66¢     o+11¢
+Over  7.5 : 35/45¢     o-1¢
+Over  8.5 : 28/35¢     u+5¢
+Over  9.5 : 16/26¢     u+8¢
+Over 10.5 : 8/13¢      u+5¢
+Over 11.5 : 4/8¢       u+2¢
+Over 12.5 : 2/16¢      u+1¢
+Over 13.5 : —       
+Over 14.5 : —       
+gamePk 823287 • KXMLBGAME-26JUN101610CINSD-CIN•Yesterday at 6:10 PM
+MLB1
+APP
+ — Yesterday at 6:17 PM
+Run: WSH @ SF 9-4 (B8) -- Daniel Susac doubles (5) on a line drive to left fielder Daylen Lile. Jung Hoo Lee scores. Bryce Eldridge to 3rd @here
+⚾ WSH @ SF — 9-4  (B8)
+Score
+9-4
+Inning
+B8
+Kalshi YES
+WSH 92c SF 7c
+Outs
+0
+Count
+0-0
+Runners
+2B • 3B
+Scored
+Jung Hoo Lee
+Kalshi lead
++6.66 s
+Play
+Daniel Susac doubles (5) on a line drive to left fielder Daylen Lile. Jung Hoo Lee scores. Bryce Eldridge to 3rd.
+gamePk 823215 • KXMLBGAME-26JUN101545WSHSF-SF•Yesterday at 6:17 PM
+Run: WSH @ SF 9-5 (B8) -- Drew Gilbert grounds out, first baseman Luis García Jr. to pitcher Orlando Ribalta. Bryce Eldridge scores. Daniel Susac to 3rd @here
+⚾ WSH @ SF — 9-5  (B8)
+Score
+9-5
+Inning
+B8
+Kalshi YES
+WSH 95c SF 5c
+Outs
+1
+Count
+1-2
+Runners
+3B
+Scored
+Bryce Eldridge
+Pitch
+FF · 95.2mph · zone 4
+Hit
+EV 82.2 · LA -6.0 · dist 20ft · ground ball
+Play
+Drew Gilbert grounds out, first baseman Luis García Jr. to pitcher Orlando Ribalta. Bryce Eldridge scores. Daniel Susac to 3rd.
+gamePk 823215 • KXMLBGAME-26JUN101545WSHSF-SF•Yesterday at 6:22 PM
+Run: WSH @ SF 9-6 (B8) -- Wild pitch by pitcher Orlando Ribalta. Daniel Susac scores @here
+⚾ WSH @ SF — 9-6  (B8)
+Score
+9-6
+Inning
+B8
+Kalshi YES
+WSH 91c SF 6c
+Outs
+1
+Count
+1-0
+Runners
+bases empty
+Scored
+Daniel Susac
+Play
+Wild pitch by pitcher Orlando Ribalta. Daniel Susac scores.
+gamePk 823215 • KXMLBGAME-26JUN101545WSHSF-SF•Yesterday at 6:23 PM
+MLB10
+APP
+ — Yesterday at 6:25 PM
+Run: CIN @ SD 4-3 (B8) -- Gavin Sheets doubles (12) on a sharp line drive to right fielder Noelvi Marte. Jackson Merrill scores @here
+⚾ CIN @ SD — 4-3  (B8)
+Score
+4-3
+Inning
+B8
+Kalshi YES
+CIN 64c SD 36c
+Outs
+1
+Count
+3-1
+Runners
+2B
+Scored
+Jackson Merrill
+Kalshi lead
++3.16 s
+Pitch
+SI · 92.5mph · zone 9
+Hit
+EV 106.3 · LA 13.0 · dist 276ft · line drive
+Play
+Gavin Sheets doubles (12) on a sharp line drive to right fielder Noelvi Marte. Jackson Merrill scores.
+⚾ CIN @ SD — 4-3  (B8)
+Over  7.5 : 64/65¢     o+1¢
+Over  8.5 : 56/58¢     u+23¢
+Over  9.5 : 28/29¢     u+15¢
+Over 10.5 : 19/20¢     u+14¢
+Over 11.5 : 9/10¢      u+7¢
+Over 12.5 : 8/9¢       u+7¢
+Over 13.5 : —       
+Over 14.5 : —       
+gamePk 823287 • KXMLBGAME-26JUN101610CINSD-CIN•Yesterday at 6:25 PM
+MLB1
+APP
+ — Yesterday at 6:29 PM
+Run: WSH @ SF 10-6 (T9) -- Curtis Mead homers (10) on a fly ball to left center field @here
+⚾ WSH @ SF — 10-6  (T9)
+Score
+10-6
+Inning
+T9
+Kalshi YES
+WSH 98c SF 1c
+Outs
+0
+Count
+3-2
+Runners
+bases empty
+Scored
+Curtis Mead
+Kalshi lead
++6.95 s
+Pitch
+SI · 92.4mph · zone 7
+Hit
+EV 101.1 · LA 32.0 · dist 399ft · fly ball
+Play
+Curtis Mead homers (10) on a fly ball to left center field.
+gamePk 823215 • KXMLBGAME-26JUN101545WSHSF-SF•Yesterday at 6:29 PM
+MLB10
+APP
+ — Yesterday at 6:30 PM
+Run: CIN @ SD 4-4 (B8) -- Samad Taylor singles on a line drive to center fielder Dane Myers. Jase Bowen scores @here
+⚾ CIN @ SD — 4-4  (B8)
+Score
+4-4
+Inning
+B8
+Kalshi YES
+CIN 37c SD 60c
+Outs
+2
+Count
+0-0
+Runners
+1B
+Scored
+Jase Bowen
+Pitch
+FF · 94.5mph · zone 1
+Hit
+EV 92.4 · LA 11.0 · dist 159ft · line drive
+Play
+Samad Taylor singles on a line drive to center fielder Dane Myers. Jase Bowen scores.
+⚾ CIN @ SD — 4-4  (B8)
+Over  8.5 : 87/90¢     u+23¢
+Over  9.5 : 46/47¢     u+18¢
+Over 10.5 : 34/35¢     u+24¢
+Over 11.5 : 15/16¢     u+12¢
+Over 12.5 : 12/13¢     u+11¢
+Over 13.5 : —       
+Over 14.5 : —       
+gamePk 823287 • KXMLBGAME-26JUN101610CINSD-CIN•Yesterday at 6:30 PM
+MLB1
+APP
+ — Yesterday at 6:40 PM
+Run: WSH @ SF 10-7 (B9) -- Matt Chapman doubles (17) on a sharp fly ball to right fielder Dylan Crews. Luis Arraez scores @here
+⚾ WSH @ SF — 10-7  (B9)
+Score
+10-7
+Inning
+B9
+Kalshi YES
+WSH 91c SF 8c
+Outs
+0
+Count
+0-0
+Runners
+2B
+Scored
+Luis Arraez
+Play
+Matt Chapman doubles (17) on a sharp fly ball to right fielder Dylan Crews. Luis Arraez scores.
+gamePk 823215 • KXMLBGAME-26JUN101545WSHSF-SF•Yesterday at 6:40 PM
+MLB10
+APP
+ — Yesterday at 6:48 PM
+Run: CIN @ SD 4-5 (B9) -- Fernando Tatis Jr. homers (2) on a line drive to left field @here
+⚾ CIN @ SD — 4-5  (B9)
+Score
+4-5
+Inning
+B9
+Kalshi YES
+CIN 43c SD 56c
+Outs
+2
+Count
+2-1
+Runners
+bases empty
+Scored
+Fernando Tatis Jr.
+Pitch
+SL · 89.8mph · zone 5
+Hit
+EV 106.3 · LA 18.0 · dist 354ft · line drive
+Play
+Fernando Tatis Jr. homers (2) on a line drive to left field.
+⚾ CIN @ SD — 4-5  (B9)
+Over  9.5 : 5/72¢      u-9¢
+Over 10.5 : 4/15¢      u+2¢
+Over 11.5 : 3/50¢      u+2¢
+Over 12.5 : 3/16¢      u+2¢
+Over 13.5 : —       
+Over 14.5 : —       
+gamePk 823287 • KXMLBGAME-26JUN101610CINSD-CIN•Yesterday at 6:48 PM
+MLB1
+APP
+ — Yesterday at 6:48 PM
+Run: WSH @ SF 10-11 (B9) -- Bryce Eldridge hits a grand slam (4) to right field. Matt Chapman scores. Rafael Devers scores. Jung Hoo Lee scores @here
+⚾ WSH @ SF — 10-11  (B9)
+Score
+10-11
+Inning
+B9
+Kalshi YES
+WSH 8c SF 91c
+Outs
+0
+Count
+2-0
+Runners
+bases empty
+Scored
+Matt Chapman
+Pitch
+SL · 80.1mph · zone 6
+Hit
+EV 98.1 · LA 44.0 · dist 330ft · fly ball
+Play
+Bryce Eldridge hits a grand slam (4) to right field. Matt Chapman scores. Rafael Devers scores. Jung Hoo Lee scores.
+gamePk 823215 • KXMLBGAME-26JUN101545WSHSF-SF•Yesterday at 6:48 PM
+MLB10
+APP
+ — Yesterday at 7:11 PM
+Run: PHI @ TOR 1-0 (T1) -- Bryce Harper homers (15) on a fly ball to left field @here
+⚾ PHI @ TOR — 1-0  (T1)
+Score
+1-0
+Inning
+T1
+Kalshi YES
+PHI 61c TOR 37c
+Outs
+2
+Count
+0-0
+Runners
+bases empty
+Scored
+Bryce Harper
+Kalshi lead
++6.25 s
+Pitch
+FF · 94.6mph · zone 5
+Hit
+EV 99.8 · LA 42.0 · dist 339ft · fly ball
+Play
+Bryce Harper homers (15) on a fly ball to left field.
+⚾ PHI @ TOR — 1-0  (T1)
+Over  4.5 : 85/90¢     o+8¢
+Over  5.5 : 77/81¢     o+15¢
+Over  6.5 : 71/73¢     o+21¢
+Over  7.5 : 60/62¢     o+27¢
+Over  8.5 : 51/55¢     o+27¢
+Over  9.5 : 46/47¢     o+25¢
+Over 10.5 : 33/36¢     o+25¢
+Over 11.5 : 25/26¢     o+22¢
+Over 12.5 : 20/23¢     o+14¢
+Over 13.5 : —       
+Over 14.5 : —       
+gamePk 822804 • KXMLBGAME-26JUN101907PHITOR-PHI•Yesterday at 7:11 PM
+MLB3
+APP
+ — Yesterday at 7:18 PM
+Run: STL @ NYM 1-0 (T1) -- Jordan Walker singles on a sharp line drive to center fielder A.J. Ewing. JJ Wetherholt scores. Iván Herrera to 3rd @here
+⚾ STL @ NYM — 1-0  (T1)
+Score
+1-0
+Inning
+T1
+Kalshi YES
+STL 65c NYM 31c
+Outs
+1
+Count
+0-1
+Runners
+1B • 3B
+Scored
+JJ Wetherholt
+Pitch
+ST · 85.9mph · zone 9
+Hit
+EV 107.7 · LA 11.0 · dist 268ft · line drive
+Play
+Jordan Walker singles on a sharp line drive to center fielder A.J. Ewing. JJ Wetherholt scores. Iván Herrera to 3rd.
+⚾ STL @ NYM — 1-0  (T1)
+Over  4.5 : 87/87¢     o+8¢
+Over  5.5 : 82/83¢     o+7¢
+Over  6.5 : 73/82¢     o-1¢
+Over  7.5 : 64/79¢     u-9¢
+Over  8.5 : 59/72¢     u-1¢
+Over  9.5 : 46/68¢     u+0¢
+Over 10.5 : 36/51¢     u+3¢
+Over 11.5 : 20/50¢     u-3¢
+Over 12.5 : 26/29¢     u+11¢
+Over 13.5 : —       
+Over 14.5 : —       
+gamePk 823618 • KXMLBGAME-26JUN101910STLNYM-NYM•Yesterday at 7:18 PM
+Run: STL @ NYM 2-0 (T1) -- Masyn Winn grounds into a force out, second baseman Marcus Semien to shortstop Bo Bichette. Iván Herrera scores. Jordan Walker to 3rd. La... @here
+⚾ STL @ NYM — 2-0  (T1)
+Score
+2-0
+Inning
+T1
+Kalshi YES
+STL 67c NYM 32c
+Outs
+2
+Count
+0-1
+Runners
+1B • 3B
+Scored
+Iván Herrera
+Kalshi lead
++5.45 s
+Pitch
+ST · 85.7mph · zone 14
+Hit
+EV 67.7 · LA 12.0 · dist 120ft · ground ball
+Play
+Masyn Winn grounds into a force out, second baseman Marcus Semien to shortstop Bo Bichette. Iván Herrera scores. Jordan Walker to 3rd. Lars Nootbaar out at 2nd. Masyn Winn to 1st.
+⚾ STL @ NYM — 2-0  (T1)
+Over  4.5 : 94/97¢     o+1¢
+Over  5.5 : 83/91¢     o+4¢
+Over  6.5 : 80/86¢     o+3¢
+Over  7.5 : 67/79¢     o+0¢
+Over  8.5 : 69/77¢     u-2¢
+Over  9.5 : 56/69¢     u-2¢
+Over 10.5 : 49/62¢     u+5¢
+Over 11.5 : 39/50¢     u+8¢
+Over 12.5 : 26/44¢     u+5¢
+Over 13.5 : —       
+Over 14.5 : —       
+gamePk 823618 • KXMLBGAME-26JUN101910STLNYM-NYM•Yesterday at 7:23 PM
+KALSHI
+APP
+ — Yesterday at 7:29 PM
+Run: AZ @ MIA 0-1 (B3) -- Otto Lopez singles on a ground ball to center fielder Ryan Waldschmidt. Liam Hicks scores @here
+⚾ AZ @ MIA — 0-1  (B3)
+Score
+0-1
+Inning
+B3
+Kalshi YES
+AZ 35c MIA 64c
+Outs
+2
+Count
+0-0
+Runners
+1B
+Scored
+Liam Hicks
+Play
+Otto Lopez singles on a ground ball to center fielder Ryan Waldschmidt. Liam Hicks scores.
+⚾ AZ @ MIA — 0-1  (B3)
+Over  4.5 : 66/80¢     o+12¢
+Over  5.5 : 52/72¢     o+13¢
+Over  6.5 : 52/55¢     o+19¢
+Over  7.5 : 38/41¢     o+20¢
+Over  8.5 : 31/34¢     o+12¢
+Over  9.5 : 17/41¢     o-9¢
+Over 10.5 : 13/31¢     o-10¢
+Over 11.5 : 8/46¢      u-7¢
+Over 12.5 : 6/7¢       o+0¢
+Over 13.5 : —       
+Over 14.5 : —       
+gamePk 823856 • KXMLBGAME-26JUN101840AZMIA-AZ•Yesterday at 7:29 PM
+MLB6
+APP
+ — Yesterday at 7:36 PM
+Run: LAD @ PIT 1-0 (T4) -- Max Muncy doubles (9) on a line drive to right fielder Tyler Callihan. Freddie Freeman scores @here
+⚾ LAD @ PIT — 1-0  (T4)
+Score
+1-0
+Inning
+T4
+Kalshi YES
+LAD 62c PIT 37c
+Outs
+2
+Count
+0-0
+Runners
+2B
+Scored
+Freddie Freeman
+Play
+Max Muncy doubles (9) on a line drive to right fielder Tyler Callihan. Freddie Freeman scores.
+⚾ LAD @ PIT — 1-0  (T4)
+Over  4.5 : 60/62¢     o+9¢
+Over  5.5 : 47/48¢     o+5¢
+Over  6.5 : 38/40¢     u-1¢
+Over  7.5 : 27/28¢     u+2¢
+Over  8.5 : 21/22¢     u+6¢
+Over  9.5 : 16/17¢     u+9¢
+Over 10.5 : 11/14¢     u+7¢
+Over 11.5 : 7/11¢      u+5¢
+Over 12.5 : —       
+Over 13.5 : —       
+Over 14.5 : —       
+gamePk 823372 • KXMLBGAME-26JUN101840LADPIT-LAD•Yesterday at 7:36 PM
+Run: LAD @ PIT 2-0 (T4) -- Kyle Tucker singles on a ground ball to center fielder Jake Mangum. Max Muncy scores @here
+⚾ LAD @ PIT — 2-0  (T4)
+Score
+2-0
+Inning
+T4
+Kalshi YES
+LAD 74c PIT 25c
+Outs
+2
+Count
+0-0
+Runners
+1B
+Scored
+Max Muncy
+Play
+Kyle Tucker singles on a ground ball to center fielder Jake Mangum. Max Muncy scores.
+⚾ LAD @ PIT — 2-0  (T4)
+Over  4.5 : 73/75¢     o+10¢
+Over  5.5 : 60/61¢     o+10¢
+Over  6.5 : 50/51¢     o+2¢
+Over  7.5 : 38/39¢     u-1¢
+Over  8.5 : 28/34¢     u+3¢
+Over  9.5 : 22/24¢     u+7¢
+Over 10.5 : 17/19¢     u+10¢
+Over 11.5 : 11/13¢     u+7¢
+Over 12.5 : —       
+Over 13.5 : —       
+Over 14.5 : —       
+gamePk 823372 • KXMLBGAME-26JUN101840LADPIT-LAD•Yesterday at 7:40 PM
+MLB6
+APP
+ — Yesterday at 7:47 PM
+Run: LAD @ PIT 2-1 (B4) -- Tyler Callihan homers (1) on a fly ball to right field @here
+⚾ LAD @ PIT — 2-1  (B4)
+Score
+2-1
+Inning
+B4
+Kalshi YES
+LAD 80c PIT 18c
+Outs
+2
+Count
+0-0
+Runners
+bases empty
+Scored
+Tyler Callihan
+Pitch
+FF · 97.8mph · zone 6
+Hit
+EV 107.3 · LA 35.0 · dist 427ft · fly ball
+Play
+Tyler Callihan homers (1) on a fly ball to right field.
+⚾ LAD @ PIT — 2-1  (B4)
+Over  4.5 : 79/89¢     o+4¢
+Over  5.5 : 71/74¢     o+7¢
+Over  6.5 : 55/63¢     o+1¢
+Over  7.5 : 42/50¢     o-5¢
+Over  8.5 : 34/39¢     u+2¢
+Over  9.5 : 25/35¢     u+6¢
+Over 10.5 : 19/22¢     u+8¢
+Over 11.5 : 18/22¢     u+12¢
+Over 12.5 : —       
+Over 13.5 : —       
+Over 14.5 : —       
+gamePk 823372 • KXMLBGAME-26JUN101840LADPIT-LAD•Yesterday at 7:47 PM
+MLB10
+APP
+ — Yesterday at 7:51 PM
+Run: PHI @ TOR 4-0 (T3) -- Alec Bohm homers (8) on a fly ball to left center field. Kyle Schwarber scores. Bryce Harper scores @here
+⚾ PHI @ TOR — 4-0  (T3)
+Score
+4-0
+Inning
+T3
+Kalshi YES
+PHI 84c TOR 14c
+Outs
+2
+Count
+1-0
+Runners
+bases empty
+Scored
+Alec Bohm
+Kalshi lead
++5.33 s
+Pitch
+SL · 84.0mph · zone 5
+Hit
+fly ball
+Play
+Alec Bohm homers (8) on a fly ball to left center field. Kyle Schwarber scores. Bryce Harper scores.
+⚾ PHI @ TOR — 4-0  (T3)
+Over  4.5 : 90/90¢     o+9¢
+Over  5.5 : 85/87¢     o+12¢
+Over  6.5 : 75/81¢     o+16¢
+Over  7.5 : 66/76¢     o+18¢
+Over  8.5 : 63/68¢     o+21¢
+Over  9.5 : 33/47¢     o+34¢
+Over 10.5 : 26/41¢     o+28¢
+Over 11.5 : 28/50¢     o+6¢
+Over 12.5 : 27/39¢     o+3¢
+Over 13.5 : —       
+Over 14.5 : —       
+gamePk 822804 • KXMLBGAME-26JUN101907PHITOR-PHI•Yesterday at 7:51 PM
+KALSHI
+APP
+ — Yesterday at 7:52 PM
+Run: AZ @ MIA 0-3 (B4) -- Owen Caissie homers (6) on a fly ball to right field. Heriberto Hernández scores @here
+⚾ AZ @ MIA — 0-3  (B4)
+Score
+0-3
+Inning
+B4
+Kalshi YES
+AZ 17c MIA 82c
+Outs
+2
+Count
+0-0
+Runners
+bases empty
+Scored
+Owen Caissie
+Pitch
+SL · 89.3mph · zone 6
+Hit
+EV 110.2 · LA 23.0 · dist 370ft · fly ball
+Play
+Owen Caissie homers (6) on a fly ball to right field. Heriberto Hernández scores.
+⚾ AZ @ MIA — 0-3  (B4)
+Over  4.5 : 66/67¢     o+30¢
+Over  5.5 : 51/52¢     o+41¢
+Over  6.5 : 41/61¢     o+24¢
+Over  7.5 : 28/44¢     o+29¢
+Over  8.5 : 23/34¢     o+24¢
+Over  9.5 : 15/16¢     o+27¢
+Over 10.5 : 11/12¢     o+17¢
+Over 11.5 : 7/8¢       o+10¢
+Over 12.5 : 5/6¢       o+4¢
+Over 13.5 : —       
+Over 14.5 : —       
+gamePk 823856 • KXMLBGAME-26JUN101840AZMIA-AZ•Yesterday at 7:52 PM
