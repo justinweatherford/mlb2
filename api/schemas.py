@@ -438,4 +438,5 @@ class TeamContextOut(BaseModel):
     overall_context_score: Optional[float] = None
     sample_size: int
     f5_sample_size: int
+    context_confidence: str = "low"
     last_updated: str

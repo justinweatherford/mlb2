@@ -17,6 +17,18 @@ function Num({ value, decimals = 1 }: { value: number | null; decimals?: number 
   return <span className="text-slate-300">{value.toFixed(decimals)}</span>
 }
 
+function ConfBadge({ value }: { value: string }) {
+  const style =
+    value === 'high'   ? 'bg-green-900/40 text-green-400 border-green-800/50' :
+    value === 'medium' ? 'bg-yellow-900/40 text-yellow-400 border-yellow-800/50' :
+                         'bg-slate-800 text-slate-500 border-slate-700'
+  return (
+    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${style}`}>
+      {value}
+    </span>
+  )
+}
+
 function TH({ children, right }: { children: React.ReactNode; right?: boolean }) {
   return (
     <th
@@ -46,7 +58,7 @@ export function MLBTeamContext() {
         <div>
           <h1 className="text-lg font-semibold text-slate-100">MLB Team Context</h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Season-to-date ratings · 0–100 · ~50 = league average
+            Season-to-date ratings · 0–100 · ~50 = league average · F5n = inning-data sample
           </p>
         </div>
         <button
@@ -76,13 +88,18 @@ export function MLBTeamContext() {
               <tr className="border-b border-slate-800">
                 <TH>Team</TH>
                 <TH right>GP</TH>
+                <TH right>Conf</TH>
                 <TH right>RPG</TH>
                 <TH right>RA/G</TH>
                 <TH right>Off</TH>
-                <TH right>F5-Off</TH>
                 <TH right>Def</TH>
+                <TH right>F5 RPG</TH>
+                <TH right>F5 RA/G</TH>
+                <TH right>F5-Off</TH>
+                <TH right>F5-Pit</TH>
+                <TH right>Late+</TH>
+                <TH right>Late-</TH>
                 <TH right>BP Risk</TH>
-                <TH right>Late Risk</TH>
                 <TH right>Cmbk</TH>
                 <TH right>Overall</TH>
                 <TH right>F5n</TH>
@@ -101,13 +118,18 @@ export function MLBTeamContext() {
                     )}
                   </td>
                   <td className="py-2 pr-3 text-right text-slate-400">{t.games_played}</td>
+                  <td className="py-2 pr-3 text-right"><ConfBadge value={t.context_confidence} /></td>
                   <td className="py-2 pr-3 text-right"><Num value={t.runs_per_game} /></td>
                   <td className="py-2 pr-3 text-right"><Num value={t.runs_allowed_per_game} /></td>
                   <td className="py-2 pr-3 text-right"><RatingCell value={t.offense_rating} /></td>
-                  <td className="py-2 pr-3 text-right"><RatingCell value={t.f5_offense_rating} /></td>
                   <td className="py-2 pr-3 text-right"><RatingCell value={t.defense_pitching_rating} /></td>
+                  <td className="py-2 pr-3 text-right"><Num value={t.f5_runs_per_game} /></td>
+                  <td className="py-2 pr-3 text-right"><Num value={t.f5_runs_allowed_per_game} /></td>
+                  <td className="py-2 pr-3 text-right"><RatingCell value={t.f5_offense_rating} /></td>
+                  <td className="py-2 pr-3 text-right"><RatingCell value={t.f5_pitching_risk_rating} /></td>
+                  <td className="py-2 pr-3 text-right"><Num value={t.late_runs_per_game} /></td>
+                  <td className="py-2 pr-3 text-right"><Num value={t.late_runs_allowed_per_game} /></td>
                   <td className="py-2 pr-3 text-right"><RatingCell value={t.bullpen_risk_rating} /></td>
-                  <td className="py-2 pr-3 text-right"><RatingCell value={t.late_game_risk_rating} /></td>
                   <td className="py-2 pr-3 text-right"><RatingCell value={t.comeback_scoring_rating} /></td>
                   <td className="py-2 pr-3 text-right font-medium">
                     <RatingCell value={t.overall_context_score} />

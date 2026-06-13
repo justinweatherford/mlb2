@@ -281,6 +281,7 @@ export interface TeamContext {
   overall_context_score: number | null
   sample_size: number
   f5_sample_size: number
+  context_confidence: string
   last_updated: string
 }
 
