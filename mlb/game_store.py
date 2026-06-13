@@ -151,6 +151,44 @@ def _upsert_plays(conn: sqlite3.Connection, game_pk: int, pbp: dict) -> tuple[in
     return inserted, skipped
 
 
+def _upsert_inning_scores(
+    conn: sqlite3.Connection,
+    game_pk: int,
+    linescore: dict,
+    away_abbr: str,
+    home_abbr: str,
+) -> tuple[int, int]:
+    """
+    Parse the linescore innings array and upsert one row per inning.
+    Returns (inserted, skipped).
+    """
+    inserted = skipped = 0
+    for inn in linescore.get("innings") or []:
+        try:
+            num = inn.get("num")
+            if num is None:
+                skipped += 1
+                continue
+            away_runs = (inn.get("away") or {}).get("runs") or 0
+            home_runs = (inn.get("home") or {}).get("runs") or 0
+            conn.execute(
+                """
+                INSERT INTO mlb_inning_scores
+                  (game_pk, inning, away_abbr, home_abbr, away_runs, home_runs, created_at)
+                VALUES (?,?,?,?,?,?,?)
+                ON CONFLICT(game_pk, inning) DO UPDATE SET
+                  away_runs = excluded.away_runs,
+                  home_runs = excluded.home_runs
+                """,
+                (game_pk, num, away_abbr, home_abbr, away_runs, home_runs, _now()),
+            )
+            inserted += 1
+        except Exception as exc:
+            log.warning("inning score error (game_pk=%d inning=%s): %s", game_pk, inn.get("num"), exc)
+            skipped += 1
+    return inserted, skipped
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def fetch_and_store_schedule(
@@ -266,8 +304,12 @@ def fetch_and_store_game(
         "game_state_inserted": False,
         "plays_inserted": 0,
         "plays_skipped": 0,
+        "innings_inserted": 0,
+        "innings_skipped": 0,
         "errors": [],
     }
+
+    away_abbr = home_abbr = None  # resolved from game feed; needed for inning upsert
 
     try:
         # ── 1. Game feed (primary source for game/state data) ──────────────
@@ -331,6 +373,10 @@ def fetch_and_store_game(
         if linescore is not None:
             log_response("linescore", linescore, date_str=date_for_log, game_pk=game_pk)
             summary["endpoints_logged"].append("linescore")
+            if away_abbr and home_abbr:
+                ins, skip = _upsert_inning_scores(conn, game_pk, linescore, away_abbr, home_abbr)
+                summary["innings_inserted"] = ins
+                summary["innings_skipped"] = skip
         else:
             summary["errors"].append("linescore: fetch returned None")
 
