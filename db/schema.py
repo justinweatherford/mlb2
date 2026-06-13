@@ -418,6 +418,21 @@ CREATE TABLE IF NOT EXISTS mlb_team_context (
     UNIQUE(team_abbr, season)
 );
 CREATE INDEX IF NOT EXISTS idx_mlb_team_context_season ON mlb_team_context(season);
+
+-- ── MLB inning-level scoring ───────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS mlb_inning_scores (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_pk     INTEGER NOT NULL,
+    inning      INTEGER NOT NULL,
+    away_abbr   TEXT    NOT NULL,
+    home_abbr   TEXT    NOT NULL,
+    away_runs   INTEGER NOT NULL DEFAULT 0,
+    home_runs   INTEGER NOT NULL DEFAULT 0,
+    created_at  TEXT    NOT NULL,
+    UNIQUE(game_pk, inning)
+);
+CREATE INDEX IF NOT EXISTS idx_mlb_inning_scores_pk ON mlb_inning_scores(game_pk);
 """
 
 
@@ -431,6 +446,7 @@ def _apply_migrations(conn: sqlite3.Connection) -> None:
         "ALTER TABLE signal_events    ADD COLUMN signal_subtype TEXT",
         "ALTER TABLE paper_positions  ADD COLUMN signal_subtype TEXT",
         "ALTER TABLE paper_positions  ADD COLUMN settlement_status TEXT",
+        "ALTER TABLE mlb_team_context ADD COLUMN context_confidence TEXT NOT NULL DEFAULT 'low'",
     ]
     for sql in _migrations:
         try:
