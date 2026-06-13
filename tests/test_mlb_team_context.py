@@ -50,7 +50,7 @@ def _insert_game(
 
 
 def _insert_plays_f5(conn, game_pk: int, away_f5: int, home_f5: int) -> None:
-    """Insert the last at-bat of inning 5 so F5 scores can be derived."""
+    """Insert the last at-bat of inning 5 so F5 scores can be derived (legacy helper)."""
     conn.execute(
         """
         INSERT OR IGNORE INTO mlb_play_events
@@ -59,6 +59,20 @@ def _insert_plays_f5(conn, game_pk: int, away_f5: int, home_f5: int) -> None:
         """,
         (game_pk, away_f5, home_f5),
     )
+    conn.commit()
+
+
+def _insert_inning_scores(conn, game_pk: int, innings: list) -> None:
+    """Insert (inning, away_runs, home_runs) tuples into mlb_inning_scores."""
+    for inning, away_r, home_r in innings:
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO mlb_inning_scores
+              (game_pk, inning, away_abbr, home_abbr, away_runs, home_runs, created_at)
+            VALUES (?,?,'A','H',?,?,datetime('now'))
+            """,
+            (game_pk, inning, away_r, home_r),
+        )
     conn.commit()
 
 
@@ -121,29 +135,37 @@ def test_last_7_games_recent_window(conn):
     assert abs(ctx["runs_per_game"] - 5.5) < 0.01  # (2*3 + 7*7) / 10
 
 
-# ── 6. F5 runs from play events ───────────────────────────────────────────────
+# ── 6. F5 runs from inning scores ────────────────────────────────────────────
 
-def test_f5_runs_computed_from_play_events(conn):
-    _insert_game(conn, 10, "NYY", "BOS", 6, 4)
-    _insert_plays_f5(conn, 10, away_f5=3, home_f5=2)  # NYY is away
+def test_f5_runs_computed_from_inning_scores(conn):
+    # NYY is away: F5 = inn1+2+3+4+5 away_runs = 2+0+1+0+1 = 4
+    _insert_game(conn, 10, "NYY", "BOS", 7, 4)
+    _insert_inning_scores(conn, 10, [
+        (1,2,0),(2,0,1),(3,1,0),(4,0,2),(5,1,0),
+        (6,0,3),(7,2,0),(8,0,1),(9,1,0),
+    ])
 
     ctx = compute_team_context("NYY", "2026", conn)
     assert ctx is not None
     assert ctx["f5_sample_size"] == 1
-    assert abs(ctx["f5_runs_per_game"] - 3.0) < 0.01
-    assert abs(ctx["f5_runs_allowed_per_game"] - 2.0) < 0.01
+    assert abs(ctx["f5_runs_per_game"] - 4.0) < 0.01
+    assert abs(ctx["f5_runs_allowed_per_game"] - 3.0) < 0.01  # home F5 = 0+1+0+2+0=3
 
 
-# ── 7. Late runs = final − F5 ─────────────────────────────────────────────────
+# ── 7. Late runs from inning scores ──────────────────────────────────────────
 
-def test_late_runs_equal_final_minus_f5(conn):
-    _insert_game(conn, 20, "NYY", "BOS", 6, 4)
-    _insert_plays_f5(conn, 20, away_f5=3, home_f5=2)
+def test_late_runs_from_inning_scores(conn):
+    # NYY away late = inn6+7+8+9 away_runs = 0+2+0+1 = 3
+    _insert_game(conn, 20, "NYY", "BOS", 7, 4)
+    _insert_inning_scores(conn, 20, [
+        (1,2,0),(2,0,1),(3,1,0),(4,0,2),(5,1,0),
+        (6,0,3),(7,2,0),(8,0,1),(9,1,0),
+    ])
 
     ctx = compute_team_context("NYY", "2026", conn)
     assert ctx is not None
-    assert abs(ctx["late_runs_per_game"] - 3.0) < 0.01       # 6 − 3
-    assert abs(ctx["late_runs_allowed_per_game"] - 2.0) < 0.01  # 4 − 2
+    assert abs(ctx["late_runs_per_game"] - 3.0) < 0.01        # 0+2+0+1
+    assert abs(ctx["late_runs_allowed_per_game"] - 4.0) < 0.01  # BOS late = 3+0+1+0=4
 
 
 # ── 8. No play data → F5 fields are None ─────────────────────────────────────
@@ -243,3 +265,82 @@ def test_league_average_team_rates_near_50(conn):
     assert ctx is not None
     assert 40 <= ctx["offense_rating"] <= 60
     assert 40 <= ctx["defense_pitching_rating"] <= 60
+
+
+# ── 15. context_confidence: low for <10 games ────────────────────────────────
+
+def test_context_confidence_low(conn):
+    for i in range(5):
+        _insert_game(conn, 530 + i, "COL", f"T{i}", 4, 3)
+    ctx = compute_team_context("COL", "2026", conn)
+    assert ctx["context_confidence"] == "low"
+
+
+# ── 16. context_confidence: medium for 10-30 games ───────────────────────────
+
+def test_context_confidence_medium(conn):
+    for i in range(15):
+        _insert_game(conn, 540 + i, "MIL", f"T{i}", 4, 3, date_suffix=f"04-{i+1:02d}")
+    ctx = compute_team_context("MIL", "2026", conn)
+    assert ctx["context_confidence"] == "medium"
+
+
+# ── 17. context_confidence: high for 31+ games ───────────────────────────────
+
+def test_context_confidence_high(conn):
+    for i in range(35):
+        _insert_game(conn, 560 + i, "LAD", f"T{i}", 5, 3, date_suffix=f"04-{i+1:02d}")
+    ctx = compute_team_context("LAD", "2026", conn)
+    assert ctx["context_confidence"] == "high"
+
+
+# ── 18. bullpen risk rises with high late runs allowed ────────────────────────
+
+def test_bullpen_risk_high_when_late_ra_high(conn):
+    for i in range(5):
+        _insert_game(conn, 600 + i, "ATL", f"T{i}", 5, 8, date_suffix=f"04-{i+1:02d}")
+        # ATL late allowed = 5 per game (well above avg 2.3)
+        _insert_inning_scores(conn, 600 + i, [
+            (1,0,1),(2,1,1),(3,0,0),(4,1,1),(5,0,0),
+            (6,1,2),(7,1,1),(8,0,1),(9,1,1),
+        ])
+    ctx = compute_team_context("ATL", "2026", conn)
+    assert ctx["bullpen_risk_rating"] > 50
+
+
+# ── 19. comeback rating rises with high late scoring ─────────────────────────
+
+def test_comeback_rating_high_when_late_scoring_high(conn):
+    for i in range(5):
+        _insert_game(conn, 620 + i, "HOU", f"T{i}", 8, 3, date_suffix=f"04-{i+1:02d}")
+        # HOU late scored = 5 per game (well above avg 2.3)
+        _insert_inning_scores(conn, 620 + i, [
+            (1,1,1),(2,0,1),(3,1,0),(4,0,0),(5,1,1),
+            (6,2,0),(7,1,0),(8,1,1),(9,1,0),
+        ])
+    ctx = compute_team_context("HOU", "2026", conn)
+    assert ctx["comeback_scoring_rating"] > 50
+
+
+# ── 20. no inning data → F5 fields are None ──────────────────────────────────
+
+def test_f5_sample_size_zero_without_inning_data(conn):
+    _insert_game(conn, 30, "ATL", "PHI", 5, 3)
+    ctx = compute_team_context("ATL", "2026", conn)
+    assert ctx is not None
+    assert ctx["f5_sample_size"] == 0
+    assert ctx["f5_runs_per_game"] is None
+    assert ctx["late_runs_per_game"] is None
+
+
+# ── 21. context_confidence stored in DB after refresh ────────────────────────
+
+def test_context_confidence_persisted_in_db(conn):
+    for i in range(12):
+        _insert_game(conn, 700 + i, "SEA", f"T{i}", 4, 3, date_suffix=f"04-{i+1:02d}")
+    refresh_team_context("2026", conn)
+    row = conn.execute(
+        "SELECT context_confidence FROM mlb_team_context WHERE team_abbr='SEA'"
+    ).fetchone()
+    assert row is not None
+    assert row["context_confidence"] == "medium"

@@ -49,23 +49,34 @@ def _clamp(val: float, lo: float = 0.0, hi: float = 100.0) -> float:
     return max(lo, min(hi, val))
 
 
-def _get_f5_scores(game_pk: int, conn: sqlite3.Connection) -> Optional[tuple[int, int]]:
+def _get_inning_totals(game_pk: int, conn: sqlite3.Connection) -> Optional[dict]:
     """
-    Returns (away_f5_runs, home_f5_runs) using the last at-bat in inning ≤ 5.
-    The cumulative away_score/home_score at that at-bat equals F5 totals.
-    Returns None if no play-by-play data is stored for this game.
+    Returns {away_f5, home_f5, away_late, home_late} from mlb_inning_scores,
+    or None if no inning data is stored for this game.
+    F5 = innings 1-5.  Late = innings 6+.
     """
-    row = conn.execute(
-        """
-        SELECT away_score, home_score FROM mlb_play_events
-        WHERE game_pk = ? AND inning <= 5
-        ORDER BY at_bat_index DESC LIMIT 1
-        """,
+    rows = conn.execute(
+        "SELECT inning, away_runs, home_runs FROM mlb_inning_scores "
+        "WHERE game_pk = ? ORDER BY inning",
         (game_pk,),
-    ).fetchone()
-    if row is None:
+    ).fetchall()
+    if not rows:
         return None
-    return (row["away_score"] or 0, row["home_score"] or 0)
+    return {
+        "away_f5":   sum((r["away_runs"] or 0) for r in rows if r["inning"] <= 5),
+        "home_f5":   sum((r["home_runs"] or 0) for r in rows if r["inning"] <= 5),
+        "away_late": sum((r["away_runs"] or 0) for r in rows if r["inning"] >= 6),
+        "home_late": sum((r["home_runs"] or 0) for r in rows if r["inning"] >= 6),
+    }
+
+
+def _context_confidence(games_played: int) -> str:
+    """low < 10 games, medium 10-30, high 31+."""
+    if games_played >= 31:
+        return "high"
+    if games_played >= 10:
+        return "medium"
+    return "low"
 
 
 # ── Rating formulas ────────────────────────────────────────────────────────────
@@ -201,37 +212,27 @@ def compute_team_context(
     recent_rpg_7 = _avg([g["scored"]  for g, _ in last_7])
     recent_ra_7  = _avg([g["allowed"] for g, _ in last_7])
 
-    # ── F5 and late stats (requires mlb_play_events rows for the game) ────────
+    # ── F5 and late stats (requires mlb_inning_scores rows for the game) ────────
     f5_scored_list    = []
     f5_allowed_list   = []
     late_scored_list  = []
     late_allowed_list = []
 
     for game, side in all_games:
-        f5 = _get_f5_scores(game["game_pk"], conn)
-        if f5 is None:
+        totals = _get_inning_totals(game["game_pk"], conn)
+        if totals is None:
             continue
 
-        f5_away, f5_home = f5
         if side == "away":
-            f5_team = f5_away
-            f5_opp  = f5_home
-            late_t  = (game["scored"]  or 0) - f5_away
-            late_o  = (game["allowed"] or 0) - f5_home
+            f5_scored_list.append(totals["away_f5"])
+            f5_allowed_list.append(totals["home_f5"])
+            late_scored_list.append(totals["away_late"])
+            late_allowed_list.append(totals["home_late"])
         else:
-            f5_team = f5_home
-            f5_opp  = f5_away
-            late_t  = (game["scored"]  or 0) - f5_home
-            late_o  = (game["allowed"] or 0) - f5_away
-
-        # Negative late runs = bad or partial play data; skip this game for F5
-        if late_t < 0 or late_o < 0:
-            continue
-
-        f5_scored_list.append(f5_team)
-        f5_allowed_list.append(f5_opp)
-        late_scored_list.append(late_t)
-        late_allowed_list.append(late_o)
+            f5_scored_list.append(totals["home_f5"])
+            f5_allowed_list.append(totals["away_f5"])
+            late_scored_list.append(totals["home_late"])
+            late_allowed_list.append(totals["away_late"])
 
     f5_rpg     = _avg(f5_scored_list)
     f5_ra_pg   = _avg(f5_allowed_list)
@@ -272,6 +273,7 @@ def compute_team_context(
         "overall_context_score":          overall_r,
         "sample_size":                    len(all_games),
         "f5_sample_size":                 len(f5_scored_list),
+        "context_confidence":             _context_confidence(len(all_games)),
         "last_updated":                   _now(),
     }
 
@@ -290,8 +292,8 @@ def _upsert_team_context(conn: sqlite3.Connection, ctx: dict) -> None:
            f5_offense_rating, f5_pitching_risk_rating,
            bullpen_risk_rating, late_game_risk_rating,
            comeback_scoring_rating, overall_context_score,
-           sample_size, f5_sample_size, last_updated)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+           sample_size, f5_sample_size, context_confidence, last_updated)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(team_abbr, season) DO UPDATE SET
           team_name                       = excluded.team_name,
           games_played                    = excluded.games_played,
@@ -315,6 +317,7 @@ def _upsert_team_context(conn: sqlite3.Connection, ctx: dict) -> None:
           overall_context_score           = excluded.overall_context_score,
           sample_size                     = excluded.sample_size,
           f5_sample_size                  = excluded.f5_sample_size,
+          context_confidence              = excluded.context_confidence,
           last_updated                    = excluded.last_updated
         """,
         (
@@ -330,7 +333,7 @@ def _upsert_team_context(conn: sqlite3.Connection, ctx: dict) -> None:
             ctx["bullpen_risk_rating"],  ctx["late_game_risk_rating"],
             ctx["comeback_scoring_rating"], ctx["overall_context_score"],
             ctx["sample_size"],          ctx["f5_sample_size"],
-            ctx["last_updated"],
+            ctx["context_confidence"],   ctx["last_updated"],
         ),
     )
 
