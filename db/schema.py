@@ -433,6 +433,61 @@ CREATE TABLE IF NOT EXISTS mlb_inning_scores (
     UNIQUE(game_pk, inning)
 );
 CREATE INDEX IF NOT EXISTS idx_mlb_inning_scores_pk ON mlb_inning_scores(game_pk);
+
+-- ── Live candidate events ──────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS candidate_events (
+    id                        INTEGER PRIMARY KEY AUTOINCREMENT,
+    candidate_type            TEXT    NOT NULL,
+    game_pk                   INTEGER,
+    game_id                   TEXT,
+    market_ticker             TEXT,
+    event_ticker              TEXT,
+    market_type               TEXT,
+    settlement_horizon        TEXT    NOT NULL DEFAULT 'unknown',
+    selected_team_abbr        TEXT,
+    line_value                REAL,
+    side                      TEXT,
+    decision_time             TEXT,
+    available_data_cutoff     TEXT,
+    mlb_play_event_id         TEXT,
+    trigger_event_type        TEXT,
+    trigger_description       TEXT,
+    inning                    INTEGER,
+    half_inning               TEXT,
+    outs                      INTEGER,
+    score_away                INTEGER,
+    score_home                INTEGER,
+    runners_state             TEXT,
+    entry_yes_bid             INTEGER,
+    entry_yes_ask             INTEGER,
+    entry_no_bid              INTEGER,
+    entry_no_ask              INTEGER,
+    spread_cents              INTEGER,
+    expected_fill_price       INTEGER,
+    market_mismatch_score     REAL,
+    baseball_support_score    REAL,
+    execution_quality_score   REAL,
+    risk_blocker_score        REAL,
+    overall_watch_score       REAL,
+    confidence_breakdown_json TEXT,
+    baseball_context_json     TEXT,
+    market_context_json       TEXT,
+    guardrails_json           TEXT,
+    blocked_reason            TEXT,
+    eligible_for_paper        INTEGER NOT NULL DEFAULT 0,
+    status                    TEXT    NOT NULL DEFAULT 'observed_only',
+    created_at                TEXT    NOT NULL,
+    updated_at                TEXT    NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_candidate_events_ticker   ON candidate_events(market_ticker);
+CREATE INDEX IF NOT EXISTS idx_candidate_events_game_pk  ON candidate_events(game_pk);
+CREATE INDEX IF NOT EXISTS idx_candidate_events_game_id  ON candidate_events(game_id);
+CREATE INDEX IF NOT EXISTS idx_candidate_events_type     ON candidate_events(candidate_type);
+CREATE INDEX IF NOT EXISTS idx_candidate_events_decision ON candidate_events(decision_time);
+CREATE INDEX IF NOT EXISTS idx_candidate_events_status   ON candidate_events(status);
+CREATE INDEX IF NOT EXISTS idx_candidate_events_eligible ON candidate_events(eligible_for_paper);
 """
 
 

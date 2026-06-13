@@ -192,6 +192,64 @@ class PaceFadeCandidateOut(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Live candidate events
+# ---------------------------------------------------------------------------
+
+class CandidateEventOut(BaseModel):
+    id: int
+    candidate_type: str
+    game_pk: Optional[int] = None
+    game_id: Optional[str] = None
+    market_ticker: Optional[str] = None
+    event_ticker: Optional[str] = None
+    market_type: Optional[str] = None
+    settlement_horizon: str = "unknown"
+    selected_team_abbr: Optional[str] = None
+    line_value: Optional[float] = None
+    side: Optional[str] = None
+    decision_time: Optional[str] = None
+    available_data_cutoff: Optional[str] = None
+    mlb_play_event_id: Optional[str] = None
+    trigger_event_type: Optional[str] = None
+    trigger_description: Optional[str] = None
+    inning: Optional[int] = None
+    half_inning: Optional[str] = None
+    outs: Optional[int] = None
+    score_away: Optional[int] = None
+    score_home: Optional[int] = None
+    runners_state: Optional[str] = None
+    entry_yes_bid: Optional[int] = None
+    entry_yes_ask: Optional[int] = None
+    entry_no_bid: Optional[int] = None
+    entry_no_ask: Optional[int] = None
+    spread_cents: Optional[int] = None
+    expected_fill_price: Optional[int] = None
+    market_mismatch_score: Optional[float] = None
+    baseball_support_score: Optional[float] = None
+    execution_quality_score: Optional[float] = None
+    risk_blocker_score: Optional[float] = None
+    overall_watch_score: Optional[float] = None
+    confidence_breakdown_json: Optional[str] = None
+    baseball_context_json: Optional[str] = None
+    market_context_json: Optional[str] = None
+    guardrails_json: Optional[str] = None
+    blocked_reason: Optional[str] = None
+    eligible_for_paper: bool
+    status: str
+    created_at: str
+    updated_at: str
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            raw = data.get("eligible_for_paper")
+            if raw is not None:
+                data["eligible_for_paper"] = bool(raw)
+        return data
+
+
+# ---------------------------------------------------------------------------
 # Health
 # ---------------------------------------------------------------------------
 
