@@ -8,9 +8,9 @@ Settlement is conservative by design:
   - spread → needs_review (too ambiguous)
 
 Direction resolution order:
-  1. kalshi_markets metadata (market_type, title, subtitle, rules_primary)
-  2. signal_type / signal_subtype keywords
-  3. "unknown"
+  1. kalshi_markets.contract_direction when is_semantics_clear=1 (Task A semantics)
+  2. Legacy conservative text match (bridge for rows not yet through refresh_market_semantics)
+  3. "unknown" — no signal_type/signal_subtype keyword fallback
 """
 import logging
 import os
@@ -53,6 +53,18 @@ def _open_conn() -> sqlite3.Connection:
     return init_db(os.environ.get("DB_PATH", "kalshi_mlb.db"))
 
 
+def _get_f5_total(game_pk: int, conn: sqlite3.Connection) -> Optional[int]:
+    """Sum away_runs + home_runs for innings 1–5. Returns None if no inning data."""
+    rows = conn.execute(
+        "SELECT away_runs, home_runs FROM mlb_inning_scores "
+        "WHERE game_pk = ? AND inning <= 5 ORDER BY inning",
+        (game_pk,),
+    ).fetchall()
+    if not rows:
+        return None
+    return sum(r["away_runs"] + r["home_runs"] for r in rows)
+
+
 def _find_kalshi_market(
     pos: sqlite3.Row,
     conn: sqlite3.Connection,
@@ -75,8 +87,8 @@ def _find_kalshi_market(
     ).fetchone()
 
 
-def _direction_from_market(market: sqlite3.Row) -> str:
-    """Derive direction string from a kalshi_markets row."""
+def _direction_from_market_legacy(market: sqlite3.Row) -> str:
+    """Conservative text-based direction for rows not yet through refresh_market_semantics."""
     mtype = (market["market_type"] or "").lower()
     text  = " ".join(filter(None, [
         market["title"], market["subtitle"], market["rules_primary"],
@@ -86,7 +98,7 @@ def _direction_from_market(market: sqlite3.Row) -> str:
         return "moneyline_yes"
 
     if mtype in ("spread_run_line", "f5_spread"):
-        return "unknown"  # spread is ambiguous; needs_review
+        return "unknown"
 
     if mtype in ("full_game_total", "f5_total"):
         if _OVER_RE.search(text):
@@ -97,9 +109,8 @@ def _direction_from_market(market: sqlite3.Row) -> str:
     if mtype == "team_total":
         if _OVER_RE.search(text):
             return "team_total_over_yes"
-        return "unknown"  # team_total_under: not implemented
+        return "unknown"
 
-    # Generic fallback on title text alone
     if "total" in text:
         if _OVER_RE.search(text):
             return "over_yes"
@@ -109,35 +120,51 @@ def _direction_from_market(market: sqlite3.Row) -> str:
     return "unknown"
 
 
+_SEMANTIC_DIRECTIONS = frozenset({
+    "over_yes", "under_yes",
+    "f5_over_yes", "f5_under_yes",
+    "moneyline_yes",
+    "team_total_over_yes", "team_total_under_yes",
+})
+
+
+def _direction_from_market(market: sqlite3.Row) -> str:
+    """Derive direction from a kalshi_markets row.
+
+    Prefers stored contract_direction when is_semantics_clear=1.
+    Markets actively flagged unclear (needs_review_reason set) return 'unknown'.
+    Falls back to legacy text matching only for rows not yet through refresh_market_semantics.
+    """
+    is_clear = int(market["is_semantics_clear"] or 0)
+
+    if is_clear:
+        cd = (market["contract_direction"] or "unknown").lower()
+        return cd if cd in _SEMANTIC_DIRECTIONS else "unknown"
+
+    # Actively flagged unclear — do not guess from text
+    if market["needs_review_reason"]:
+        return "unknown"
+
+    # Not yet processed through refresh_market_semantics: use legacy bridge
+    return _direction_from_market_legacy(market)
+
+
 def _infer_direction(
     pos: sqlite3.Row,
     conn: sqlite3.Connection,
     _market: Optional[sqlite3.Row] = None,
 ) -> str:
     """
-    Infer YES contract direction.  _market may be pre-fetched to avoid a
-    redundant query; callers should pass it when they already have it.
+    Infer YES contract direction from stored kalshi_markets semantics only.
+
+    Signal_type and signal_subtype keywords are NOT used as fallbacks —
+    they encode strategy intent, not market contract direction.
     """
     market = _market if _market is not None else _find_kalshi_market(pos, conn)
     if market:
         direction = _direction_from_market(market)
         if direction != "unknown":
             return direction
-
-    # Signal-type keyword fallback
-    combined = " ".join(filter(None, [
-        pos["signal_type"] or "", pos["signal_subtype"] or ""
-    ])).lower()
-
-    if "under"      in combined:
-        return "under_yes"
-    if "over"       in combined:
-        return "over_yes"
-    if "moneyline"  in combined or "_ml" in combined:
-        return "moneyline_yes"
-    if "team_total" in combined:
-        return "team_total_over_yes"
-
     return "unknown"
 
 
@@ -148,12 +175,22 @@ def _identify_team_score(
 ) -> Optional[int]:
     """
     Return the relevant team's final score for team-total settlement.
-    Parses market title/subtitle for a known team abbreviation.
+    Prefers market.selected_team_abbr when semantics are clear.
     """
     away_abbr = (final_data["away_abbr"] or "").upper()
     home_abbr = (final_data["home_abbr"] or "").upper()
 
     if market:
+        is_clear = int(market["is_semantics_clear"] or 0)
+        if is_clear:
+            abbr = (market["selected_team_abbr"] or "").upper()
+            if abbr == away_abbr:
+                return final_data["away_score"]
+            if abbr == home_abbr:
+                return final_data["home_score"]
+            return None
+
+        # Legacy: text search
         text = " ".join(filter(None, [
             market["title"], market["subtitle"]
         ])).upper()
@@ -177,9 +214,10 @@ def _identify_moneyline_team_wins(
 ) -> Optional[bool]:
     """
     Return True if the YES-team wins, False if it loses, None if unknowable/tie.
+    Prefers market.selected_team_abbr when semantics are clear.
     """
-    away_abbr = (final_data["away_abbr"] or "").upper()
-    home_abbr = (final_data["home_abbr"] or "").upper()
+    away_abbr  = (final_data["away_abbr"] or "").upper()
+    home_abbr  = (final_data["home_abbr"] or "").upper()
     away_score = final_data["away_score"]
     home_score = final_data["home_score"]
 
@@ -187,6 +225,16 @@ def _identify_moneyline_team_wins(
         return None  # tie (should not happen in MLB but guard it)
 
     if market:
+        is_clear = int(market["is_semantics_clear"] or 0)
+        if is_clear:
+            abbr = (market["selected_team_abbr"] or "").upper()
+            if abbr == away_abbr:
+                return away_score > home_score
+            if abbr == home_abbr:
+                return home_score > away_score
+            return None
+
+        # Legacy: title text
         text = " ".join(filter(None, [
             market["title"], market["subtitle"]
         ])).upper()
@@ -203,6 +251,7 @@ def _determine_outcome(
     final_data: dict,
     direction: str,
     market: Optional[sqlite3.Row] = None,
+    conn: Optional[sqlite3.Connection] = None,
 ) -> str:
     """Return 'win', 'loss', or 'needs_review'."""
     if direction == "unknown":
@@ -214,6 +263,22 @@ def _determine_outcome(
 
     def _flip(r: str) -> str:
         return "loss" if r == "win" else "win"
+
+    # ── F5 total (innings 1–5 from mlb_inning_scores) ────────────────────
+    if direction in ("f5_over_yes", "f5_under_yes"):
+        game_pk = final_data.get("game_pk")
+        if game_pk is None or conn is None:
+            return "needs_review"
+        f5_total = _get_f5_total(game_pk, conn)
+        if f5_total is None:
+            return "needs_review"
+        if f5_total == market_line:
+            return "needs_review"  # push
+        if direction == "f5_over_yes":
+            yes_result = "win" if f5_total > market_line else "loss"
+        else:
+            yes_result = "win" if f5_total < market_line else "loss"
+        return yes_result if side == "YES" else _flip(yes_result)
 
     # ── Full-game total ───────────────────────────────────────────────────
     if direction in ("over_yes", "under_yes"):
@@ -228,13 +293,16 @@ def _determine_outcome(
         return yes_result if side == "YES" else _flip(yes_result)
 
     # ── Team total ────────────────────────────────────────────────────────
-    if direction == "team_total_over_yes":
+    if direction in ("team_total_over_yes", "team_total_under_yes"):
         team_score = _identify_team_score(pos, final_data, market)
         if team_score is None:
             return "needs_review"
         if team_score == market_line:
             return "needs_review"
-        yes_result = "win" if team_score > market_line else "loss"
+        if direction == "team_total_over_yes":
+            yes_result = "win" if team_score > market_line else "loss"
+        else:
+            yes_result = "win" if team_score < market_line else "loss"
         return yes_result if side == "YES" else _flip(yes_result)
 
     # ── Moneyline ─────────────────────────────────────────────────────────
@@ -351,6 +419,7 @@ def reconcile_game_final(
         total      = game["final_total"] or 0
 
         final_data = {
+            "game_pk":     game_pk,
             "final_total": total,
             "away_score":  away_score,
             "home_score":  home_score,
@@ -379,7 +448,9 @@ def reconcile_game_final(
             try:
                 market    = _find_kalshi_market(pos, conn)
                 direction = _infer_direction(pos, conn, _market=market)
-                outcome   = _determine_outcome(pos, final_data, direction, market=market)
+                outcome   = _determine_outcome(
+                    pos, final_data, direction, market=market, conn=conn,
+                )
 
                 _settle_position(
                     conn, pos["id"], outcome,

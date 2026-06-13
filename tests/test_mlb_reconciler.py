@@ -105,6 +105,10 @@ def _insert_kalshi_market(
     line_value=8.5,
     away_team="NYY",
     home_team="BOS",
+    contract_direction="unknown",
+    is_semantics_clear=0,
+    needs_review_reason=None,
+    selected_team_abbr=None,
 ) -> None:
     global _mkt_counter
     _mkt_counter += 1
@@ -113,14 +117,35 @@ def _insert_kalshi_market(
         INSERT INTO kalshi_markets
           (market_ticker, event_ticker, market_type, title,
            game_id, away_team, home_team, line_value,
-           match_confidence, raw_json, discovered_at, updated_at)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+           match_confidence, raw_json, discovered_at, updated_at,
+           contract_direction, is_semantics_clear, needs_review_reason, selected_team_abbr)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """,
         (f"KXMLB-{_mkt_counter:04d}", f"EVT-{_mkt_counter:04d}",
          market_type, title,
          game_id, away_team, home_team, line_value,
-         "high", "{}", "2026-06-12T18:00:00", "2026-06-12T18:00:00"),
+         "high", "{}", "2026-06-12T18:00:00", "2026-06-12T18:00:00",
+         contract_direction, is_semantics_clear, needs_review_reason, selected_team_abbr),
     )
+    conn.commit()
+
+
+def _insert_inning_scores(
+    conn,
+    game_pk=_GAME_PK,
+    away_abbr="NYY",
+    home_abbr="BOS",
+    scores: list = None,
+) -> None:
+    """Insert inning scores. scores is list of (inning, away_runs, home_runs)."""
+    now = "2026-06-12T19:00:00"
+    for inning, away_runs, home_runs in (scores or []):
+        conn.execute(
+            "INSERT OR IGNORE INTO mlb_inning_scores "
+            "(game_pk, inning, away_abbr, home_abbr, away_runs, home_runs, created_at) "
+            "VALUES (?,?,?,?,?,?,?)",
+            (game_pk, inning, away_abbr, home_abbr, away_runs, home_runs, now),
+        )
     conn.commit()
 
 
@@ -279,23 +304,23 @@ def test_unknown_direction_becomes_needs_review():
 
 # ── Signal-type direction fallback ───────────────────────────────────────────
 
-def test_infer_direction_from_signal_type_under():
-    """No market → signal_type='pace_fade_under_candidate' → under_yes."""
+def test_infer_direction_no_signal_type_fallback_under():
+    """No market → signal_type='pace_fade_under_candidate' → unknown (no keyword fallback)."""
     conn = _mem()
     _insert_game(conn)
     pos_id = _insert_position(conn, signal_type="pace_fade_under_candidate")
     pos = conn.execute("SELECT * FROM paper_positions WHERE id=?", (pos_id,)).fetchone()
-    direction = _infer_direction(pos, conn)
-    assert direction == "under_yes"
+    assert _infer_direction(pos, conn) == "unknown"
     conn.close()
 
 
-def test_infer_direction_from_signal_type_over():
+def test_infer_direction_no_signal_type_fallback_over():
+    """No market → signal_type='pace_fade_over_candidate' → unknown (no keyword fallback)."""
     conn = _mem()
     _insert_game(conn)
     pos_id = _insert_position(conn, signal_type="pace_fade_over_candidate")
     pos = conn.execute("SELECT * FROM paper_positions WHERE id=?", (pos_id,)).fetchone()
-    assert _infer_direction(pos, conn) == "over_yes"
+    assert _infer_direction(pos, conn) == "unknown"
     conn.close()
 
 
@@ -604,4 +629,288 @@ def test_reconcile_all_no_games_is_clean():
     summary = reconcile_all_unsettled_games(conn=conn)
     assert summary["games_processed"] == 0
     assert summary["errors"] == 0
+    conn.close()
+
+
+# ── Task B: Semantics-driven direction (is_semantics_clear=1) ────────────────
+
+def test_semantics_clear_over_yes_direction():
+    """is_semantics_clear=1, contract_direction='over_yes' → _direction_from_market returns over_yes."""
+    conn = _mem()
+    _insert_kalshi_market(conn, market_type="full_game_total",
+                          title="Over 8.5", contract_direction="over_yes",
+                          is_semantics_clear=1)
+    market = conn.execute("SELECT * FROM kalshi_markets LIMIT 1").fetchone()
+    assert _direction_from_market(market) == "over_yes"
+    conn.close()
+
+
+def test_semantics_clear_under_yes_direction():
+    """is_semantics_clear=1, contract_direction='under_yes' → under_yes."""
+    conn = _mem()
+    _insert_kalshi_market(conn, market_type="full_game_total",
+                          title="Under 8.5", contract_direction="under_yes",
+                          is_semantics_clear=1)
+    market = conn.execute("SELECT * FROM kalshi_markets LIMIT 1").fetchone()
+    assert _direction_from_market(market) == "under_yes"
+    conn.close()
+
+
+def test_semantics_clear_f5_over_yes_direction():
+    """is_semantics_clear=1, contract_direction='f5_over_yes' → f5_over_yes."""
+    conn = _mem()
+    _insert_kalshi_market(conn, market_type="f5_total",
+                          title="F5 Over 4.5", contract_direction="f5_over_yes",
+                          is_semantics_clear=1)
+    market = conn.execute("SELECT * FROM kalshi_markets LIMIT 1").fetchone()
+    assert _direction_from_market(market) == "f5_over_yes"
+    conn.close()
+
+
+def test_semantics_clear_f5_under_yes_direction():
+    """is_semantics_clear=1, contract_direction='f5_under_yes' → f5_under_yes."""
+    conn = _mem()
+    _insert_kalshi_market(conn, market_type="f5_total",
+                          title="F5 Under 4.5", contract_direction="f5_under_yes",
+                          is_semantics_clear=1)
+    market = conn.execute("SELECT * FROM kalshi_markets LIMIT 1").fetchone()
+    assert _direction_from_market(market) == "f5_under_yes"
+    conn.close()
+
+
+def test_semantics_unclear_blocks_direction():
+    """is_semantics_clear=0 with needs_review_reason → direction is 'unknown' regardless of text."""
+    conn = _mem()
+    _insert_kalshi_market(conn, market_type="spread_run_line",
+                          title="NYY -1.5", contract_direction="unknown",
+                          is_semantics_clear=0,
+                          needs_review_reason="spread_direction_requires_manual_review")
+    market = conn.execute("SELECT * FROM kalshi_markets LIMIT 1").fetchone()
+    assert _direction_from_market(market) == "unknown"
+    conn.close()
+
+
+def test_legacy_bridge_when_not_yet_processed():
+    """is_semantics_clear=0 and no needs_review_reason → legacy text match is used."""
+    conn = _mem()
+    _insert_kalshi_market(conn, market_type="full_game_total",
+                          title="Total Over 8.5",
+                          is_semantics_clear=0, needs_review_reason=None)
+    market = conn.execute("SELECT * FROM kalshi_markets LIMIT 1").fetchone()
+    assert _direction_from_market(market) == "over_yes"
+    conn.close()
+
+
+def test_signal_type_fallback_removed_full_reconcile():
+    """No kalshi market: signal_type keyword is NOT used — must route to needs_review."""
+    conn = _mem()
+    _insert_game(conn, away_score=4, home_score=3)   # total=7; under 8.5 would win
+    pos_id = _insert_position(conn, market_line=8.5, side="YES",
+                              signal_type="pace_fade_under_candidate")
+    result = reconcile_game_final(_GAME_PK, conn=conn)
+    assert result.needs_review == 1
+    assert result.settled == 0
+    conn.close()
+
+
+# ── Task B: F5 inning-score settlement ───────────────────────────────────────
+
+def test_f5_over_yes_win():
+    """F5 sum=6 (innings 1-5), line=5.5, direction=f5_over_yes, YES → win."""
+    conn = _mem()
+    _insert_game(conn, away_score=10, home_score=8)   # final ignored for F5
+    _insert_inning_scores(conn, scores=[
+        (1, 1, 0), (2, 0, 2), (3, 1, 1), (4, 0, 0), (5, 1, 0),  # sum=6
+    ])
+    _insert_kalshi_market(conn, market_type="f5_total", title="F5 Over 5.5",
+                          line_value=5.5, contract_direction="f5_over_yes",
+                          is_semantics_clear=1)
+    pos_id = _insert_position(conn, market_line=5.5, side="YES",
+                              signal_type="f5_signal")
+    result = reconcile_game_final(_GAME_PK, conn=conn)
+
+    assert result.settled == 1
+    row = _settled_row(conn, pos_id)
+    assert row["status"] == "settled"
+    assert row["settlement_status"] == "settled_confirmed"
+    assert row["exit_reason"] == "mlb_reconcile_win: direction=f5_over_yes"
+    conn.close()
+
+
+def test_f5_over_yes_loss():
+    """F5 sum=4, line=5.5, direction=f5_over_yes → loss."""
+    conn = _mem()
+    _insert_game(conn, away_score=10, home_score=8)
+    _insert_inning_scores(conn, scores=[
+        (1, 1, 0), (2, 0, 1), (3, 1, 0), (4, 0, 0), (5, 1, 0),  # sum=4
+    ])
+    _insert_kalshi_market(conn, market_type="f5_total", title="F5 Over 5.5",
+                          line_value=5.5, contract_direction="f5_over_yes",
+                          is_semantics_clear=1)
+    pos_id = _insert_position(conn, market_line=5.5, side="YES",
+                              signal_type="f5_signal")
+    result = reconcile_game_final(_GAME_PK, conn=conn)
+
+    assert result.settled == 1
+    row = _settled_row(conn, pos_id)
+    assert row["exit_reason"] == "mlb_reconcile_loss: direction=f5_over_yes"
+    conn.close()
+
+
+def test_f5_under_yes_win():
+    """F5 sum=4, line=5.5, direction=f5_under_yes → win."""
+    conn = _mem()
+    _insert_game(conn, away_score=10, home_score=8)
+    _insert_inning_scores(conn, scores=[
+        (1, 1, 0), (2, 0, 1), (3, 1, 0), (4, 0, 0), (5, 1, 0),  # sum=4
+    ])
+    _insert_kalshi_market(conn, market_type="f5_total", title="F5 Under 5.5",
+                          line_value=5.5, contract_direction="f5_under_yes",
+                          is_semantics_clear=1)
+    pos_id = _insert_position(conn, market_line=5.5, side="YES",
+                              signal_type="f5_signal")
+    result = reconcile_game_final(_GAME_PK, conn=conn)
+
+    assert result.settled == 1
+    row = _settled_row(conn, pos_id)
+    assert row["exit_reason"] == "mlb_reconcile_win: direction=f5_under_yes"
+    conn.close()
+
+
+def test_f5_under_yes_loss():
+    """F5 sum=6, line=5.5, direction=f5_under_yes → loss."""
+    conn = _mem()
+    _insert_game(conn, away_score=10, home_score=8)
+    _insert_inning_scores(conn, scores=[
+        (1, 1, 0), (2, 0, 2), (3, 1, 1), (4, 0, 0), (5, 1, 0),  # sum=6
+    ])
+    _insert_kalshi_market(conn, market_type="f5_total", title="F5 Under 5.5",
+                          line_value=5.5, contract_direction="f5_under_yes",
+                          is_semantics_clear=1)
+    pos_id = _insert_position(conn, market_line=5.5, side="YES",
+                              signal_type="f5_signal")
+    result = reconcile_game_final(_GAME_PK, conn=conn)
+
+    assert result.settled == 1
+    row = _settled_row(conn, pos_id)
+    assert row["exit_reason"] == "mlb_reconcile_loss: direction=f5_under_yes"
+    conn.close()
+
+
+def test_f5_push_becomes_needs_review():
+    """F5 sum=5 == line=5.0 (push) → needs_review."""
+    conn = _mem()
+    _insert_game(conn, away_score=10, home_score=8)
+    _insert_inning_scores(conn, scores=[
+        (1, 1, 0), (2, 0, 2), (3, 1, 0), (4, 0, 0), (5, 1, 0),  # away=3 home=2 sum=5
+    ])
+    _insert_kalshi_market(conn, market_type="f5_total", title="F5 Over 5.0",
+                          line_value=5.0, contract_direction="f5_over_yes",
+                          is_semantics_clear=1)
+    pos_id = _insert_position(conn, market_line=5.0, side="YES",
+                              signal_type="f5_signal")
+    result = reconcile_game_final(_GAME_PK, conn=conn)
+
+    assert result.needs_review == 1
+    assert result.settled == 0
+    row = _settled_row(conn, pos_id)
+    assert row["settlement_status"] == "needs_review"
+    conn.close()
+
+
+def test_f5_no_inning_data_becomes_needs_review():
+    """No mlb_inning_scores rows → F5 total unknown → needs_review."""
+    conn = _mem()
+    _insert_game(conn, away_score=5, home_score=3)
+    _insert_kalshi_market(conn, market_type="f5_total", title="F5 Over 4.5",
+                          line_value=4.5, contract_direction="f5_over_yes",
+                          is_semantics_clear=1)
+    pos_id = _insert_position(conn, market_line=4.5, side="YES",
+                              signal_type="f5_signal")
+    result = reconcile_game_final(_GAME_PK, conn=conn)
+
+    assert result.needs_review == 1
+    assert result.settled == 0
+    conn.close()
+
+
+def test_f5_only_counts_innings_1_to_5():
+    """Innings 1-9 stored; only 1-5 count toward the F5 total."""
+    conn = _mem()
+    _insert_game(conn, away_score=10, home_score=8)
+    _insert_inning_scores(conn, scores=[
+        (1, 1, 0), (2, 0, 1), (3, 1, 0), (4, 0, 0), (5, 1, 0),  # F5 sum=4
+        (6, 3, 3), (7, 2, 2), (8, 1, 1), (9, 0, 0),              # late: add 12 if counted
+    ])
+    _insert_kalshi_market(conn, market_type="f5_total", title="F5 Under 5.5",
+                          line_value=5.5, contract_direction="f5_under_yes",
+                          is_semantics_clear=1)
+    pos_id = _insert_position(conn, market_line=5.5, side="YES",
+                              signal_type="f5_signal")
+    result = reconcile_game_final(_GAME_PK, conn=conn)
+
+    # F5 sum=4 < 5.5 → under wins (if late innings were counted, sum=16 → loss)
+    assert result.settled == 1
+    row = _settled_row(conn, pos_id)
+    assert row["exit_reason"] == "mlb_reconcile_win: direction=f5_under_yes"
+    conn.close()
+
+
+def test_f5_no_side_flip():
+    """F5 over_yes, side=NO: total > line → YES would win → NO loses."""
+    conn = _mem()
+    _insert_game(conn, away_score=10, home_score=8)
+    _insert_inning_scores(conn, scores=[
+        (1, 1, 0), (2, 0, 2), (3, 1, 1), (4, 0, 0), (5, 1, 0),  # sum=6 > 5.5
+    ])
+    _insert_kalshi_market(conn, market_type="f5_total", title="F5 Over 5.5",
+                          line_value=5.5, contract_direction="f5_over_yes",
+                          is_semantics_clear=1)
+    pos_id = _insert_position(conn, market_line=5.5, side="NO",
+                              signal_type="f5_signal", entry_price_cents=55)
+    result = reconcile_game_final(_GAME_PK, conn=conn)
+
+    assert result.settled == 1
+    row = _settled_row(conn, pos_id)
+    assert row["exit_reason"] == "mlb_reconcile_loss: direction=f5_over_yes"
+    conn.close()
+
+
+# ── Task B: Semantics-clear moneyline with selected_team_abbr ────────────────
+
+def test_semantics_clear_moneyline_selected_team_wins():
+    """is_semantics_clear=1, selected_team_abbr='NYY', NYY wins → win."""
+    conn = _mem()
+    _insert_game(conn, away_score=5, home_score=2)   # NYY (away) wins
+    _insert_kalshi_market(conn, market_type="moneyline",
+                          title="Will NYY win?", line_value=0.0,
+                          contract_direction="moneyline_yes",
+                          is_semantics_clear=1,
+                          selected_team_abbr="NYY")
+    pos_id = _insert_position(conn, market_line=0.0, side="YES",
+                              signal_type="ml_signal")
+    result = reconcile_game_final(_GAME_PK, conn=conn)
+
+    assert result.settled == 1
+    row = _settled_row(conn, pos_id)
+    assert row["exit_reason"] == "mlb_reconcile_win: direction=moneyline_yes"
+    conn.close()
+
+
+def test_semantics_clear_moneyline_selected_team_loses():
+    """is_semantics_clear=1, selected_team_abbr='NYY', BOS wins → loss."""
+    conn = _mem()
+    _insert_game(conn, away_score=2, home_score=5)   # BOS (home) wins
+    _insert_kalshi_market(conn, market_type="moneyline",
+                          title="Will NYY win?", line_value=0.0,
+                          contract_direction="moneyline_yes",
+                          is_semantics_clear=1,
+                          selected_team_abbr="NYY")
+    pos_id = _insert_position(conn, market_line=0.0, side="YES",
+                              signal_type="ml_signal")
+    result = reconcile_game_final(_GAME_PK, conn=conn)
+
+    assert result.settled == 1
+    row = _settled_row(conn, pos_id)
+    assert row["exit_reason"] == "mlb_reconcile_loss: direction=moneyline_yes"
     conn.close()
