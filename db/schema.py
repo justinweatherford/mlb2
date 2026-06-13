@@ -447,6 +447,18 @@ def _apply_migrations(conn: sqlite3.Connection) -> None:
         "ALTER TABLE paper_positions  ADD COLUMN signal_subtype TEXT",
         "ALTER TABLE paper_positions  ADD COLUMN settlement_status TEXT",
         "ALTER TABLE mlb_team_context ADD COLUMN context_confidence TEXT NOT NULL DEFAULT 'low'",
+        # Task A — Kalshi market semantics fields
+        "ALTER TABLE kalshi_markets ADD COLUMN settlement_horizon TEXT NOT NULL DEFAULT 'unknown'",
+        "ALTER TABLE kalshi_markets ADD COLUMN selected_team_abbr TEXT",
+        "ALTER TABLE kalshi_markets ADD COLUMN opponent_team_abbr TEXT",
+        "ALTER TABLE kalshi_markets ADD COLUMN spread_value REAL",
+        "ALTER TABLE kalshi_markets ADD COLUMN yes_means TEXT NOT NULL DEFAULT 'unknown'",
+        "ALTER TABLE kalshi_markets ADD COLUMN no_means TEXT NOT NULL DEFAULT 'unknown'",
+        "ALTER TABLE kalshi_markets ADD COLUMN contract_direction TEXT NOT NULL DEFAULT 'unknown'",
+        "ALTER TABLE kalshi_markets ADD COLUMN semantics_confidence REAL NOT NULL DEFAULT 0.0",
+        "ALTER TABLE kalshi_markets ADD COLUMN is_semantics_clear INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE kalshi_markets ADD COLUMN needs_review_reason TEXT",
+        "ALTER TABLE kalshi_markets ADD COLUMN game_open_price_cents INTEGER",
     ]
     for sql in _migrations:
         try:
