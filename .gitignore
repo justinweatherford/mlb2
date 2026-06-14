@@ -15,3 +15,15 @@ build/
 *.egg-info/
 test_results.txt
 .pytest_cache/
+
+# Local/private/runtime files
+.env
+*.db
+*.sqlite
+*.sqlite3
+data/
+.venv/
+node_modules/
+__pycache__/
+.pytest_cache/
+frontend/dist/

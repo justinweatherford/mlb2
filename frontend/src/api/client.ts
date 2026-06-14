@@ -3,6 +3,10 @@ import type {
   SignalEvent,
   Position,
   PaceFadeCandidate,
+  LiveCandidate,
+  ManualTrade,
+  ManualTradeCreate,
+  ManualTradeUpdate,
   SummaryResponse,
   HealthResponse,
   IngestResponse,
@@ -26,6 +30,19 @@ function buildUrl(path: string, params?: Params): string {
     }
   }
   return url.toString()
+}
+
+async function apiPatch<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(path, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText)
+    throw new Error(`API ${res.status}: ${text}`)
+  }
+  return res.json() as Promise<T>
 }
 
 async function apiPost<T>(path: string, body: unknown): Promise<T> {
@@ -84,11 +101,26 @@ export interface MidgameBlowupParams {
   offset?: number
 }
 
+export interface LiveCandidatesParams {
+  game_id?: string
+  candidate_type?: string
+  status?: string
+  limit?: number
+}
+
+export interface ManualTradesParams {
+  settlement_status?: string
+  game_id?: string
+  game_pk?: number
+  limit?: number
+}
+
 export interface KalshiMarketsParams {
   event_ticker?: string
   market_type?: string
   status?: string
   game_id?: string
+  game_date?: string
   away_team?: string
   home_team?: string
   limit?: number
@@ -138,6 +170,21 @@ export const api = {
   midgameBlowup: (params?: MidgameBlowupParams) =>
     apiFetch<ListResponse<SignalEvent>>('/api/candidates/midgame-blowup', params as Params),
 
+  liveCandidates: (params?: LiveCandidatesParams) =>
+    apiFetch<ListResponse<LiveCandidate>>('/api/candidates/live', params as Params),
+
+  manualTrades: (params?: ManualTradesParams) =>
+    apiFetch<ListResponse<ManualTrade>>('/api/manual-trades', params as Params),
+
+  getManualTrade: (id: number) =>
+    apiFetch<ManualTrade>(`/api/manual-trades/${id}`),
+
+  createManualTrade: (body: ManualTradeCreate) =>
+    apiPost<ManualTrade>('/api/manual-trades', body),
+
+  updateManualTrade: (id: number, body: ManualTradeUpdate) =>
+    apiPatch<ManualTrade>(`/api/manual-trades/${id}`, body),
+
   health: (for_date?: string) =>
     apiFetch<HealthResponse>('/api/health', { for_date }),
 
@@ -158,6 +205,9 @@ export const api = {
 
   kalshiLive: (params?: KalshiLiveParams) =>
     apiFetch<ListResponse<KalshiLiveMarket>>('/api/kalshi/markets/live', params as Params),
+
+  overview: () =>
+    apiFetch<import('../types/api').OverviewResponse>('/api/overview'),
 
   mlbTeamContext: (params?: { season?: string }) =>
     apiFetch<ListResponse<TeamContext>>('/api/mlb/team-context', params as Params),

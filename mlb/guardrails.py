@@ -123,10 +123,9 @@ def check_all(
     if _market_nearly_settled(settlement_horizon, inning, half_inning):
         return _block("market_nearly_settled")
 
-    # 8. Duplicate candidate — same game/type/ticker already observed recently
-    checked.append("duplicate_candidate")
-    if _is_duplicate(conn, game_pk, candidate_type, market_ticker):
-        return _block("duplicate_candidate")
+    # Duplicate detection is handled by upsert_candidate_event via dedupe_key,
+    # NOT here. A guardrail block would create a new "blocked/duplicate_candidate"
+    # row on every cycle instead of updating the existing row's seen_count.
 
     return GuardrailResult(
         passed=True, blocked_reason=None,
@@ -140,12 +139,14 @@ def _rally_active(
     outs: Optional[int],
     runners_state: Optional[str],
 ) -> bool:
-    """True when runners are on base with fewer than 2 outs (rally in progress)."""
-    if outs is None:
-        return False
+    """True whenever any runner is on base, regardless of outs.
+
+    Conservative: with 2 outs and runners on 2B/3B, a single hit can score
+    multiple runs immediately, so the market observation should wait until
+    the inning ends with bases truly clear.
+    """
     runners = (runners_state or "").strip().lower()
-    has_runners = bool(runners) and runners not in ("", "empty", "bases_empty")
-    return has_runners and outs < 2
+    return bool(runners) and runners not in ("", "empty", "bases_empty", "---")
 
 
 def _market_nearly_settled(

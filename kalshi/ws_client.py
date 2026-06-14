@@ -25,7 +25,7 @@ from websockets.exceptions import ConnectionClosed, WebSocketException
 
 log = logging.getLogger(__name__)
 
-_PROD_WS  = "wss://trading-api.kalshi.com/trade-api/ws/v2"
+_PROD_WS  = "wss://api.elections.kalshi.com/trade-api/ws/v2"
 _DEMO_WS  = "wss://demo-api.kalshi.co/trade-api/ws/v2"
 _WS_PATH  = "/trade-api/ws/v2"
 
@@ -92,36 +92,29 @@ async def _run_session(
     One WebSocket session: connect → login → subscribe → message loop.
     Raises on any error; the caller handles reconnect.
     """
+    # Auth headers required in the HTTP upgrade (Kalshi rejects 401 without them)
+    ts_ms = int(time.time() * 1000)
+    auth_headers = {
+        "KALSHI-ACCESS-KEY":       cfg.api_key_id,
+        "KALSHI-ACCESS-TIMESTAMP": str(ts_ms),
+        "KALSHI-ACCESS-SIGNATURE": _sign(private_key, ts_ms),
+    }
+
     async with ws_connect(
         ws_url,
         ping_interval=_PING_INTERVAL,
         ping_timeout=_PING_TIMEOUT,
         open_timeout=_OPEN_TIMEOUT,
+        additional_headers=auth_headers,
     ) as ws:
         stats.connected = True
         stats.session_started_at = datetime.now(timezone.utc).isoformat()
         log.info("WS connected")
 
-        # ── Login ─────────────────────────────────────────────────────────────
-        ts_ms = int(time.time() * 1000)
-        await ws.send(json.dumps({
-            "id": 1,
-            "cmd": "login",
-            "params": {
-                "key_id": cfg.api_key_id,
-                "signature": _sign(private_key, ts_ms),
-                "timestamp": ts_ms,
-            },
-        }))
-
-        ack_raw = await asyncio.wait_for(ws.recv(), timeout=_LOGIN_TIMEOUT)
-        ack = json.loads(ack_raw)
-        if ack.get("type") == "error":
-            raise RuntimeError(f"WS login error: {ack.get('msg', ack)}")
-        log.info("WS login OK")
+        # Auth is handled via HTTP headers on connect — no login command needed.
 
         # ── Subscribe in batches ──────────────────────────────────────────────
-        cmd_id = 2
+        cmd_id = 1
         for i in range(0, max(len(tickers), 1), _MAX_TICKERS_PER_BATCH):
             batch = tickers[i: i + _MAX_TICKERS_PER_BATCH]
             if not batch:
@@ -148,6 +141,9 @@ async def _run_session(
             msg = json.loads(raw)
             stats.messages_received += 1
             stats.last_message_at = datetime.now(timezone.utc).isoformat()
+            if msg.get("type") == "logged_in":
+                log.info("WS auth ack: status=%s", msg.get("status"))
+                continue
             try:
                 on_message(msg)
             except Exception as exc:

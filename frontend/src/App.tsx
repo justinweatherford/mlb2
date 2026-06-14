@@ -9,6 +9,7 @@ import { DailySummary } from './pages/DailySummary'
 import { DataHealth } from './pages/DataHealth'
 import { KalshiMarkets } from './pages/KalshiMarkets'
 import { MLBTeamContext } from './pages/MLBTeamContext'
+import { Journal } from './pages/Journal'
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
         <Route path="/signals" element={<Signals />} />
         <Route path="/positions" element={<Positions />} />
         <Route path="/candidates" element={<Candidates />} />
+        <Route path="/journal" element={<Journal />} />
         <Route path="/summary" element={<DailySummary />} />
         <Route path="/health" element={<DataHealth />} />
         <Route path="/kalshi" element={<KalshiMarkets />} />

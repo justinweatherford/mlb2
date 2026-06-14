@@ -13,6 +13,7 @@ from typing import Optional
 
 from kalshi.client import KalshiClient
 from kalshi.logger import KalshiLogger
+from kalshi.semantics import refresh_market_semantics
 
 # ── Market type classification ────────────────────────────────────────────────
 
@@ -213,12 +214,21 @@ def _split_mlb_abbrevs(s: str) -> tuple[Optional[str], Optional[str]]:
 def _extract_teams_from_game_ticker(event_ticker: str) -> tuple[Optional[str], Optional[str]]:
     """
     Parse KXMLBGAME-26JUN121937NYYTOR → ('NYY', 'TOR').
-    Format after prefix: {YY(2)}{MON(3)}{DD(2)}{HHMM(4)}{AWAY}{HOME} = 11 chars + teams.
+    Kept for backward compatibility — delegates to _extract_teams_from_event_ticker.
     """
-    prefix = "KXMLBGAME-"
-    if not event_ticker.startswith(prefix):
+    return _extract_teams_from_event_ticker(event_ticker)
+
+
+def _extract_teams_from_event_ticker(event_ticker: str) -> tuple[Optional[str], Optional[str]]:
+    """
+    Parse team abbreviations from any Kalshi MLB event ticker.
+    Works for all series: KXMLBGAME-, KXMLBTOTAL-, KXMLBF5TOTAL-, KXMLBTEAMTOTAL-, etc.
+    Format after first hyphen: {YY(2)}{MON(3)}{DD(2)}{HHMM(4)}{AWAY}{HOME} = 11 chars + teams.
+    """
+    parts = event_ticker.split("-", 1)
+    if len(parts) < 2:
         return None, None
-    rest = event_ticker[len(prefix):]
+    rest = parts[1]
     if len(rest) <= 11:
         return None, None
     return _split_mlb_abbrevs(rest[11:])
@@ -327,6 +337,13 @@ def _upsert_market(
     yes_ask    = _cents(mkt, "yes_ask", "yes_ask_cents", "yes_ask_dollars")
     last_price = _cents(mkt, "last_price", "last_price_cents", "last_price_dollars")
 
+    # Opening price: prefer last_trade, fall back to mid of bid/ask.
+    # Set only on first INSERT; ON CONFLICT update intentionally omits this column
+    # so the opening price is preserved through re-discovery and WS updates.
+    open_price: Optional[int] = last_price
+    if open_price is None and yes_bid is not None and yes_ask is not None:
+        open_price = (yes_bid + yes_ask) // 2
+
     conn.execute(
         """
         INSERT INTO kalshi_markets
@@ -334,8 +351,8 @@ def _upsert_market(
              rules_primary, open_time, close_time, expiration_time, status,
              yes_bid_cents, yes_ask_cents, last_price_cents, volume, open_interest,
              game_id, away_team, home_team, line_value, match_confidence,
-             raw_json, discovered_at, updated_at)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+             game_open_price_cents, raw_json, discovered_at, updated_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(market_ticker) DO UPDATE SET
             status           = excluded.status,
             yes_bid_cents    = excluded.yes_bid_cents,
@@ -351,7 +368,7 @@ def _upsert_market(
             match_confidence = excluded.match_confidence,
             raw_json         = excluded.raw_json,
             updated_at       = excluded.updated_at
-        """,
+        """,  # game_open_price_cents intentionally omitted from UPDATE: preserved from first insert
         (
             ticker,
             mkt.get("event_ticker", ""),
@@ -373,6 +390,7 @@ def _upsert_market(
             home,
             line_val,
             _match_confidence_from_teams(away, home) if game_id else "unresolved",
+            open_price,
             json.dumps(mkt, default=str),
             now,
             now,
@@ -418,6 +436,7 @@ class DiscoveryResult:
     events_found: int = 0
     markets_found: int = 0
     orderbooks_fetched: int = 0
+    semantics_refreshed: int = 0
     market_types: dict = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
     raw_rows: list = field(default_factory=list)       # list[DiscoveryRawRow] when debug_raw
@@ -532,6 +551,8 @@ def discover_event(
                     result.errors.append(f"orderbook({ticker}): {exc}")
 
     conn.commit()
+    sem = refresh_market_semantics(conn)
+    result.semantics_refreshed = sem.get("updated_clear", 0) + sem.get("updated_unclear", 0)
     return result
 
 
@@ -577,7 +598,7 @@ def discover_mlb(
 
         for ev in events:
             event_ticker = ev.get("event_ticker") or ev.get("ticker", "")
-            away, home = _extract_teams_from_game_ticker(event_ticker)
+            away, home = _extract_teams_from_event_ticker(event_ticker)
             if not (away and home):
                 away, home = _extract_teams_from_title(ev.get("title", ""))
             game_id = _build_game_id(away, home)
@@ -628,8 +649,43 @@ def discover_mlb(
                             total.errors.append(f"orderbook({ticker}): {exc}")
 
     conn.commit()
+    sem = refresh_market_semantics(conn)
+    total.semantics_refreshed = sem.get("updated_clear", 0) + sem.get("updated_unclear", 0)
 
     if include_unknown:
         total.series_probed = probe_series(client, _ALL_MLB_SERIES, status=status)
 
     return total
+
+
+def backfill_game_ids(conn: sqlite3.Connection) -> dict:
+    """
+    Backfill game_id, away_team, home_team for markets where game_id is NULL
+    by re-parsing each row's event_ticker using the generalized team extractor.
+
+    Safe to run multiple times (idempotent — skips rows that already have game_id).
+    Returns {"total_checked": N, "updated": N, "still_unresolved": N}.
+    """
+    rows = conn.execute(
+        "SELECT id, event_ticker FROM kalshi_markets WHERE game_id IS NULL"
+    ).fetchall()
+    updated = still_unresolved = 0
+
+    for row in rows:
+        event_ticker = row["event_ticker"] or ""
+        away, home = _extract_teams_from_event_ticker(event_ticker)
+        if not (away and home):
+            away, home = _extract_teams_from_title(event_ticker)
+        if away and home:
+            game_id = _build_game_id(away, home)
+            conn.execute(
+                "UPDATE kalshi_markets SET game_id=?, away_team=?, home_team=?, "
+                "match_confidence=? WHERE id=?",
+                (game_id, away, home, "event_match_only", row["id"]),
+            )
+            updated += 1
+        else:
+            still_unresolved += 1
+
+    conn.commit()
+    return {"total_checked": len(rows), "updated": updated, "still_unresolved": still_unresolved}

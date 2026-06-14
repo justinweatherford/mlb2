@@ -477,6 +477,19 @@ CREATE TABLE IF NOT EXISTS candidate_events (
     blocked_reason            TEXT,
     eligible_for_paper        INTEGER NOT NULL DEFAULT 0,
     status                    TEXT    NOT NULL DEFAULT 'observed_only',
+    -- Price baseline snapshot (from kalshi_markets at candidate creation time)
+    opening_price_cents         INTEGER,
+    current_mid_price_cents     INTEGER,
+    price_delta_from_open_cents INTEGER,
+    has_baseline_price          INTEGER NOT NULL DEFAULT 0,
+    implied_probability_open    REAL,
+    implied_probability_current REAL,
+    baseline_explanation        TEXT,
+    -- Deduplication columns: prevent re-inserting unchanged setups each cycle
+    dedupe_key                TEXT,
+    first_seen_at             TEXT,
+    last_seen_at              TEXT,
+    seen_count                INTEGER NOT NULL DEFAULT 1,
     created_at                TEXT    NOT NULL,
     updated_at                TEXT    NOT NULL
 );
@@ -488,6 +501,39 @@ CREATE INDEX IF NOT EXISTS idx_candidate_events_type     ON candidate_events(can
 CREATE INDEX IF NOT EXISTS idx_candidate_events_decision ON candidate_events(decision_time);
 CREATE INDEX IF NOT EXISTS idx_candidate_events_status   ON candidate_events(status);
 CREATE INDEX IF NOT EXISTS idx_candidate_events_eligible ON candidate_events(eligible_for_paper);
+
+-- ── Manual trade journal ───────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS manual_trade_journal (
+    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+    candidate_event_id   INTEGER,
+    game_pk              INTEGER,
+    game_id              TEXT,
+    market_ticker        TEXT,
+    event_ticker         TEXT,
+    market_type          TEXT,
+    settlement_horizon   TEXT,
+    selected_team_abbr   TEXT,
+    line_value           REAL,
+    side                 TEXT    NOT NULL,
+    entry_price_cents    INTEGER NOT NULL,
+    stake_dollars        REAL    NOT NULL,
+    entry_time           TEXT    NOT NULL,
+    exit_price_cents     INTEGER,
+    exit_time            TEXT,
+    settlement_status    TEXT    NOT NULL DEFAULT 'open',
+    realized_pnl_dollars REAL,
+    notes                TEXT,
+    created_at           TEXT    NOT NULL,
+    updated_at           TEXT    NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_manual_trades_candidate ON manual_trade_journal(candidate_event_id);
+CREATE INDEX IF NOT EXISTS idx_manual_trades_ticker    ON manual_trade_journal(market_ticker);
+CREATE INDEX IF NOT EXISTS idx_manual_trades_game_pk   ON manual_trade_journal(game_pk);
+CREATE INDEX IF NOT EXISTS idx_manual_trades_game_id   ON manual_trade_journal(game_id);
+CREATE INDEX IF NOT EXISTS idx_manual_trades_status    ON manual_trade_journal(settlement_status);
+CREATE INDEX IF NOT EXISTS idx_manual_trades_entry     ON manual_trade_journal(entry_time);
 """
 
 
@@ -514,6 +560,21 @@ def _apply_migrations(conn: sqlite3.Connection) -> None:
         "ALTER TABLE kalshi_markets ADD COLUMN is_semantics_clear INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE kalshi_markets ADD COLUMN needs_review_reason TEXT",
         "ALTER TABLE kalshi_markets ADD COLUMN game_open_price_cents INTEGER",
+        # Candidate dedup columns
+        "ALTER TABLE candidate_events ADD COLUMN dedupe_key TEXT",
+        "ALTER TABLE candidate_events ADD COLUMN first_seen_at TEXT",
+        "ALTER TABLE candidate_events ADD COLUMN last_seen_at TEXT",
+        "ALTER TABLE candidate_events ADD COLUMN seen_count INTEGER NOT NULL DEFAULT 1",
+        # Index for dedup key — must come after the columns are added
+        "CREATE INDEX IF NOT EXISTS idx_candidate_events_dedupe ON candidate_events(dedupe_key, first_seen_at)",
+        # Price baseline snapshot columns
+        "ALTER TABLE candidate_events ADD COLUMN opening_price_cents INTEGER",
+        "ALTER TABLE candidate_events ADD COLUMN current_mid_price_cents INTEGER",
+        "ALTER TABLE candidate_events ADD COLUMN price_delta_from_open_cents INTEGER",
+        "ALTER TABLE candidate_events ADD COLUMN has_baseline_price INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE candidate_events ADD COLUMN implied_probability_open REAL",
+        "ALTER TABLE candidate_events ADD COLUMN implied_probability_current REAL",
+        "ALTER TABLE candidate_events ADD COLUMN baseline_explanation TEXT",
     ]
     for sql in _migrations:
         try:
@@ -524,7 +585,7 @@ def _apply_migrations(conn: sqlite3.Connection) -> None:
 
 
 def init_db(db_path: str) -> sqlite3.Connection:
-    conn = sqlite3.connect(db_path, check_same_thread=False, timeout=10)
+    conn = sqlite3.connect(db_path, check_same_thread=False, timeout=30)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=NORMAL")

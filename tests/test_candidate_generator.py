@@ -5,6 +5,7 @@ All tests use in-memory SQLite. No internet, no external services, no paper posi
 """
 import json
 import sqlite3
+from datetime import datetime
 
 import pytest
 
@@ -51,6 +52,7 @@ def _insert_game(
     away_score=3,
     home_score=1,
     is_final=0,
+    last_checked_at=None,
 ) -> None:
     conn.execute(
         """
@@ -69,7 +71,7 @@ def _insert_game(
          away_score if is_final else None,
          home_score if is_final else None,
          (away_score + home_score) if is_final else None,
-         "2026-06-12T20:00:00", "2026-06-12T18:00:00"),
+         last_checked_at or datetime.now().isoformat(), "2026-06-12T18:00:00"),
     )
     conn.commit()
 
@@ -304,6 +306,23 @@ def test_guardrail_rally_active_blocks():
     conn.close()
 
 
+def test_guardrail_rally_two_outs_runners_blocks():
+    """2 outs with runners on base → rally_still_active block (new conservative behavior)."""
+    conn = _mem()
+    _insert_market(conn, yes_bid=62, yes_ask=65)
+    market = _fetch_market(conn)
+    gr = check_all(
+        market=market, candidate_type="full_game_total_extreme_reprice_watch",
+        game_pk=_GAME_PK, game_id=_GAME_ID,
+        outs=2, runners_state="2B 3B",
+        settlement_horizon="full_game",
+        conn=conn,
+    )
+    assert not gr.passed
+    assert gr.blocked_reason == "rally_still_active"
+    conn.close()
+
+
 def test_guardrail_rally_not_active_when_bases_empty():
     """Bases empty at 1 out → not a rally → does not block on rally."""
     conn = _mem()
@@ -373,15 +392,17 @@ def test_guardrail_market_nearly_settled_full_game_blocks():
     conn.close()
 
 
-def test_guardrail_duplicate_blocks():
-    """Second call for same game/type/ticker within dedup window → block."""
+def test_guardrail_duplicate_no_longer_blocks():
+    """Duplicate detection was moved out of guardrails into upsert_candidate_event.
+    check_all() must now PASS even when a prior candidate row exists for the same
+    game/type/ticker — dedup is the caller's responsibility via dedupe_key."""
     from mlb.candidates import insert_candidate_event
     conn = _mem()
     _insert_market(conn, yes_bid=62, yes_ask=65)
     market = _fetch_market(conn)
     ticker = market["market_ticker"]
 
-    # Pre-insert a candidate to trigger the duplicate check
+    # Pre-insert a candidate — guardrail should no longer care
     insert_candidate_event(
         conn,
         candidate_type="full_game_total_extreme_reprice_watch",
@@ -397,8 +418,9 @@ def test_guardrail_duplicate_blocks():
         market_ticker=ticker,
         conn=conn,
     )
-    assert not gr.passed
-    assert gr.blocked_reason == "duplicate_candidate"
+    assert gr.passed
+    assert gr.blocked_reason is None
+    assert "duplicate_candidate" not in gr.guardrails_checked
     conn.close()
 
 
@@ -439,20 +461,43 @@ def test_guardrail_result_json_is_valid():
 
 # ── _rally_active and _market_nearly_settled unit tests ───────────────────────
 
-def test_rally_active_runners_low_outs():
+def test_rally_active_runners_zero_outs():
+    assert _rally_active(outs=0, runners_state="1B") is True
+
+
+def test_rally_active_runners_one_out():
     assert _rally_active(outs=1, runners_state="1B") is True
 
 
-def test_rally_active_two_outs_no_block():
-    assert _rally_active(outs=2, runners_state="1B") is False
+def test_rally_active_runners_two_outs_blocks():
+    """2 outs with runners still blocks — one hit can score immediately."""
+    assert _rally_active(outs=2, runners_state="1B") is True
 
 
-def test_rally_active_empty_bases():
+def test_rally_active_runners_two_outs_corners_blocks():
+    """2B/3B with 2 outs: double threat → must block."""
+    assert _rally_active(outs=2, runners_state="2B 3B") is True
+
+
+def test_rally_active_empty_bases_two_outs():
+    assert _rally_active(outs=2, runners_state="") is False
+
+
+def test_rally_active_empty_bases_zero_outs():
     assert _rally_active(outs=0, runners_state="") is False
 
 
-def test_rally_active_none_outs():
-    assert _rally_active(outs=None, runners_state="1B") is False
+def test_rally_active_none_runners():
+    assert _rally_active(outs=0, runners_state=None) is False
+
+
+def test_rally_active_empty_string_sentinel():
+    assert _rally_active(outs=2, runners_state="---") is False
+
+
+def test_rally_active_none_outs_with_runners():
+    """outs=None but runners present → still blocks (conservative)."""
+    assert _rally_active(outs=None, runners_state="1B") is True
 
 
 def test_market_nearly_settled_f5_top5():

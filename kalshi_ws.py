@@ -39,7 +39,7 @@ logging.basicConfig(
 )
 log = logging.getLogger("kalshi_ws")
 
-_COMMIT_EVERY = 20   # batch DB commits for performance
+_COMMIT_EVERY = 1    # commit after every message so the write lock is released promptly
 
 
 def _parse_args() -> argparse.Namespace:

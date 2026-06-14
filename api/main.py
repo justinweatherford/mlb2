@@ -15,7 +15,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routers import candidates, health, ingest, kalshi_markets, mlb, positions, signals, summary
+from api.routers import candidates, health, ingest, kalshi_markets, manual_trades, mlb, overview, positions, signals, summary
 from api.deps import DB_PATH
 from db.schema import init_db
 
@@ -50,7 +50,7 @@ app.add_middleware(
         "http://127.0.0.1:3000",
     ],
     allow_credentials=True,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PATCH"],
     allow_headers=["*"],
 )
 
@@ -59,6 +59,7 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 PREFIX = "/api"
 
+app.include_router(overview.router,        prefix=PREFIX, tags=["overview"])
 app.include_router(summary.router,         prefix=PREFIX, tags=["summary"])
 app.include_router(signals.router,         prefix=PREFIX, tags=["signals"])
 app.include_router(positions.router,       prefix=PREFIX, tags=["positions"])
@@ -66,6 +67,7 @@ app.include_router(candidates.router,      prefix=PREFIX, tags=["candidates"])
 app.include_router(health.router,          prefix=PREFIX, tags=["health"])
 app.include_router(ingest.router,          prefix=PREFIX, tags=["ingest"])
 app.include_router(kalshi_markets.router,  prefix=PREFIX, tags=["kalshi"])
+app.include_router(manual_trades.router, prefix=PREFIX, tags=["manual-trades"])
 app.include_router(mlb.router, prefix=f"{PREFIX}/mlb/team-context", tags=["mlb"])
 
 

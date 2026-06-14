@@ -307,6 +307,114 @@ export interface KalshiMarket {
   match_confidence: string
   discovered_at: string
   updated_at: string
+  is_semantics_clear: number
+  contract_direction: string | null
+  settlement_horizon: string | null
+  selected_team_abbr: string | null
+}
+
+export interface ManualTrade {
+  id: number
+  candidate_event_id: number | null
+  game_pk: number | null
+  game_id: string | null
+  market_ticker: string | null
+  event_ticker: string | null
+  market_type: string | null
+  settlement_horizon: string | null
+  selected_team_abbr: string | null
+  line_value: number | null
+  side: string
+  entry_price_cents: number
+  stake_dollars: number
+  entry_time: string
+  exit_price_cents: number | null
+  exit_time: string | null
+  settlement_status: string
+  realized_pnl_dollars: number | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ManualTradeCreate {
+  candidate_event_id?: number | null
+  game_pk?: number | null
+  game_id?: string | null
+  market_ticker?: string | null
+  event_ticker?: string | null
+  market_type?: string | null
+  settlement_horizon?: string | null
+  selected_team_abbr?: string | null
+  line_value?: number | null
+  side: string
+  entry_price_cents: number
+  stake_dollars: number
+  entry_time?: string | null
+  notes?: string | null
+}
+
+export interface ManualTradeUpdate {
+  exit_price_cents?: number | null
+  exit_time?: string | null
+  settlement_status?: string | null
+  realized_pnl_dollars?: number | null
+  notes?: string | null
+}
+
+export interface LiveCandidate {
+  id: number
+  candidate_type: string
+  game_pk: number | null
+  game_id: string | null
+  market_ticker: string | null
+  event_ticker: string | null
+  market_type: string | null
+  settlement_horizon: string
+  selected_team_abbr: string | null
+  line_value: number | null
+  side: string | null
+  decision_time: string | null
+  available_data_cutoff: string | null
+  mlb_play_event_id: string | null
+  trigger_event_type: string | null
+  trigger_description: string | null
+  inning: number | null
+  half_inning: string | null
+  outs: number | null
+  score_away: number | null
+  score_home: number | null
+  runners_state: string | null
+  entry_yes_bid: number | null
+  entry_yes_ask: number | null
+  entry_no_bid: number | null
+  entry_no_ask: number | null
+  spread_cents: number | null
+  expected_fill_price: number | null
+  market_mismatch_score: number | null
+  baseball_support_score: number | null
+  execution_quality_score: number | null
+  risk_blocker_score: number | null
+  overall_watch_score: number | null
+  confidence_breakdown_json: string | null
+  baseball_context_json: string | null
+  market_context_json: string | null
+  guardrails_json: string | null
+  blocked_reason: string | null
+  eligible_for_paper: boolean
+  status: string
+  opening_price_cents: number | null
+  current_mid_price_cents: number | null
+  price_delta_from_open_cents: number | null
+  has_baseline_price: boolean
+  implied_probability_open: number | null
+  implied_probability_current: number | null
+  baseline_explanation: string | null
+  seen_count: number
+  first_seen_at: string | null
+  last_seen_at: string | null
+  created_at: string
+  updated_at: string
 }
 
 export interface SummaryResponse {
@@ -326,4 +434,50 @@ export interface SummaryResponse {
   avg_mfe_cents: number
   avg_mae_cents: number
   pace_fade: PaceFadeSummary
+}
+
+export interface OverviewMlbGame {
+  game_pk: number
+  game_id: string
+  status: string
+  is_final: boolean
+  away_abbr: string | null
+  home_abbr: string | null
+  away_score: number | null
+  home_score: number | null
+}
+
+export interface OverviewCandidate {
+  id: number
+  game_id: string | null
+  candidate_type: string
+  trigger_description: string | null
+  market_ticker: string | null
+  entry_yes_bid: number | null
+  entry_yes_ask: number | null
+  eligible: boolean
+  blocked_reason: string | null
+  created_at: string
+}
+
+export interface OverviewResponse {
+  today: string
+  mlb: {
+    total_today: number
+    live: number
+    final: number
+    upcoming: number
+    games: OverviewMlbGame[]
+  }
+  candidates: {
+    total_today: number
+    recent: OverviewCandidate[]
+  }
+  signals_today: number
+  kalshi: {
+    markets_total: number
+    markets_open: number
+    last_ws_update: string | null
+    ws_updates_today: number
+  }
 }

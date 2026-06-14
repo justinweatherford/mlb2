@@ -51,6 +51,7 @@ def get_kalshi_markets(
     market_type:   Optional[str] = Query(default=None),
     status:        Optional[str] = Query(default=None),
     game_id:       Optional[str] = Query(default=None),
+    game_date:     Optional[str] = Query(default=None, description="YYYY-MM-DD — filter to markets whose game_id appears in mlb_games for this date"),
     away_team:     Optional[str] = Query(default=None),
     home_team:     Optional[str] = Query(default=None),
     limit:         int = Query(default=200, ge=1, le=1000),
@@ -70,6 +71,9 @@ def get_kalshi_markets(
     if game_id:
         where.append("game_id = ?")
         params.append(game_id)
+    if game_date:
+        where.append("game_id IN (SELECT game_id FROM mlb_games WHERE game_date = ?)")
+        params.append(game_date)
     if away_team:
         where.append("away_team = ?")
         params.append(away_team)

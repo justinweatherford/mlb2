@@ -62,6 +62,23 @@ _RULES_YES_UNDER = re.compile(
     re.IGNORECASE,
 )
 
+# ── Regex patterns — rules_primary Kalshi "If ..., then resolves to Yes" format ─
+# Kalshi standard sentence: "If [teams] (collectively) score more X runs ...,
+# then the market resolves to Yes."  Direction is in the "If" clause, not the
+# "resolves" clause, so the existing _RULES_YES_OVER patterns don't fire.
+
+_RULES_IF_SCORE_OVER_YES = re.compile(
+    # "score more [N]" or "scores [N]+ runs" → YES = Over
+    # Use [\s\S]*? (lazy) so decimal points like "15.5" don't break the match
+    r'\bif\b[\s\S]*?\bscore(?:s)?\s+(?:more\b|\d+\+)[\s\S]*?\bmarket\s+resolves?\s+to\s+yes\b',
+    re.IGNORECASE,
+)
+_RULES_IF_SCORE_UNDER_YES = re.compile(
+    # "score fewer/under/less than [N]" → YES = Under
+    r'\bif\b[\s\S]*?\bscore(?:s)?\s+(?:fewer\b|under\b|less\b|at\s+most\b)[\s\S]*?\bmarket\s+resolves?\s+to\s+yes\b',
+    re.IGNORECASE,
+)
+
 # ── Regex patterns — title / subtitle (confidence 0.8) ───────────────────────
 # Require "over/under [number]" — a bare keyword without a number is NOT enough.
 # This blocks signal-name keywords like "under_candidate" (no number follows).
@@ -167,6 +184,15 @@ def _parse_totals_direction(
         if found_over and found_under:
             # Two distinct YES conditions — genuinely ambiguous.
             return ("unknown", "unknown", "unknown", 0.0)
+
+        # NEW: Kalshi "If [condition], then the market resolves to Yes" sentence format.
+        # Checked after the explicit-YES patterns fail (they're more specific when present).
+        if_over  = bool(_RULES_IF_SCORE_OVER_YES.search(rules))
+        if_under = bool(_RULES_IF_SCORE_UNDER_YES.search(rules))
+        if if_over and not if_under:
+            return (over_dir, yes_over, no_over, 1.0)
+        if if_under and not if_over:
+            return (under_dir, yes_under, no_under, 1.0)
         # No match in rules — fall through to title
 
     # ── title / subtitle: require "over N" or "under N" ─────────────────────
@@ -216,18 +242,33 @@ def _parse_team_from_ticker(
     """
     Parse ticker last dash-segment and match to a known team abbreviation.
     KXMLBGAME-26JUN121937NYYTOR-NYY → "NYY"
+    KXMLBTEAMTOTAL-26JUN132205COLATH-ATH2 → "ATH" (trailing digit = line value)
     Returns None if no match.
     """
     segs = ticker.split("-")
     if len(segs) < 2:
         return None
-    candidate = segs[-1].upper().strip()
+    last = segs[-1].upper().strip()
     away_u = (away or "").upper().strip()
     home_u = (home or "").upper().strip()
-    if away_u and candidate == away_u:
+
+    # Exact match first
+    if away_u and last == away_u:
         return away_u
-    if home_u and candidate == home_u:
+    if home_u and last == home_u:
         return home_u
+
+    # Strip trailing digits for team_total format: ATH2 → ATH, COL3 → COL
+    stripped = re.sub(r'\d+$', '', last)
+    if 2 <= len(stripped) <= 4:
+        if away_u and stripped == away_u:
+            return away_u
+        if home_u and stripped == home_u:
+            return home_u
+        # No known teams (away/home not yet populated): trust the ticker directly
+        if not away_u and not home_u and stripped.isalpha():
+            return stripped
+
     return None
 
 

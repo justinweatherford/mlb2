@@ -14,12 +14,46 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
+from dataclasses import dataclass, field
 from typing import Optional
 
-from mlb.candidates import insert_candidate_event
+from mlb.candidates import upsert_candidate_event
 from mlb.guardrails import check_all
+from mlb.price_utils import compute_price_baseline
 
 log = logging.getLogger(__name__)
+
+
+# ── Diagnostic result type ────────────────────────────────────────────────────
+
+@dataclass
+class GameDiag:
+    """Diagnostics for one game's candidate-generation pass."""
+    ids: list[int] = field(default_factory=list)
+    rules_evaluated: int = 0     # times check_all() was called
+    blocked: int = 0             # guardrail-blocked insertions
+    dedupe_skipped: int = 0      # same-setup rows suppressed by dedup
+
+    # Keyed by reason string; counts pre-insertion skips (nothing written to DB).
+    skip_reasons: dict[str, int] = field(default_factory=dict)
+
+    # ── List-compatible interface so existing callers work unchanged ──────────
+    def __iter__(self):
+        return iter(self.ids)
+
+    def __len__(self) -> int:
+        return len(self.ids)
+
+    def __bool__(self) -> bool:
+        return bool(self.ids)
+
+    def __getitem__(self, i):
+        return self.ids[i]
+
+    def __eq__(self, other):
+        if isinstance(other, list):
+            return self.ids == other
+        return NotImplemented
 
 
 # ── Trigger thresholds ────────────────────────────────────────────────────────
@@ -81,28 +115,40 @@ def generate_candidates_for_game(
     conn: sqlite3.Connection,
     game_pk: int,
     game_id: str,
-) -> list[int]:
+) -> GameDiag:
     """
     Scan DB state for game_pk/game_id and generate observation candidates.
-    Returns list of newly-inserted candidate_event IDs.
+
+    Returns a GameDiag whose .ids lists newly-inserted candidate_event IDs.
+    GameDiag is list-compatible (supports len/iter/bool/index) so existing
+    callers that treat the return as list[int] work unchanged.
     """
+    diag          = GameDiag()
     gs            = _latest_game_state(conn, game_pk)
     scoring_plays = _recent_scoring_plays(conn, game_pk)
 
-    ids: list[int] = []
     for fn in (
         _try_full_game_total_watch,
         _try_f5_fade_watch,
         _try_trailing_team_total_watch,
     ):
         try:
-            cid = fn(conn, game_pk, game_id, gs, scoring_plays)
-            if cid is not None:
-                ids.append(cid)
+            cid, skip_reason, guardrail_blocked, is_new = fn(conn, game_pk, game_id, gs, scoring_plays)
+            if skip_reason is not None:
+                diag.skip_reasons[skip_reason] = diag.skip_reasons.get(skip_reason, 0) + 1
+            else:
+                diag.rules_evaluated += 1
+                if cid is not None:
+                    if is_new:
+                        diag.ids.append(cid)
+                        if guardrail_blocked:
+                            diag.blocked += 1
+                    else:
+                        diag.dedupe_skipped += 1
         except Exception as exc:
             log.error("%s error game_pk=%s: %s", fn.__name__, game_pk, exc)
 
-    return ids
+    return diag
 
 
 # ── Scoring helpers ───────────────────────────────────────────────────────────
@@ -264,25 +310,26 @@ def _try_full_game_total_watch(
     game_id: str,
     gs: Optional[sqlite3.Row],
     scoring_plays: list[sqlite3.Row],
-) -> Optional[int]:
+) -> tuple[Optional[int], Optional[str], bool, bool]:
     """
     Trigger: scoring occurred AND full-game total mid-price has repriced
     >= _REPRICE_TRIGGER_CENTS above the open price (or neutral 50 if no open).
 
-    Observation rationale: early-game scoring often causes the market to overshoot;
-    this watches for potential fade candidates without committing to a direction.
+    Returns (candidate_id, skip_reason, guardrail_blocked, is_new).
+    skip_reason is None when check_all() was reached; candidate_id is None only
+    on pre-insertion skips (skip_reason will be set).
     """
     if not scoring_plays:
-        return None
+        return None, "no_scoring_plays", False, False
 
     market = _best_market(conn, game_id, "full_game_total")
     if market is None:
-        return None
+        return None, "no_market", False, False
 
     yes_bid = market["yes_bid_cents"]
     yes_ask = market["yes_ask_cents"]
     if yes_bid is None or yes_ask is None:
-        return None
+        return None, "missing_bid_ask", False, False
 
     open_price = market["game_open_price_cents"]
     mid = (yes_bid + yes_ask) / 2.0
@@ -290,7 +337,7 @@ def _try_full_game_total_watch(
     move = mid - baseline
 
     if move < _REPRICE_TRIGGER_CENTS:
-        return None
+        return None, "no_trigger_condition", False, False
 
     # Pull game state fields
     inning      = gs["inning"]       if gs else None
@@ -320,6 +367,7 @@ def _try_full_game_total_watch(
     execution = _score_execution_quality(spread)
     risk      = _score_risk(scoring_plays, spread)
     overall   = _overall_watch_score(mismatch, baseball, execution, risk)
+    baseline  = compute_price_baseline(market)
 
     trigger_desc = (
         f"Full-game mid repriced {move:+.0f}c from "
@@ -327,7 +375,7 @@ def _try_full_game_total_watch(
         f"after {len(scoring_plays)} scoring play(s)"
     )
 
-    return insert_candidate_event(
+    cid, is_new = upsert_candidate_event(
         conn,
         candidate_type="full_game_total_extreme_reprice_watch",
         game_pk=game_pk,
@@ -361,7 +409,9 @@ def _try_full_game_total_watch(
         confidence_breakdown_json=_build_confidence_json(
             mismatch, baseball, execution, risk, overall
         ),
+        **baseline,
     )
+    return cid, None, not gr.passed, is_new
 
 
 # ── Candidate type B: f5_total_overreaction_fade_watch ───────────────────────
@@ -372,7 +422,7 @@ def _try_f5_fade_watch(
     game_id: str,
     gs: Optional[sqlite3.Row],
     scoring_plays: list[sqlite3.Row],
-) -> Optional[int]:
+) -> tuple[Optional[int], Optional[str], bool, bool]:
     """
     Trigger: early scoring (innings 1-3) AND F5 over market mid > _F5_OVER_MID_THRESHOLD.
 
@@ -381,28 +431,28 @@ def _try_f5_fade_watch(
     """
     inning = gs["inning"] if gs else None
     if inning is not None and inning > _F5_MAX_INNING:
-        return None  # too late for F5
+        return None, "inning_too_late", False, False
 
     early_plays = _early_scoring_plays(conn, game_pk)
     if not early_plays:
-        return None
+        return None, "no_early_scoring", False, False
 
     market = _best_market(conn, game_id, "f5_total")
     if market is None:
-        return None
+        return None, "no_market", False, False
 
     # Only trigger on f5_over_yes markets (overreaction fade targets the over)
     if (market["contract_direction"] or "").lower() != "f5_over_yes":
-        return None
+        return None, "wrong_direction", False, False
 
     yes_bid = market["yes_bid_cents"]
     yes_ask = market["yes_ask_cents"]
     if yes_bid is None or yes_ask is None:
-        return None
+        return None, "missing_bid_ask", False, False
 
     mid = (yes_bid + yes_ask) / 2.0
     if mid < _F5_OVER_MID_THRESHOLD:
-        return None  # market not sufficiently overpriced
+        return None, "no_trigger_condition", False, False
 
     half_inning = gs["inning_half"]  if gs else None
     outs        = gs["outs"]         if gs else None
@@ -430,13 +480,14 @@ def _try_f5_fade_watch(
     execution = _score_execution_quality(spread)
     risk      = _score_risk(early_plays, spread)
     overall   = _overall_watch_score(mismatch, baseball, execution, risk)
+    baseline  = compute_price_baseline(market)
 
     trigger_desc = (
         f"F5 over mid={mid:.0f}c after {len(early_plays)} early-inning scoring play(s); "
         f"inning {inning}"
     )
 
-    return insert_candidate_event(
+    cid, is_new = upsert_candidate_event(
         conn,
         candidate_type="f5_total_overreaction_fade_watch",
         game_pk=game_pk,
@@ -470,7 +521,9 @@ def _try_f5_fade_watch(
         confidence_breakdown_json=_build_confidence_json(
             mismatch, baseball, execution, risk, overall
         ),
+        **baseline,
     )
+    return cid, None, not gr.passed, is_new
 
 
 # ── Candidate type C: trailing_team_total_lag_watch ─────────────────────────
@@ -481,7 +534,7 @@ def _try_trailing_team_total_watch(
     game_id: str,
     gs: Optional[sqlite3.Row],
     scoring_plays: list[sqlite3.Row],
-) -> Optional[int]:
+) -> tuple[Optional[int], Optional[str], bool, bool]:
     """
     Trigger: one team trails by >= _TRAILING_RUN_THRESHOLD in innings 1–6 AND
     their team-total over market exists with clear semantics.
@@ -491,14 +544,14 @@ def _try_trailing_team_total_watch(
     late-game scoring.
     """
     if gs is None:
-        return None
+        return None, "no_game_state", False, False
 
     inning     = gs["inning"] or 1
     away_score = gs["away_score"] or 0
     home_score = gs["home_score"] or 0
 
     if inning > _TRAILING_MAX_INNING:
-        return None
+        return None, "inning_too_late", False, False
 
     away_abbr, home_abbr = _get_team_abbrs(conn, game_pk)
 
@@ -514,20 +567,20 @@ def _try_trailing_team_total_watch(
         trailing_score = home_score
         leading_score  = away_score
     else:
-        return None
+        return None, "no_trailing_team", False, False
 
     market = _best_team_total_market(conn, game_id, trailing_abbr)
     if market is None:
-        return None
+        return None, "no_market", False, False
 
     # Only team_total_over_yes markets — we're watching for underpriced team total
     if (market["contract_direction"] or "").lower() != "team_total_over_yes":
-        return None
+        return None, "wrong_direction", False, False
 
     yes_bid = market["yes_bid_cents"]
     yes_ask = market["yes_ask_cents"]
     if yes_bid is None or yes_ask is None:
-        return None
+        return None, "missing_bid_ask", False, False
 
     half_inning = gs["inning_half"]  if gs else None
     outs        = gs["outs"]         if gs else None
@@ -553,13 +606,14 @@ def _try_trailing_team_total_watch(
     execution = _score_execution_quality(spread)
     risk      = _score_risk(scoring_plays, spread)
     overall   = _overall_watch_score(mismatch, baseball, execution, risk)
+    baseline  = compute_price_baseline(market)
 
     trigger_desc = (
         f"{trailing_abbr} trails {leading_score}-{trailing_score} in inning {inning}; "
         f"team total may be lagging"
     )
 
-    return insert_candidate_event(
+    cid, is_new = upsert_candidate_event(
         conn,
         candidate_type="trailing_team_total_lag_watch",
         game_pk=game_pk,
@@ -594,4 +648,6 @@ def _try_trailing_team_total_watch(
         confidence_breakdown_json=_build_confidence_json(
             mismatch, baseball, execution, risk, overall
         ),
+        **baseline,
     )
+    return cid, None, not gr.passed, is_new

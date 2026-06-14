@@ -1,5 +1,6 @@
 import sqlite3
-from typing import Optional
+from datetime import date
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -8,6 +9,69 @@ from api.schemas import CandidateEventOut, ListResponse, PaceFadeCandidateOut, S
 from mlb.candidates import get_candidate_event, list_candidate_events
 
 router = APIRouter()
+
+
+# ---------------------------------------------------------------------------
+# Diagnostics (aggregated from candidate_events)
+# ---------------------------------------------------------------------------
+
+@router.get("/candidates/diagnostics")
+def get_candidates_diagnostics(
+    for_date: Optional[str] = Query(
+        default=None,
+        description="YYYY-MM-DD; defaults to today",
+    ),
+    db: sqlite3.Connection = Depends(get_db),
+) -> dict[str, Any]:
+    """
+    Aggregated candidate stats for a given date, computed from candidate_events.
+    Useful for understanding watcher activity without tailing log files.
+    """
+    day = for_date or date.today().isoformat()
+    prefix = f"{day}T"  # ISO prefix filter
+
+    total = db.execute(
+        "SELECT COUNT(*) FROM candidate_events WHERE created_at >= ? AND created_at < ?",
+        (prefix + "00:00:00", prefix + "99:99:99"),
+    ).fetchone()[0]
+
+    observed = db.execute(
+        "SELECT COUNT(*) FROM candidate_events "
+        "WHERE status = 'observed_only' AND created_at >= ? AND created_at < ?",
+        (prefix + "00:00:00", prefix + "99:99:99"),
+    ).fetchone()[0]
+
+    blocked = db.execute(
+        "SELECT COUNT(*) FROM candidate_events "
+        "WHERE status = 'blocked' AND created_at >= ? AND created_at < ?",
+        (prefix + "00:00:00", prefix + "99:99:99"),
+    ).fetchone()[0]
+
+    by_type_rows = db.execute(
+        "SELECT candidate_type, COUNT(*) AS n FROM candidate_events "
+        "WHERE created_at >= ? AND created_at < ? GROUP BY candidate_type",
+        (prefix + "00:00:00", prefix + "99:99:99"),
+    ).fetchall()
+    by_type = {r["candidate_type"]: r["n"] for r in by_type_rows}
+
+    by_blocked_reason_rows = db.execute(
+        "SELECT blocked_reason, COUNT(*) AS n FROM candidate_events "
+        "WHERE status = 'blocked' AND blocked_reason IS NOT NULL "
+        "  AND created_at >= ? AND created_at < ? GROUP BY blocked_reason",
+        (prefix + "00:00:00", prefix + "99:99:99"),
+    ).fetchall()
+    by_blocked_reason = {r["blocked_reason"]: r["n"] for r in by_blocked_reason_rows}
+
+    return {
+        "date": day,
+        "candidates": {
+            "total": total,
+            "observed_only": observed,
+            "blocked": blocked,
+            "by_type": by_type,
+            "by_blocked_reason": by_blocked_reason,
+        },
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -21,9 +85,12 @@ def get_live_candidates(
     candidate_type:     Optional[str] = Query(default=None),
     status:             Optional[str] = Query(default=None),
     eligible_for_paper: Optional[int] = Query(default=None, ge=0, le=1),
+    include_internal_dedup: bool      = Query(default=False,
+        description="Include duplicate_candidate blocked rows (internal dedup artifacts)"),
     limit:              int           = Query(default=100, ge=1, le=1000),
     db: sqlite3.Connection = Depends(get_db),
 ) -> ListResponse[CandidateEventOut]:
+    exclude = None if include_internal_dedup else "duplicate_candidate"
     rows = list_candidate_events(
         db,
         game_pk=game_pk,
@@ -31,6 +98,7 @@ def get_live_candidates(
         candidate_type=candidate_type,
         status=status,
         eligible_for_paper=eligible_for_paper,
+        exclude_blocked_reason=exclude,
         limit=limit,
     )
     # Total count with the same filters (no LIMIT)
@@ -45,6 +113,9 @@ def get_live_candidates(
         where.append("status = ?"); params.append(status)
     if eligible_for_paper is not None:
         where.append("eligible_for_paper = ?"); params.append(eligible_for_paper)
+    if exclude is not None:
+        where.append("(blocked_reason IS NULL OR blocked_reason != ?)")
+        params.append(exclude)
     clause = " WHERE " + " AND ".join(where) if where else ""
     total = db.execute(f"SELECT COUNT(*) FROM candidate_events{clause}", params).fetchone()[0]
 

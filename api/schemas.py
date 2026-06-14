@@ -236,6 +236,16 @@ class CandidateEventOut(BaseModel):
     blocked_reason: Optional[str] = None
     eligible_for_paper: bool
     status: str
+    opening_price_cents: Optional[int] = None
+    current_mid_price_cents: Optional[int] = None
+    price_delta_from_open_cents: Optional[int] = None
+    has_baseline_price: bool = False
+    implied_probability_open: Optional[float] = None
+    implied_probability_current: Optional[float] = None
+    baseline_explanation: Optional[str] = None
+    seen_count: int = 1
+    first_seen_at: Optional[str] = None
+    last_seen_at: Optional[str] = None
     created_at: str
     updated_at: str
 
@@ -246,6 +256,9 @@ class CandidateEventOut(BaseModel):
             raw = data.get("eligible_for_paper")
             if raw is not None:
                 data["eligible_for_paper"] = bool(raw)
+            raw_b = data.get("has_baseline_price")
+            if raw_b is not None:
+                data["has_baseline_price"] = bool(raw_b)
         return data
 
 
@@ -405,6 +418,11 @@ class KalshiMarketOut(BaseModel):
     match_confidence: str
     discovered_at: str
     updated_at: str
+    # Semantics & bot-routing fields
+    is_semantics_clear: int            = 0
+    contract_direction: Optional[str]  = None
+    settlement_horizon: Optional[str]  = None
+    selected_team_abbr: Optional[str]  = None
 
     @model_validator(mode="before")
     @classmethod
@@ -464,6 +482,61 @@ class KalshiLiveMarketOut(BaseModel):
             mtype = data.get("market_type", "unknown") or "unknown"
             data["market_type_label"] = MARKET_TYPE_LABELS.get(mtype, mtype.replace("_", " ").title())
         return data
+
+
+# ---------------------------------------------------------------------------
+# Manual trade journal
+# ---------------------------------------------------------------------------
+
+class ManualTradeCreate(BaseModel):
+    """Fields required/optional when logging a new manual trade."""
+    candidate_event_id:  Optional[int]   = None
+    game_pk:             Optional[int]   = None
+    game_id:             Optional[str]   = None
+    market_ticker:       Optional[str]   = None
+    event_ticker:        Optional[str]   = None
+    market_type:         Optional[str]   = None
+    settlement_horizon:  Optional[str]   = None
+    selected_team_abbr:  Optional[str]   = None
+    line_value:          Optional[float] = None
+    side:                str
+    entry_price_cents:   int
+    stake_dollars:       float
+    entry_time:          Optional[str]   = None
+    notes:               Optional[str]   = None
+
+
+class ManualTradeUpdate(BaseModel):
+    """All fields optional — only provided fields are written."""
+    exit_price_cents:     Optional[int]   = None
+    exit_time:            Optional[str]   = None
+    settlement_status:    Optional[str]   = None
+    realized_pnl_dollars: Optional[float] = None
+    notes:                Optional[str]   = None
+
+
+class ManualTradeOut(BaseModel):
+    id:                   int
+    candidate_event_id:   Optional[int]   = None
+    game_pk:              Optional[int]   = None
+    game_id:              Optional[str]   = None
+    market_ticker:        Optional[str]   = None
+    event_ticker:         Optional[str]   = None
+    market_type:          Optional[str]   = None
+    settlement_horizon:   Optional[str]   = None
+    selected_team_abbr:   Optional[str]   = None
+    line_value:           Optional[float] = None
+    side:                 str
+    entry_price_cents:    int
+    stake_dollars:        float
+    entry_time:           str
+    exit_price_cents:     Optional[int]   = None
+    exit_time:            Optional[str]   = None
+    settlement_status:    str
+    realized_pnl_dollars: Optional[float] = None
+    notes:                Optional[str]   = None
+    created_at:           str
+    updated_at:           str
 
 
 # ---------------------------------------------------------------------------
