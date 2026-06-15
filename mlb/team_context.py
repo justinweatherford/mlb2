@@ -120,6 +120,13 @@ def _rate_bullpen_risk(late_ra_pg: Optional[float]) -> float:
     return round(_clamp(50.0 + (late_ra_pg - _LEAGUE_AVG_LATE) * _SCALE_F5), 1)
 
 
+def _rate_scoring_form(rpg: Optional[float]) -> Optional[float]:
+    """Simple single-window form rating: 50 + (rpg - league_avg) × scale, clamped."""
+    if rpg is None:
+        return None
+    return round(_clamp(50.0 + (rpg - _LEAGUE_AVG_RPG) * _SCALE_RPG), 1)
+
+
 def _rate_comeback_scoring(late_rpg: Optional[float], rpg: Optional[float]) -> float:
     """
     Teams that score late AND score overall are dangerous when trailing.
@@ -156,6 +163,9 @@ def compute_team_context(
                final_away_score AS scored, final_home_score AS allowed
         FROM mlb_games
         WHERE away_abbr = ? AND is_final = 1 AND game_date LIKE ?
+          AND final_away_score IS NOT NULL
+          AND final_home_score IS NOT NULL
+          AND final_total IS NOT NULL
         ORDER BY game_date ASC
         """,
         (team_abbr, like),
@@ -167,6 +177,9 @@ def compute_team_context(
                final_home_score AS scored, final_away_score AS allowed
         FROM mlb_games
         WHERE home_abbr = ? AND is_final = 1 AND game_date LIKE ?
+          AND final_away_score IS NOT NULL
+          AND final_home_score IS NOT NULL
+          AND final_total IS NOT NULL
         ORDER BY game_date ASC
         """,
         (team_abbr, like),
@@ -212,6 +225,11 @@ def compute_team_context(
     recent_rpg_7 = _avg([g["scored"]  for g, _ in last_7])
     recent_ra_7  = _avg([g["allowed"] for g, _ in last_7])
 
+    # ── Rolling form windows ──────────────────────────────────────────────────
+    l1_rpg  = _avg([g["scored"] for g, _ in all_games[-1:]])
+    l5_rpg  = _avg([g["scored"] for g, _ in all_games[-5:]])
+    l10_rpg = _avg([g["scored"] for g, _ in all_games[-10:]])
+
     # ── F5 and late stats (requires mlb_inning_scores rows for the game) ────────
     f5_scored_list    = []
     f5_allowed_list   = []
@@ -248,6 +266,10 @@ def compute_team_context(
     comeback_r = _rate_comeback_scoring(late_rpg, rpg)
     overall_r  = _overall_score(offense_r, defense_r, f5_off_r)
 
+    l1_rating  = _rate_scoring_form(l1_rpg)
+    l5_rating  = _rate_scoring_form(l5_rpg)
+    l10_rating = _rate_scoring_form(l10_rpg)
+
     return {
         "team_abbr":                      team_abbr,
         "team_name":                      team_name,
@@ -259,6 +281,12 @@ def compute_team_context(
         "away_runs_per_game":             away_rpg,
         "recent_runs_per_game_7":         recent_rpg_7,
         "recent_runs_allowed_per_game_7": recent_ra_7,
+        "l1_rpg":                         l1_rpg,
+        "l5_rpg":                         l5_rpg,
+        "l10_rpg":                        l10_rpg,
+        "l1_scoring_form_rating":         l1_rating,
+        "l5_scoring_form_rating":         l5_rating,
+        "l10_scoring_form_rating":        l10_rating,
         "f5_runs_per_game":               f5_rpg,
         "f5_runs_allowed_per_game":       f5_ra_pg,
         "late_runs_per_game":             late_rpg,
@@ -286,6 +314,8 @@ def _upsert_team_context(conn: sqlite3.Connection, ctx: dict) -> None:
            runs_per_game, runs_allowed_per_game,
            home_runs_per_game, away_runs_per_game,
            recent_runs_per_game_7, recent_runs_allowed_per_game_7,
+           l1_rpg, l5_rpg, l10_rpg,
+           l1_scoring_form_rating, l5_scoring_form_rating, l10_scoring_form_rating,
            f5_runs_per_game, f5_runs_allowed_per_game,
            late_runs_per_game, late_runs_allowed_per_game,
            offense_rating, defense_pitching_rating,
@@ -293,7 +323,7 @@ def _upsert_team_context(conn: sqlite3.Connection, ctx: dict) -> None:
            bullpen_risk_rating, late_game_risk_rating,
            comeback_scoring_rating, overall_context_score,
            sample_size, f5_sample_size, context_confidence, last_updated)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(team_abbr, season) DO UPDATE SET
           team_name                       = excluded.team_name,
           games_played                    = excluded.games_played,
@@ -303,6 +333,12 @@ def _upsert_team_context(conn: sqlite3.Connection, ctx: dict) -> None:
           away_runs_per_game              = excluded.away_runs_per_game,
           recent_runs_per_game_7          = excluded.recent_runs_per_game_7,
           recent_runs_allowed_per_game_7  = excluded.recent_runs_allowed_per_game_7,
+          l1_rpg                          = excluded.l1_rpg,
+          l5_rpg                          = excluded.l5_rpg,
+          l10_rpg                         = excluded.l10_rpg,
+          l1_scoring_form_rating          = excluded.l1_scoring_form_rating,
+          l5_scoring_form_rating          = excluded.l5_scoring_form_rating,
+          l10_scoring_form_rating         = excluded.l10_scoring_form_rating,
           f5_runs_per_game                = excluded.f5_runs_per_game,
           f5_runs_allowed_per_game        = excluded.f5_runs_allowed_per_game,
           late_runs_per_game              = excluded.late_runs_per_game,
@@ -326,6 +362,8 @@ def _upsert_team_context(conn: sqlite3.Connection, ctx: dict) -> None:
             ctx["runs_per_game"],        ctx["runs_allowed_per_game"],
             ctx["home_runs_per_game"],   ctx["away_runs_per_game"],
             ctx["recent_runs_per_game_7"], ctx["recent_runs_allowed_per_game_7"],
+            ctx["l1_rpg"],               ctx["l5_rpg"],               ctx["l10_rpg"],
+            ctx["l1_scoring_form_rating"], ctx["l5_scoring_form_rating"], ctx["l10_scoring_form_rating"],
             ctx["f5_runs_per_game"],     ctx["f5_runs_allowed_per_game"],
             ctx["late_runs_per_game"],   ctx["late_runs_allowed_per_game"],
             ctx["offense_rating"],       ctx["defense_pitching_rating"],
@@ -466,13 +504,19 @@ def compute_team_context_debug(
     late_rpg   = stored.get("late_runs_per_game")
     late_ra_pg = stored.get("late_runs_allowed_per_game")
     f5_n       = stored.get("f5_sample_size", 0)
+    l1_rpg_s   = stored.get("l1_rpg")
+    l5_rpg_s   = stored.get("l5_rpg")
+    l10_rpg_s  = stored.get("l10_rpg")
+
+    _rolling_note = "L1/L5/L10 shown for comparison; scoring form formula uses 0.6×L7 + 0.4×season"
 
     # ── Offense ──────────────────────────────────────────────────────────────
     if rpg is None:
         off_d = _rating_detail(
-            "Offense Rating", True,
+            "Scoring Form Rating", True,
             f"50 + (eff_rpg - {_LEAGUE_AVG_RPG}) × {_SCALE_RPG}",
-            {"season_rpg": None, "recent_7_rpg": None},
+            {"season_rpg": None, "recent_7_rpg": None,
+             "l1_rpg": l1_rpg_s, "l5_rpg": l5_rpg_s, "l10_rpg": l10_rpg_s},
             None, None, _LEAGUE_AVG_RPG, _SCALE_RPG,
             None, 50.0, True, "No season RPG data",
         )
@@ -485,11 +529,13 @@ def compute_team_context_debug(
             bf = "season only (fewer than 7 games)"
         raw = 50.0 + (eff - _LEAGUE_AVG_RPG) * _SCALE_RPG
         off_d = _rating_detail(
-            "Offense Rating", True,
+            "Scoring Form Rating", True,
             f"50 + (eff_rpg - {_LEAGUE_AVG_RPG}) × {_SCALE_RPG}",
-            {"season_rpg": rpg, "recent_7_rpg": rec_7},
+            {"season_rpg": rpg, "recent_7_rpg": rec_7,
+             "l1_rpg": l1_rpg_s, "l5_rpg": l5_rpg_s, "l10_rpg": l10_rpg_s},
             eff, bf, _LEAGUE_AVG_RPG, _SCALE_RPG,
             round(raw, 3), round(_clamp(raw), 1), False,
+            _rolling_note,
         )
 
     # ── Defense ──────────────────────────────────────────────────────────────
@@ -637,8 +683,9 @@ def compute_team_context_debug(
         },
         "baseball_support_note": {
             "summary": (
-                "baseball_support_score is computed at candidate generation time from live "
-                "scoring plays, NOT from stored team context ratings."
+                "baseball_support_score starts from live play-event signals (HR, errors, walks) "
+                "and applies a secondary ±15pt team-context adjustment, clamped to prevent "
+                "context from overriding the play-event read."
             ),
             "default_value": 50.0,
             "adjustments": {
@@ -648,9 +695,10 @@ def compute_team_context_debug(
             },
             "why_mostly_50": (
                 "Scoring plays that are singles, doubles, triples, fielder's choices, "
-                "or other neutral hit types do not trigger any adjustment. If all scoring "
-                "plays are neutral hits, the score stays at 50.0. Team context ratings "
-                "are NOT fed into baseball_support_score — the two systems are independent."
+                "or other neutral hit types do not trigger any play-event adjustment. If all "
+                "scoring plays are neutral hits, the play-event score stays at 50.0. "
+                "A secondary team-context adjustment (clamped ±15) may then shift the final "
+                "score using offense, defense, and bullpen-risk ratings."
             ),
         },
     }

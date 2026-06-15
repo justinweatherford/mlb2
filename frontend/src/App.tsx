@@ -12,6 +12,7 @@ import { MLBTeamContext } from './pages/MLBTeamContext'
 import { Journal } from './pages/Journal'
 import { Performance } from './pages/Performance'
 import { SlateReview } from './pages/SlateReview'
+import { LiveDashboard } from './pages/LiveDashboard'
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
         <Route path="/journal" element={<Journal />} />
         <Route path="/performance" element={<Performance />} />
         <Route path="/slate" element={<SlateReview />} />
+        <Route path="/live-dashboard" element={<LiveDashboard />} />
         <Route path="/summary" element={<DailySummary />} />
         <Route path="/health" element={<DataHealth />} />
         <Route path="/kalshi" element={<KalshiMarkets />} />

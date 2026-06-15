@@ -39,16 +39,17 @@ def _upsert_game(conn: sqlite3.Connection, g: dict) -> None:
         INSERT INTO mlb_games
           (game_pk, game_date, away_team, home_team, away_abbr, home_abbr,
            game_id, status, is_final, final_away_score, final_home_score,
-           final_total, last_checked_at, created_at)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+           final_total, game_start_time_utc, last_checked_at, created_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(game_pk) DO UPDATE SET
-          status           = excluded.status,
-          game_id          = excluded.game_id,
-          is_final         = MAX(is_final, excluded.is_final),
-          final_away_score = COALESCE(excluded.final_away_score, final_away_score),
-          final_home_score = COALESCE(excluded.final_home_score, final_home_score),
-          final_total      = COALESCE(excluded.final_total, final_total),
-          last_checked_at  = excluded.last_checked_at
+          status              = excluded.status,
+          game_id             = excluded.game_id,
+          is_final            = MAX(is_final, excluded.is_final),
+          final_away_score    = COALESCE(excluded.final_away_score, final_away_score),
+          final_home_score    = COALESCE(excluded.final_home_score, final_home_score),
+          final_total         = COALESCE(excluded.final_total, final_total),
+          game_start_time_utc = COALESCE(excluded.game_start_time_utc, game_start_time_utc),
+          last_checked_at     = excluded.last_checked_at
         """,
         (
             g["game_pk"], g["game_date"], g["away_team"], g["home_team"],
@@ -57,6 +58,7 @@ def _upsert_game(conn: sqlite3.Connection, g: dict) -> None:
             g.get("final_away_score"),
             g.get("final_home_score"),
             g.get("final_total"),
+            g.get("game_start_time_utc"),
             _now(), _now(),
         ),
     )
@@ -247,19 +249,24 @@ def fetch_and_store_schedule(
                         if is_final and away_score is not None and home_score is not None
                         else None
                     )
+                    # Extract actual UTC start time from gameDate (e.g. "2026-06-15T23:05:00Z")
+                    raw_game_date = raw_game.get("gameDate") or ""
+                    game_start_time_utc = raw_game_date[:16] if len(raw_game_date) >= 16 else None
+
                     _upsert_game(conn, {
-                        "game_pk":          raw_game["gamePk"],
-                        "game_date":        game_date,
-                        "away_team":        away_t.get("name") or away_abbr,
-                        "home_team":        home_t.get("name") or home_abbr,
-                        "away_abbr":        away_abbr,
-                        "home_abbr":        home_abbr,
-                        "game_id":          f"{away_abbr}@{home_abbr}",
-                        "status":           status,
-                        "is_final":         is_final,
-                        "final_away_score": away_score,
-                        "final_home_score": home_score,
-                        "final_total":      final_total,
+                        "game_pk":              raw_game["gamePk"],
+                        "game_date":            game_date,
+                        "away_team":            away_t.get("name") or away_abbr,
+                        "home_team":            home_t.get("name") or home_abbr,
+                        "away_abbr":            away_abbr,
+                        "home_abbr":            home_abbr,
+                        "game_id":              f"{away_abbr}@{home_abbr}",
+                        "status":               status,
+                        "is_final":             is_final,
+                        "final_away_score":     away_score,
+                        "final_home_score":     home_score,
+                        "final_total":          final_total,
+                        "game_start_time_utc":  game_start_time_utc,
                     })
                     summary["games_seen"] += 1
                     summary["games_inserted_or_updated"] += 1

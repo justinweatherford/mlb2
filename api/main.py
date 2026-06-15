@@ -15,7 +15,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routers import candidates, health, ingest, kalshi_markets, manual_trades, mlb, overview, performance, positions, signals, slate, summary, setup_outcomes
+from api.routers import candidate_history, candidates, health, historical_patterns, ingest, kalshi_markets, live_capture_monitor, live_state_snapshot, manual_trades, market_tape, mlb, overview, paper_lifecycle, performance, positions, post_slate_report, signals, slate, slate_health, summary, setup_outcomes, weather_reference
 from api.deps import DB_PATH
 from db.schema import init_db
 
@@ -72,6 +72,15 @@ app.include_router(performance.router,   prefix=PREFIX, tags=["performance"])
 app.include_router(slate.router,          prefix=PREFIX, tags=["slate"])
 app.include_router(setup_outcomes.router, prefix=PREFIX, tags=["setup-outcomes"])
 app.include_router(mlb.router, prefix=f"{PREFIX}/mlb/team-context", tags=["mlb"])
+app.include_router(historical_patterns.router, prefix=PREFIX, tags=["historical-patterns"])
+app.include_router(candidate_history.router,   prefix=PREFIX, tags=["historical-context"])
+app.include_router(market_tape.router,         prefix=PREFIX, tags=["market-tape"])
+app.include_router(slate_health.router,           prefix=PREFIX, tags=["slate-health"])
+app.include_router(paper_lifecycle.router,        prefix=PREFIX, tags=["paper-lifecycle"])
+app.include_router(live_capture_monitor.router,   prefix=PREFIX, tags=["live-capture"])
+app.include_router(weather_reference.router,      prefix=PREFIX, tags=["weather-reference"])
+app.include_router(post_slate_report.router,      prefix=PREFIX, tags=["post-slate-report"])
+app.include_router(live_state_snapshot.router,    prefix=PREFIX, tags=["live-state"])
 
 
 @app.get("/", include_in_schema=False)

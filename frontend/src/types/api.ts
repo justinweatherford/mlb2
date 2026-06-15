@@ -272,6 +272,12 @@ export interface TeamContext {
   away_runs_per_game: number | null
   recent_runs_per_game_7: number | null
   recent_runs_allowed_per_game_7: number | null
+  l1_rpg: number | null
+  l5_rpg: number | null
+  l10_rpg: number | null
+  l1_scoring_form_rating: number | null
+  l5_scoring_form_rating: number | null
+  l10_scoring_form_rating: number | null
   f5_runs_per_game: number | null
   f5_runs_allowed_per_game: number | null
   late_runs_per_game: number | null
@@ -924,6 +930,117 @@ export interface FanGraphsOffenseRow {
   _label_fg_def_informational: string
 }
 
+// ---------------------------------------------------------------------------
+// Historical Pattern Context
+// ---------------------------------------------------------------------------
+
+export interface HistoricalContextLayerSummary {
+  layer: string
+  sample_size: number
+  confidence_label: string
+}
+
+export interface HistoricalContext {
+  candidate_id: number | null
+  matched_pattern_type: string | null
+  pattern_name: string
+  sample_size: number
+  confidence_label: string
+  summary_text: string
+  continuation_rate: number | null
+  cooldown_rate: number | null
+  average_rest_of_game_runs: number | null
+  median_rest_of_game_runs: number | null
+  threshold_hit_rates: Record<string, number | null>
+  warnings: string[]
+  as_of_date: string
+  filters_used: Record<string, unknown>
+  available: boolean
+  exact_sample_size: number
+  selected_layer: string
+  selected_layer_sample_size: number
+  all_layers_summary: HistoricalContextLayerSummary[]
+  fallback_used: boolean
+  fallback_warning: string
+}
+
+export interface HistoricalContextResponse {
+  date: string
+  count: number
+  items: HistoricalContext[]
+}
+
+export interface MarketTapeContext {
+  candidate_id: number | null
+  available: boolean
+  market_ticker: string | null
+  matched_by: string | null
+  tape_confidence_label: string
+  snapshots_in_window_count: number
+  before_time: string | null
+  after_time: string | null
+  price_before: number | null
+  price_after: number | null
+  price_change_cents: number | null
+  midpoint_before: number | null
+  midpoint_after: number | null
+  midpoint_change_cents: number | null
+  spread_before: number | null
+  spread_after: number | null
+  average_spread_in_window: number | null
+  min_spread_in_window: number | null
+  max_spread_in_window: number | null
+  warning: string
+  snapshot_ids: number[]
+}
+
+export interface MarketTapeContextResponse {
+  date: string
+  count: number
+  items: MarketTapeContext[]
+}
+
+export interface PaperSetup {
+  id: number
+  setup_key: string
+  first_candidate_event_id: number
+  game_pk: number | null
+  game_id: string | null
+  market_ticker: string | null
+  derivative_type: string | null
+  read_type: string | null
+  proposed_side: string | null
+  paper_status: string
+  entry_price_cents: number | null
+  entry_price_source: string | null
+  entry_snapshot_id: number | null
+  entry_spread_cents: number | null
+  entry_captured_at_utc: string | null
+  outcome: string
+  outcome_explanation: string | null
+  gross_pnl_cents: number | null
+  fee_cents: number | null
+  net_pnl_cents: number | null
+  // Good Entry Evaluation v1 (pre-result, stored at entry time)
+  good_entry_score: number | null
+  good_entry_label: string | null
+  good_entry_reasons: string | null
+  good_entry_flags: string | null
+  estimated_fair_value_cents: number | null
+  estimated_edge_cents: number | null
+  evaluated_at_utc: string | null
+  evaluation_version: string | null
+  created_at: string
+  closed_at: string | null
+  updated_at: string
+}
+
+export interface PaperSetupsResponse {
+  date: string
+  count: number
+  items: PaperSetup[]
+}
+
 export interface FanGraphsOffenseCalibration {
   has_data: boolean
   rows: FanGraphsOffenseRow[]
@@ -933,4 +1050,60 @@ export interface FanGraphsOffenseCalibration {
   import_instructions: string
   // When has_data=false:
   sample_csv?: string
+}
+
+// Live State Snapshot (mlb_live_state_v1)
+export interface LiveStateSnapshot {
+  schema_version: string
+  generated_at_utc: string
+  slate_date: string
+  sport: string
+  mode: string
+  session_ended: boolean
+  monitor_write_ts: number | null
+  capture_readiness: string
+  next_action: string
+  live_capture: {
+    games_today: number
+    game_states_today: number
+    latest_mlb_game_state: string | null
+    latest_kalshi_snapshot: string | null
+  }
+  candidates: {
+    total: number
+    by_derivative_type: Record<string, number>
+    by_status: Record<string, number>
+  }
+  paper: {
+    total: number
+    by_status: Record<string, number>
+    with_entry_price: number
+    no_entry_price: number
+    good_entry_label_breakdown: Record<string, number>
+  }
+  market_tape: {
+    latest_snapshot_at: string | null
+    snapshots_in_window: number
+    candidates_with_usable_or_strong_tape: number
+    no_tape: number
+  }
+  weather: {
+    weather_rows: number
+    weather_rows_open_meteo: number
+    weather_rows_manual: number
+    games_weather_missing: number
+    weather_time_actual_count: number
+    weather_time_estimated_count: number
+  }
+  report_preview: {
+    total_net_pnl_cents?: number | null
+    top_derivatives?: Array<{
+      derivative_type: string
+      count: number
+      wins: number
+      losses: number
+      net_pnl_cents: number
+    }>
+    lessons_count?: number
+  }
 }

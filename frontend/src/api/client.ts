@@ -25,6 +25,10 @@ import type {
   SlateReviewResponse,
   SetupOutcomeResponse,
   FanGraphsOffenseCalibration,
+  HistoricalContextResponse,
+  MarketTapeContextResponse,
+  PaperSetupsResponse,
+  LiveStateSnapshot,
 } from '../types/api'
 
 type Params = Record<string, string | number | boolean | undefined | null>
@@ -312,4 +316,31 @@ export const api = {
     apiFetch<{ sample_csv: string; required_columns: string[]; instructions: string }>(
       '/api/mlb/team-context/fangraphs-offense/sample-csv',
     ),
+
+  candidateHistoricalContext: (date: string) =>
+    apiFetch<HistoricalContextResponse>('/api/mlb/candidates/historical-context', { date }),
+
+  candidateMarketTapeContext: (date: string) =>
+    apiFetch<MarketTapeContextResponse>('/api/mlb/candidates/market-tape-context', { date }),
+
+  paperSetups: (date: string) =>
+    apiFetch<PaperSetupsResponse>('/api/mlb/paper-setups', { date }),
+
+  paperSetupsSync: (date: string) =>
+    apiPost<{ date: string; processed: number; created: number; skipped: number }>(
+      `/api/mlb/paper-setups/sync?date=${date}`, {}
+    ),
+
+  paperSetupsSettle: (date: string) =>
+    apiPost<{ date: string; checked: number; settled: number }>(
+      `/api/mlb/paper-setups/settle?date=${date}`, {}
+    ),
+
+  paperPerformance: (params?: { date_from?: string; date_to?: string; derivative_type?: string; read_type?: string }) =>
+    apiFetch<{ date_from: string | null; date_to: string | null; groups: object[] }>(
+      '/api/mlb/paper-performance', params as Params
+    ),
+
+  liveStateSnapshot: (date?: string) =>
+    apiFetch<LiveStateSnapshot>('/api/mlb/live-state-snapshot', { date }),
 }

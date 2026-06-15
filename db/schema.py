@@ -321,20 +321,21 @@ CREATE INDEX IF NOT EXISTS idx_mlb_game_snapshots_pk ON mlb_game_snapshots(game_
 -- ── MLB normalized game data ───────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS mlb_games (
-    game_pk          INTEGER PRIMARY KEY,
-    game_date        TEXT NOT NULL,
-    away_team        TEXT NOT NULL,
-    home_team        TEXT NOT NULL,
-    away_abbr        TEXT NOT NULL,
-    home_abbr        TEXT NOT NULL,
-    status           TEXT NOT NULL DEFAULT 'Scheduled',
-    game_id          TEXT,
-    final_away_score INTEGER,
-    final_home_score INTEGER,
-    final_total      INTEGER,
-    is_final         INTEGER NOT NULL DEFAULT 0,
-    last_checked_at  TEXT NOT NULL,
-    created_at       TEXT NOT NULL
+    game_pk              INTEGER PRIMARY KEY,
+    game_date            TEXT NOT NULL,
+    away_team            TEXT NOT NULL,
+    home_team            TEXT NOT NULL,
+    away_abbr            TEXT NOT NULL,
+    home_abbr            TEXT NOT NULL,
+    status               TEXT NOT NULL DEFAULT 'Scheduled',
+    game_id              TEXT,
+    final_away_score     INTEGER,
+    final_home_score     INTEGER,
+    final_total          INTEGER,
+    is_final             INTEGER NOT NULL DEFAULT 0,
+    game_start_time_utc  TEXT,
+    last_checked_at      TEXT NOT NULL,
+    created_at           TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_mlb_games_date  ON mlb_games(game_date);
 CREATE INDEX IF NOT EXISTS idx_mlb_games_final ON mlb_games(is_final);
@@ -398,6 +399,14 @@ CREATE TABLE IF NOT EXISTS mlb_team_context (
     -- Last-7 game metrics
     recent_runs_per_game_7          REAL,
     recent_runs_allowed_per_game_7  REAL,
+
+    -- Rolling form windows (L1 / L5 / L10)
+    l1_rpg                          REAL,
+    l5_rpg                          REAL,
+    l10_rpg                         REAL,
+    l1_scoring_form_rating          REAL,
+    l5_scoring_form_rating          REAL,
+    l10_scoring_form_rating         REAL,
 
     -- F5 (innings 1-5) metrics — NULL when no play-by-play data is stored
     f5_runs_per_game                REAL,
@@ -610,6 +619,50 @@ CREATE INDEX IF NOT EXISTS idx_manual_trades_game_id   ON manual_trade_journal(g
 CREATE INDEX IF NOT EXISTS idx_manual_trades_status    ON manual_trade_journal(settlement_status);
 CREATE INDEX IF NOT EXISTS idx_manual_trades_entry     ON manual_trade_journal(entry_time);
 
+-- ── Paper setup lifecycle ─────────────────────────────────────────────────
+-- One row per unique setup (game_id|ticker|derivative_type|read_type).
+-- Created by mlb/paper_lifecycle.py. No real trades. No TAKE labels.
+
+CREATE TABLE IF NOT EXISTS paper_setups (
+    id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+    setup_key                TEXT    NOT NULL UNIQUE,
+    first_candidate_event_id INTEGER NOT NULL,
+    game_pk                  INTEGER,
+    game_id                  TEXT,
+    market_ticker            TEXT,
+    derivative_type          TEXT,
+    read_type                TEXT,
+    proposed_side            TEXT,
+    paper_status             TEXT    NOT NULL DEFAULT 'observation_only',
+    entry_price_cents        INTEGER,
+    entry_price_source       TEXT,
+    entry_snapshot_id        INTEGER,
+    entry_spread_cents       INTEGER,
+    entry_captured_at_utc    TEXT,
+    outcome                  TEXT    NOT NULL DEFAULT 'unknown',
+    outcome_explanation      TEXT,
+    gross_pnl_cents          INTEGER,
+    fee_cents                INTEGER,
+    net_pnl_cents            INTEGER,
+    -- Good Entry Evaluation v1 (pre-result, stored at entry time, never updated)
+    good_entry_score         REAL,
+    good_entry_label         TEXT,
+    good_entry_reasons       TEXT,
+    good_entry_flags         TEXT,
+    estimated_fair_value_cents INTEGER,
+    estimated_edge_cents     INTEGER,
+    evaluated_at_utc         TEXT,
+    evaluation_version       TEXT,
+    created_at               TEXT    NOT NULL,
+    closed_at                TEXT,
+    updated_at               TEXT    NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_paper_setups_key    ON paper_setups(setup_key);
+CREATE INDEX IF NOT EXISTS idx_paper_setups_status ON paper_setups(paper_status);
+CREATE INDEX IF NOT EXISTS idx_paper_setups_date   ON paper_setups(created_at);
+CREATE INDEX IF NOT EXISTS idx_paper_setups_ticker ON paper_setups(market_ticker);
+
 -- ── Live-watcher cycle log ────────────────────────────────────────────────
 -- Written by live_watcher at the end of each scan cycle.
 -- Used by the Slate Review page to show cycle-level health without tailing logs.
@@ -629,6 +682,46 @@ CREATE TABLE IF NOT EXISTS watcher_cycles (
 );
 
 CREATE INDEX IF NOT EXISTS idx_watcher_cycles_started ON watcher_cycles(started_at);
+
+-- ── Weather reference data ────────────────────────────────────────────────
+-- Manually imported from public MLB weather boards. Context/evidence only.
+-- No TAKE labels. No candidate generation changes.
+
+CREATE TABLE IF NOT EXISTS mlb_weather_reference (
+    id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_date               TEXT    NOT NULL,
+    away_abbr               TEXT    NOT NULL,
+    home_abbr               TEXT    NOT NULL,
+    game_time_et            TEXT,
+    venue_name              TEXT,
+    temperature_f           REAL,
+    wind_speed_mph          REAL,
+    wind_direction_text     TEXT,
+    wind_direction_degrees  INTEGER,
+    humidity_pct            REAL,
+    precip_probability_pct  REAL,
+    condition_text          TEXT,
+    roof_type               TEXT,
+    source                  TEXT    NOT NULL,
+    imported_at             TEXT    NOT NULL,
+    -- Computed Weather Run Environment v1 (stored at import time)
+    wre_score               INTEGER,
+    wre_label               TEXT,
+    wre_flags               TEXT,
+    wre_confidence          TEXT,
+    wre_reasons             TEXT,
+    -- Auto-fetch v2 fields
+    wind_gust_mph           REAL,
+    pressure_hpa            REAL,
+    weather_code            INTEGER,
+    weather_for_time_utc    TEXT,
+    fetched_at_utc          TEXT,
+    weather_time_estimated  INTEGER NOT NULL DEFAULT 0,
+    provider_url            TEXT,
+    UNIQUE(game_date, away_abbr, home_abbr, source)
+);
+
+CREATE INDEX IF NOT EXISTS idx_weather_ref_date ON mlb_weather_reference(game_date);
 """
 
 
@@ -688,6 +781,64 @@ def _apply_migrations(conn: sqlite3.Connection) -> None:
         "ALTER TABLE kalshi_markets ADD COLUMN supported_by_bot INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE kalshi_markets ADD COLUMN candidate_surface TEXT",
         "ALTER TABLE kalshi_markets ADD COLUMN is_noisy_market INTEGER NOT NULL DEFAULT 0",
+        # Orderbook recorder — enriched snapshot columns
+        "ALTER TABLE kalshi_orderbook_snapshots ADD COLUMN event_ticker TEXT",
+        "ALTER TABLE kalshi_orderbook_snapshots ADD COLUMN sport TEXT NOT NULL DEFAULT 'mlb'",
+        "ALTER TABLE kalshi_orderbook_snapshots ADD COLUMN home_team TEXT",
+        "ALTER TABLE kalshi_orderbook_snapshots ADD COLUMN away_team TEXT",
+        "ALTER TABLE kalshi_orderbook_snapshots ADD COLUMN game_pk TEXT",
+        "ALTER TABLE kalshi_orderbook_snapshots ADD COLUMN market_type TEXT",
+        "ALTER TABLE kalshi_orderbook_snapshots ADD COLUMN yes_bid INTEGER",
+        "ALTER TABLE kalshi_orderbook_snapshots ADD COLUMN yes_ask INTEGER",
+        "ALTER TABLE kalshi_orderbook_snapshots ADD COLUMN no_bid INTEGER",
+        "ALTER TABLE kalshi_orderbook_snapshots ADD COLUMN no_ask INTEGER",
+        "ALTER TABLE kalshi_orderbook_snapshots ADD COLUMN last_price INTEGER",
+        "ALTER TABLE kalshi_orderbook_snapshots ADD COLUMN volume INTEGER",
+        "ALTER TABLE kalshi_orderbook_snapshots ADD COLUMN open_interest INTEGER",
+        "ALTER TABLE kalshi_orderbook_snapshots ADD COLUMN source TEXT NOT NULL DEFAULT 'rest_poll'",
+        # Rolling scoring-form windows (L1 / L5 / L10)
+        "ALTER TABLE mlb_team_context ADD COLUMN l1_rpg REAL",
+        "ALTER TABLE mlb_team_context ADD COLUMN l5_rpg REAL",
+        "ALTER TABLE mlb_team_context ADD COLUMN l10_rpg REAL",
+        "ALTER TABLE mlb_team_context ADD COLUMN l1_scoring_form_rating REAL",
+        "ALTER TABLE mlb_team_context ADD COLUMN l5_scoring_form_rating REAL",
+        "ALTER TABLE mlb_team_context ADD COLUMN l10_scoring_form_rating REAL",
+        # Good Entry Evaluation v1 columns on paper_setups
+        "ALTER TABLE paper_setups ADD COLUMN good_entry_score REAL",
+        "ALTER TABLE paper_setups ADD COLUMN good_entry_label TEXT",
+        "ALTER TABLE paper_setups ADD COLUMN good_entry_reasons TEXT",
+        "ALTER TABLE paper_setups ADD COLUMN good_entry_flags TEXT",
+        "ALTER TABLE paper_setups ADD COLUMN estimated_fair_value_cents INTEGER",
+        "ALTER TABLE paper_setups ADD COLUMN estimated_edge_cents INTEGER",
+        "ALTER TABLE paper_setups ADD COLUMN evaluated_at_utc TEXT",
+        "ALTER TABLE paper_setups ADD COLUMN evaluation_version TEXT",
+        # Weather Reference v1 — table created via DDL; columns added here for
+        # existing DBs that may have created the table before these columns existed
+        "ALTER TABLE mlb_weather_reference ADD COLUMN game_time_et TEXT",
+        "ALTER TABLE mlb_weather_reference ADD COLUMN venue_name TEXT",
+        "ALTER TABLE mlb_weather_reference ADD COLUMN temperature_f REAL",
+        "ALTER TABLE mlb_weather_reference ADD COLUMN wind_speed_mph REAL",
+        "ALTER TABLE mlb_weather_reference ADD COLUMN wind_direction_text TEXT",
+        "ALTER TABLE mlb_weather_reference ADD COLUMN wind_direction_degrees INTEGER",
+        "ALTER TABLE mlb_weather_reference ADD COLUMN humidity_pct REAL",
+        "ALTER TABLE mlb_weather_reference ADD COLUMN precip_probability_pct REAL",
+        "ALTER TABLE mlb_weather_reference ADD COLUMN condition_text TEXT",
+        "ALTER TABLE mlb_weather_reference ADD COLUMN roof_type TEXT",
+        "ALTER TABLE mlb_weather_reference ADD COLUMN wre_score INTEGER",
+        "ALTER TABLE mlb_weather_reference ADD COLUMN wre_label TEXT",
+        "ALTER TABLE mlb_weather_reference ADD COLUMN wre_flags TEXT",
+        "ALTER TABLE mlb_weather_reference ADD COLUMN wre_confidence TEXT",
+        "ALTER TABLE mlb_weather_reference ADD COLUMN wre_reasons TEXT",
+        # v2.1 — actual game start time from MLB Stats API
+        "ALTER TABLE mlb_games ADD COLUMN game_start_time_utc TEXT",
+        # Auto-fetch v2 columns
+        "ALTER TABLE mlb_weather_reference ADD COLUMN wind_gust_mph REAL",
+        "ALTER TABLE mlb_weather_reference ADD COLUMN pressure_hpa REAL",
+        "ALTER TABLE mlb_weather_reference ADD COLUMN weather_code INTEGER",
+        "ALTER TABLE mlb_weather_reference ADD COLUMN weather_for_time_utc TEXT",
+        "ALTER TABLE mlb_weather_reference ADD COLUMN fetched_at_utc TEXT",
+        "ALTER TABLE mlb_weather_reference ADD COLUMN weather_time_estimated INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE mlb_weather_reference ADD COLUMN provider_url TEXT",
     ]
     for sql in _migrations:
         try:

@@ -130,6 +130,18 @@ function TeamDebugPanel({ abbr, season }: { abbr: string; season: string }) {
         <span>Scale F5/Late: <b className="text-slate-300">{c.scale_f5}</b></span>
       </div>
 
+      {/* Rolling scoring form */}
+      <div className="text-[11px] bg-[#090d1a] rounded px-3 py-2 border border-[#1a2540] space-y-1">
+        <div className="font-semibold text-slate-400">Scoring Form</div>
+        <div className="flex flex-wrap gap-x-4 gap-y-0.5 font-mono text-[11px]">
+          <span>Season: <span className="text-slate-300">{ratings.offense.inputs?.season_rpg != null ? `${(ratings.offense.inputs.season_rpg as number).toFixed(1)} RPG` : '—'}</span></span>
+          <span>L1: <span className="text-slate-300">{ratings.offense.inputs?.l1_rpg != null ? (ratings.offense.inputs.l1_rpg as number).toFixed(1) : '—'}</span></span>
+          <span>L5: <span className="text-slate-300">{ratings.offense.inputs?.l5_rpg != null ? (ratings.offense.inputs.l5_rpg as number).toFixed(1) : '—'}</span></span>
+          <span>L7: <span className="text-slate-300">{ratings.offense.inputs?.recent_7_rpg != null ? (ratings.offense.inputs.recent_7_rpg as number).toFixed(1) : '—'}</span></span>
+          <span>L10: <span className="text-slate-300">{ratings.offense.inputs?.l10_rpg != null ? (ratings.offense.inputs.l10_rpg as number).toFixed(1) : '—'}</span></span>
+        </div>
+      </div>
+
       {/* Rating formula cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
         <FormulaCard name="offense"          d={ratings.offense} />

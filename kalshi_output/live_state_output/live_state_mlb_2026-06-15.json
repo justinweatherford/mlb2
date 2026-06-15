@@ -1,0 +1,51 @@
+{
+  "schema_version": "mlb_live_state_v1",
+  "generated_at_utc": "2026-06-15T16:36:24.028715+00:00",
+  "slate_date": "2026-06-15",
+  "sport": "mlb",
+  "mode": "paper_validation",
+  "session_ended": false,
+  "monitor_write_ts": null,
+  "capture_readiness": "waiting_for_games",
+  "next_action": "Waiting for games to start. Recorder is fresh.",
+  "live_capture": {
+    "games_today": 0,
+    "game_states_today": 0,
+    "latest_mlb_game_state": null,
+    "latest_kalshi_snapshot": "2026-06-15T01:51:45.735381+00:00"
+  },
+  "candidates": {
+    "total": 0,
+    "by_derivative_type": {},
+    "by_status": {}
+  },
+  "paper": {
+    "total": 13,
+    "by_status": {
+      "blocked_observation": 5,
+      "no_entry_price": 8
+    },
+    "with_entry_price": 0,
+    "no_entry_price": 13,
+    "good_entry_label_breakdown": {}
+  },
+  "market_tape": {
+    "latest_snapshot_at": "2026-06-15T01:51:45.735381+00:00",
+    "snapshots_in_window": 5788,
+    "candidates_with_usable_or_strong_tape": 0,
+    "no_tape": 8
+  },
+  "weather": {
+    "weather_rows": 4,
+    "weather_rows_open_meteo": 0,
+    "weather_rows_manual": 4,
+    "games_weather_missing": 0,
+    "weather_time_actual_count": 4,
+    "weather_time_estimated_count": 0
+  },
+  "report_preview": {
+    "total_net_pnl_cents": 0,
+    "top_derivatives": [],
+    "lessons_count": 1
+  }
+}

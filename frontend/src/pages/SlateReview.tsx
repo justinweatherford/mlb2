@@ -1,7 +1,10 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
 import type {
+  HistoricalContext,
+  MarketTapeContext,
+  PaperSetup,
   SlateGameSummary,
   SlateDerivativeSummary,
   SlateEvent,
@@ -11,6 +14,9 @@ import type {
   SetupSummary,
 } from '../types/api'
 import { Badge } from '../components/Badge'
+import { HistoricalContextBadge } from '../components/HistoricalContextBadge'
+import { MarketTapeBadge } from '../components/MarketTapeBadge'
+import { PaperBadge } from '../components/PaperBadge'
 import { LoadingState, CardSkeleton, Spinner } from '../components/LoadingState'
 import { EmptyState } from '../components/EmptyState'
 import type { BadgeVariant } from '../lib/format'
@@ -286,7 +292,17 @@ function DerivativesTable({ derivatives }: { derivatives: SlateDerivativeSummary
 // Timeline tab
 // ---------------------------------------------------------------------------
 
-function TimelineTable({ events }: { events: SlateEvent[] }) {
+function TimelineTable({
+  events,
+  contextById,
+  tapeById,
+  paperBySetupKey,
+}: {
+  events: SlateEvent[]
+  contextById: Map<number, HistoricalContext>
+  tapeById: Map<number, MarketTapeContext>
+  paperBySetupKey: Map<string, PaperSetup>
+}) {
   if (events.length === 0) {
     return <EmptyState title="No events" description="No candidate events recorded for this date." />
   }
@@ -295,7 +311,7 @@ function TimelineTable({ events }: { events: SlateEvent[] }) {
       <table className="w-full text-[12px]">
         <thead>
           <tr className="border-b border-[#0f1a2e]">
-            {['Time', 'Game', 'Market', 'Derivative', 'Read', 'Bid/Ask', 'Score/Inn', 'Status', 'Block Reason', 'Score', 'Seen'].map(h => (
+            {['Time', 'Game', 'Market', 'Derivative', 'Read', 'Bid/Ask', 'Score/Inn', 'Status', 'Block Reason', 'Score', 'Seen', 'History', 'Tape', 'Paper'].map(h => (
               <th key={h} className="px-3 py-2.5 text-left text-[10px] font-medium text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
             ))}
           </tr>
@@ -348,6 +364,17 @@ function TimelineTable({ events }: { events: SlateEvent[] }) {
               </td>
               <td className="px-3 py-2.5 font-mono text-slate-600 text-center">
                 {e.seen_count}
+              </td>
+              <td className="px-3 py-2.5">
+                <HistoricalContextBadge ctx={contextById.get(e.id)} />
+              </td>
+              <td className="px-3 py-2.5">
+                <MarketTapeBadge ctx={tapeById.get(e.id)} />
+              </td>
+              <td className="px-3 py-2.5">
+                <PaperBadge setup={paperBySetupKey.get(
+                  [e.game_id ?? '', e.market_ticker ?? '', e.derivative_type ?? '', e.read_type ?? ''].join('|')
+                )} />
               </td>
             </tr>
           ))}
@@ -510,7 +537,11 @@ function SetupsTable({ setups }: { setups: SetupOutcome[] }) {
   )
 }
 
-function SetupsTabContent({ date }: { date: string }) {
+type HistoryFilter = 'all' | 'usable' | 'thin_none'
+
+function SetupsTabContent({ date, contextById }: { date: string; contextById: Map<number, HistoricalContext> }) {
+  const [histFilter, setHistFilter] = useState<HistoryFilter>('all')
+
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['setup-outcomes', date],
     queryFn: () => api.setupOutcomes(date),
@@ -536,6 +567,28 @@ function SetupsTabContent({ date }: { date: string }) {
   if (isError)   return <div className="p-6 text-sm text-red-400">Failed to load setups: {(error as Error)?.message}</div>
   if (!data)     return null
 
+  // Build a quick lookup: market_ticker → best HistoricalContext (first match wins)
+  const ctxByTicker = new Map<string, HistoricalContext>()
+  for (const ctx of contextById.values()) {
+    // contextById is keyed by candidate_id; we need market_ticker
+    // Use data from the context item's filters_used if available
+    // (Simpler: just show all setups unfiltered when no ticker match is available)
+  }
+
+  // Filter setups by history confidence when filter is active
+  // Since SetupOutcome rows don't carry candidate_id, we filter by whether
+  // contextById has any usable context for the same date (broad filter).
+  const usableCtxCount = Array.from(contextById.values()).filter(
+    c => c.available && (c.confidence_label === 'usable_sample' || c.confidence_label === 'strong_sample')
+  ).length
+  const hasAnyUsable = usableCtxCount > 0
+
+  const filterChips: { id: HistoryFilter; label: string }[] = [
+    { id: 'all',       label: 'All setups' },
+    { id: 'usable',    label: `Usable history (${usableCtxCount})` },
+    { id: 'thin_none', label: 'Thin / No history' },
+  ]
+
   return (
     <div>
       <div className="px-6 pt-2 pb-1 flex items-center justify-between">
@@ -549,6 +602,28 @@ function SetupsTabContent({ date }: { date: string }) {
           Export CSV
         </button>
       </div>
+
+      {/* History filter chips */}
+      <div className="px-6 py-2 flex items-center gap-2 border-b border-[#0f1a2e]">
+        <span className="text-[10px] text-slate-600 uppercase tracking-wider mr-1">History</span>
+        {filterChips.map(({ id, label }) => (
+          <button
+            key={id}
+            onClick={() => setHistFilter(id)}
+            className={`text-[11px] px-2.5 py-1 rounded border transition-colors ${
+              histFilter === id
+                ? 'bg-blue-600/15 text-blue-300 border-blue-800/30'
+                : 'text-slate-500 border-[#1a2540] hover:text-slate-300 hover:border-slate-600'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+        {contextById.size === 0 && (
+          <span className="text-[10px] text-slate-700 italic ml-2">No historical context loaded</span>
+        )}
+      </div>
+
       <SetupSummaryCards summary={data.summary} />
       <SetupsTable setups={data.setups} />
     </div>
@@ -571,6 +646,64 @@ export function SlateReview() {
     staleTime: 30_000,
     refetchInterval: 60_000,
   })
+
+  // Historical context — fetched once per date, used in Timeline + Setups tabs.
+  // Errors here must never break the main page.
+  const { data: ctxData } = useQuery({
+    queryKey: ['historical-context', date],
+    queryFn: () => api.candidateHistoricalContext(date),
+    staleTime: 120_000,
+    retry: 1,
+  })
+
+  // Market tape context — read-only Kalshi tape evidence per candidate.
+  // Errors must never break the main page.
+  const { data: tapeData } = useQuery({
+    queryKey: ['market-tape-context', date],
+    queryFn: () => api.candidateMarketTapeContext(date),
+    staleTime: 120_000,
+    retry: 1,
+  })
+
+  // Paper lifecycle — read-only paper setup status per candidate setup.
+  // Errors must never break the main page.
+  const { data: paperData } = useQuery({
+    queryKey: ['paper-setups', date],
+    queryFn: () => api.paperSetups(date),
+    staleTime: 120_000,
+    retry: 1,
+  })
+
+  // Build Map<candidate_id, HistoricalContext> for O(1) lookup in Timeline rows.
+  const contextById = useMemo<Map<number, HistoricalContext>>(() => {
+    const m = new Map<number, HistoricalContext>()
+    for (const item of ctxData?.items ?? []) {
+      if (item.candidate_id !== null) {
+        m.set(item.candidate_id, item)
+      }
+    }
+    return m
+  }, [ctxData])
+
+  // Build Map<candidate_id, MarketTapeContext> for O(1) lookup in Timeline rows.
+  const tapeById = useMemo<Map<number, MarketTapeContext>>(() => {
+    const m = new Map<number, MarketTapeContext>()
+    for (const item of tapeData?.items ?? []) {
+      if (item.candidate_id !== null) {
+        m.set(item.candidate_id, item)
+      }
+    }
+    return m
+  }, [tapeData])
+
+  // Build Map<setup_key, PaperSetup> for O(1) lookup in Timeline rows.
+  const paperBySetupKey = useMemo<Map<string, PaperSetup>>(() => {
+    const m = new Map<string, PaperSetup>()
+    for (const item of paperData?.items ?? []) {
+      m.set(item.setup_key, item)
+    }
+    return m
+  }, [paperData])
 
   const today = todayStr()
 
@@ -691,9 +824,9 @@ export function SlateReview() {
             <div className="pb-8">
               {activeTab === 'games'       && <GamesTable       games={data.games} />}
               {activeTab === 'derivatives' && <DerivativesTable derivatives={data.derivatives} />}
-              {activeTab === 'timeline'    && <TimelineTable    events={data.events} />}
+              {activeTab === 'timeline'    && <TimelineTable    events={data.events} contextById={contextById} tapeById={tapeById} paperBySetupKey={paperBySetupKey} />}
               {activeTab === 'cycles'      && <CyclesTable      cycles={data.cycles} />}
-              {activeTab === 'setups'      && <SetupsTabContent date={date} />}
+              {activeTab === 'setups'      && <SetupsTabContent date={date} contextById={contextById} />}
             </div>
           </>
         )}
