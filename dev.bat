@@ -48,7 +48,8 @@ goto :eof
 echo MLB2 Live Slate Mode -- date=%DATE%
 echo Paper/review mode only. No trades are placed automatically.
 echo.
-echo Step 1/2: Running Kalshi Discovery (blocking — wait for it to finish)...
+
+echo Step 1/3: Running Kalshi Discovery (blocking)...
 python kalshi_discover.py --sport mlb
 if %errorlevel% neq 0 (
     echo.
@@ -58,7 +59,23 @@ if %errorlevel% neq 0 (
 )
 echo [OK] Discovery complete.
 echo.
-echo Step 2/2: Launching slate stack...
+
+echo Step 2/3: Fetching weather for date=%DATE% (blocking)...
+python weather_auto_fetch.py --date %DATE%
+if %errorlevel% neq 0 (
+    echo.
+    echo [ERROR] weather_auto_fetch failed ^(exit code %errorlevel%^).
+    echo   Re-run manually: python weather_auto_fetch.py --date %DATE%
+    echo.
+    echo Press any key to continue launching the stack anyway,
+    echo or close this window to abort and fix weather first.
+    pause
+) else (
+    echo [OK] Weather fetch complete.
+)
+echo.
+
+echo Step 3/3: Launching slate stack...
 echo.
 
 start "MLB2 API"                cmd /k "cd /d "%ROOT%" && uvicorn api.main:app --reload --port 8000 || pause"
@@ -71,37 +88,44 @@ if not exist "%ROOT%frontend\package.json" (
 start "MLB2 Frontend"           cmd /k "cd /d "%ROOT%frontend" && npm run dev || pause"
 :slate_after_frontend
 
-start "MLB2 Orderbook Recorder" cmd /k "cd /d "%ROOT%" && python kalshi_orderbook_recorder.py --sport mlb --interval-seconds 10 --duration-minutes 240 --jsonl data/kalshi_orderbook_%DATE%.jsonl --verbose || pause"
-start "MLB2 MLB Poller"         cmd /k "cd /d "%ROOT%" && python mlb_poller.py --sport mlb --interval 30 || pause"
+start "MLB2 Orderbook Recorder" cmd /k "cd /d "%ROOT%" && python kalshi_orderbook_recorder.py --sport mlb --interval-seconds 10 --duration-minutes 600 --jsonl data/kalshi_orderbook_%DATE%.jsonl --verbose || pause"
+start "MLB2 MLB Poller"         cmd /k "cd /d "%ROOT%" && python mlb_poller.py --sport mlb --date %DATE% --interval 30 || pause"
 start "MLB2 Live Watcher"       cmd /k "cd /d "%ROOT%" && python live_watcher.py --sport mlb --interval 60 || pause"
+start "MLB2 Paper Sync"         cmd /k "cd /d "%ROOT%" && echo [paper_sync] Run once now; re-run after games end. Up+Enter to repeat. && echo. && python paper_sync.py --date %DATE% & echo. & echo [Done -- press Up+Enter to sync again, or close to exit] & pause"
 
-echo Waiting 10s for API to start, then opening slate health...
+echo Waiting 10s for API to start, then opening health check...
 timeout /t 10 /nobreak >nul
 
-start "MLB2 Slate Health"       cmd /k "cd /d "%ROOT%" && curl -s http://localhost:8000/api/mlb/slate-health?date=%DATE% & echo. & pause"
+start "MLB2 Slate Health"       cmd /k "cd /d "%ROOT%" && curl -s "http://localhost:8000/api/mlb/slate-health?date=%DATE%" & echo. & pause"
 
 timeout /t 2 /nobreak >nul
 start "" "http://localhost:5173"
+start "" "http://localhost:5173/live-dashboard"
 start "" "http://localhost:8000/api/mlb/slate-health?date=%DATE%"
 
 echo.
 echo =====================================================
 echo  MLB2 Slate Stack running -- date=%DATE%
 echo.
-echo  Frontend:     http://localhost:5173
-echo  Slate health: http://localhost:8000/api/mlb/slate-health?date=%DATE%
-echo  API docs:     http://localhost:8000/docs
+echo  Frontend:       http://localhost:5173
+echo  Live Dashboard: http://localhost:5173/live-dashboard
+echo  Slate health:   http://localhost:8000/api/mlb/slate-health?date=%DATE%
+echo  API docs:       http://localhost:8000/docs
 echo.
 echo  Windows open:
 echo    MLB2 API
 echo    MLB2 Frontend
-echo    MLB2 Orderbook Recorder
-echo    MLB2 MLB Poller
+echo    MLB2 Orderbook Recorder  ^(600 min, date=%DATE%^)
+echo    MLB2 MLB Poller          ^(date=%DATE%, interval=30s^)
 echo    MLB2 Live Watcher
+echo    MLB2 Paper Sync          ^(one-shot; Up+Enter to re-run^)
 echo    MLB2 Slate Health
 echo.
-echo  REMINDER: Orderbook Recorder must be running DURING games
-echo  for tape context to populate. Runs for 240 minutes.
+echo  REMINDER: Orderbook Recorder runs for 600 minutes.
+echo  Start before first pitch; covers pregame + full slate.
+echo.
+echo  REMINDER: Re-run paper sync in MLB2 Paper Sync window
+echo  periodically during games and again after games end.
 echo.
 echo  Close each window to stop that service.
 echo =====================================================

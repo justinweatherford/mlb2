@@ -21,15 +21,17 @@ dev.bat slate
 ```
 
 This will:
-1. Run Kalshi discovery synchronously (blocks until done, shows errors if it fails)
-2. Open 6 named terminal windows for the slate stack:
+1. Run Kalshi discovery synchronously (blocks until done, fails hard on error)
+2. Fetch weather for the date synchronously via Open-Meteo (blocks; warns on error)
+3. Open 7 named terminal windows for the slate stack:
    - **MLB2 API** — FastAPI server on port 8000
    - **MLB2 Frontend** — Vite dev server on port 5173
-   - **MLB2 Orderbook Recorder** — Kalshi tape snapshots (runs 240 min)
-   - **MLB2 MLB Poller** — MLB game state polling every 30s
+   - **MLB2 Orderbook Recorder** — Kalshi tape snapshots (runs 600 min, covers pregame + full slate)
+   - **MLB2 MLB Poller** — MLB game state polling every 30s, pinned to the slate date
    - **MLB2 Live Watcher** — Candidate event generation every 60s
+   - **MLB2 Paper Sync** — One-shot sync/settle; re-run with Up+Enter during and after games
    - **MLB2 Slate Health** — One-shot health check for the date
-3. Open two browser tabs: frontend + slate health endpoint
+4. Open three browser tabs: frontend root, Live Dashboard, and slate health endpoint
 
 Dev-only mode (API + frontend, no live data scripts):
 
@@ -42,9 +44,11 @@ dev.bat
 - **MLB2 API window**: `Application startup complete.` on port 8000
 - **MLB2 Frontend window**: `Local: http://localhost:5173/`
 - **MLB2 Orderbook Recorder window**: `Cycle 1 done — polled=N written=N`
-- **MLB2 MLB Poller window**: Logs game state rows every 30s
+- **MLB2 MLB Poller window**: Logs game state rows every 30s for the slate date
 - **MLB2 Live Watcher window**: Logs candidate events as they fire
+- **MLB2 Paper Sync window**: Shows sync/settle summary; re-run with Up+Enter after games
 - **MLB2 Slate Health window**: JSON with `"readiness": "ready"` or `"partial"`
+- **Live Dashboard tab** (`/live-dashboard`): auto-refreshes every 30s; shows capture readiness
 
 ### What to do if a window fails
 
@@ -53,7 +57,9 @@ dev.bat
 - **Orderbook Recorder fails**: Check Kalshi credentials (`.env` or environment variables)
 - **MLB Poller fails**: Check network access to MLB Stats API
 - **Live Watcher fails**: Usually an import error — check for uninstalled dependencies
+- **Paper Sync fails**: Check DB path; run `python paper_sync.py --date YYYY-MM-DD` manually
 - **Slate Health shows `stale`**: Poller or watcher may not be running yet; give it 1-2 minutes
+- **Weather step fails**: Network issue; re-run `python weather_auto_fetch.py --date YYYY-MM-DD` when online
 
 ### How to stop everything
 
@@ -63,7 +69,11 @@ To stop all at once: close all `MLB2 *` terminal windows.
 
 ### REMINDER: Orderbook Recorder timing
 
-The Orderbook Recorder must be running **during live games** for market tape context to populate in the Slate Review UI. If it was not running when candidates fired, those candidates will show `no_tape`. Start it before first pitch and let it run until games end (the 240-minute duration covers a typical day slate).
+The Orderbook Recorder must be running **during live games** for market tape context to populate in the Slate Review UI. If it was not running when candidates fired, those candidates will show `no_tape`. Start it before first pitch and let it run until games end. The 600-minute duration covers pregame through the end of a full evening slate.
+
+### REMINDER: Paper Sync
+
+The **MLB2 Paper Sync** window runs `paper_sync.py` once on launch. Re-run it (press **Up+Enter** in that window) periodically during games and once more after games end to settle final outcomes.
 
 ---
 
