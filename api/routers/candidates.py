@@ -1,12 +1,21 @@
+import csv
+import io
+import json
 import sqlite3
 from datetime import date
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
 
 from api.deps import get_db
 from api.schemas import CandidateEventOut, ListResponse, PaceFadeCandidateOut, SignalEventOut
-from mlb.candidates import get_candidate_event, list_candidate_events
+from mlb.candidates import (
+    _LIVE_GAME_FILTER,
+    backfill_candidate_derivative_metadata,
+    get_candidate_event,
+    list_candidate_events,
+)
 
 router = APIRouter()
 
@@ -78,6 +87,21 @@ def get_candidates_diagnostics(
 # Live candidate events (observation-only; no paper entry or real trading)
 # ---------------------------------------------------------------------------
 
+@router.post("/candidates/repair-derivative-metadata")
+def repair_derivative_metadata(
+    db: sqlite3.Connection = Depends(get_db),
+) -> dict:
+    """
+    Backfill derivative_type / read_type / selected_derivative_type /
+    derivative_rationale / rejected_derivatives_json for existing
+    candidate_events rows where these fields are NULL or 'unknown'.
+
+    Safe to call repeatedly — already-filled rows are not touched.
+    Returns {scanned, updated, skipped_unknown}.
+    """
+    return backfill_candidate_derivative_metadata(db)
+
+
 @router.get("/candidates/live", response_model=ListResponse[CandidateEventOut])
 def get_live_candidates(
     game_pk:            Optional[int] = Query(default=None),
@@ -85,12 +109,23 @@ def get_live_candidates(
     candidate_type:     Optional[str] = Query(default=None),
     status:             Optional[str] = Query(default=None),
     eligible_for_paper: Optional[int] = Query(default=None, ge=0, le=1),
+    date_from:          Optional[str] = Query(default=None, description="YYYY-MM-DD inclusive lower bound on created_at"),
+    date_to:            Optional[str] = Query(default=None, description="YYYY-MM-DD inclusive upper bound on created_at"),
     include_internal_dedup: bool      = Query(default=False,
         description="Include duplicate_candidate blocked rows (internal dedup artifacts)"),
+    current_setups:     bool          = Query(default=False,
+        description="Current Setups mode: one row per setup (game+market+derivative+read), "
+                    "collapsing repeated observations from score/inning state changes. "
+                    "Takes priority over latest_unique."),
+    latest_unique:      bool          = Query(default=True,
+        description="Return only the latest row per dedupe_key (one visible row per setup)"),
     limit:              int           = Query(default=100, ge=1, le=1000),
     db: sqlite3.Connection = Depends(get_db),
 ) -> ListResponse[CandidateEventOut]:
     exclude = None if include_internal_dedup else "duplicate_candidate"
+    # Current Setups always restricts to games that are currently live/in-progress.
+    # History (latest_unique / no mode flag) sees all candidates regardless of game state.
+    live_only = current_setups
     rows = list_candidate_events(
         db,
         game_pk=game_pk,
@@ -99,6 +134,11 @@ def get_live_candidates(
         status=status,
         eligible_for_paper=eligible_for_paper,
         exclude_blocked_reason=exclude,
+        date_from=date_from,
+        date_to=date_to,
+        live_games_only=live_only,
+        current_setups=current_setups,
+        latest_unique=latest_unique,
         limit=limit,
     )
     # Total count with the same filters (no LIMIT)
@@ -116,8 +156,34 @@ def get_live_candidates(
     if exclude is not None:
         where.append("(blocked_reason IS NULL OR blocked_reason != ?)")
         params.append(exclude)
+    if date_from is not None:
+        where.append("DATE(created_at) >= ?"); params.append(date_from)
+    if date_to is not None:
+        where.append("DATE(created_at) <= ?"); params.append(date_to)
+    if live_only:
+        where.append(_LIVE_GAME_FILTER)
     clause = " WHERE " + " AND ".join(where) if where else ""
-    total = db.execute(f"SELECT COUNT(*) FROM candidate_events{clause}", params).fetchone()[0]
+
+    if current_setups:
+        # Count distinct broad setup keys: game_id|market_ticker|derivative_type|read_type|selected_derivative_type|candidate_type
+        total = db.execute(
+            f"SELECT COUNT(DISTINCT "
+            f"COALESCE(game_id,'') || '|' || COALESCE(market_ticker,'') || '|' || "
+            f"COALESCE(derivative_type,'') || '|' || COALESCE(read_type,'') || '|' || "
+            f"COALESCE(selected_derivative_type,'') || '|' || COALESCE(candidate_type,'') "
+            f") FROM candidate_events{clause}",
+            params,
+        ).fetchone()[0]
+    elif latest_unique:
+        total = db.execute(
+            f"SELECT COUNT(DISTINCT COALESCE(dedupe_key, CAST(id AS TEXT))) "
+            f"FROM candidate_events{clause}",
+            params,
+        ).fetchone()[0]
+    else:
+        total = db.execute(
+            f"SELECT COUNT(*) FROM candidate_events{clause}", params
+        ).fetchone()[0]
 
     return ListResponse(
         total=total,
@@ -215,4 +281,69 @@ def get_midgame_blowup(
     return ListResponse(
         total=total,
         items=[SignalEventOut.model_validate(dict(r)) for r in rows],
+    )
+
+
+# ---------------------------------------------------------------------------
+# End-of-day export
+# ---------------------------------------------------------------------------
+
+_EXPORT_FIELDS = [
+    "created_at", "last_seen_at", "game_id", "derivative_type", "read_type",
+    "candidate_type", "status", "blocked_reason", "market_ticker",
+    "entry_yes_bid", "entry_yes_ask", "score_away", "score_home",
+    "inning", "half_inning", "overall_watch_score", "baseline_source",
+    "baseline_quality", "trigger_description", "seen_count",
+]
+
+
+@router.get("/candidates/export")
+def export_candidates(
+    for_date: Optional[str] = Query(
+        default=None,
+        description="YYYY-MM-DD; defaults to today",
+    ),
+    fmt: str = Query(
+        default="csv",
+        alias="format",
+        description="Output format: csv or json",
+        pattern="^(csv|json)$",
+    ),
+    db: sqlite3.Connection = Depends(get_db),
+) -> Response:
+    """
+    End-of-day export of candidate_events for a given date.
+    Returns a downloadable CSV or JSON file.
+    """
+    day = for_date or date.today().isoformat()
+    prefix = f"{day}T"
+
+    rows = db.execute(
+        f"SELECT {', '.join(_EXPORT_FIELDS)} FROM candidate_events "
+        f"WHERE created_at >= ? AND created_at < ? "
+        f"ORDER BY created_at",
+        (prefix + "00:00:00", prefix + "99:99:99"),
+    ).fetchall()
+
+    records = [dict(zip(_EXPORT_FIELDS, row)) for row in rows]
+
+    filename = f"candidates_{day}"
+
+    if fmt == "json":
+        content = json.dumps(records, indent=2, default=str)
+        return Response(
+            content=content,
+            media_type="application/json",
+            headers={"Content-Disposition": f'attachment; filename="{filename}.json"'},
+        )
+
+    # CSV
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=_EXPORT_FIELDS)
+    writer.writeheader()
+    writer.writerows(records)
+    return Response(
+        content=buf.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}.csv"'},
     )

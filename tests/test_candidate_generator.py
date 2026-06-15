@@ -18,6 +18,7 @@ from mlb.guardrails import (
 )
 from mlb.candidate_generator import (
     _score_baseball_support,
+    _score_baseball_support_full,
     _score_execution_quality,
     _score_market_mismatch,
     _score_risk,
@@ -917,3 +918,462 @@ def test_live_watcher_final_game_recently_checked_is_scanned():
     result = run_one_cycle(conn)
     assert result["games_scanned"] == 1
     conn.close()
+
+
+# ── is_final guard tests ───────────────────────────────────────────────────────
+
+def test_final_game_skipped_by_generator():
+    """generate_candidates_for_game must return empty diag for is_final=1 games."""
+    conn = _mem()
+    _insert_game(conn, is_final=1)
+    _insert_game_state(conn, inning=9, inning_half="bottom", outs=3)
+    _insert_play_event(conn, inning=9, event_type="single")
+    _insert_market(
+        conn, market_type="full_game_total",
+        yes_bid=63, yes_ask=66,
+        game_open_price_cents=50,
+        contract_direction="over_yes",
+        settlement_horizon="full_game",
+    )
+    diag = generate_candidates_for_game(conn, _GAME_PK, _GAME_ID)
+    assert len(diag) == 0, "Final game must generate zero candidates"
+    rows = conn.execute("SELECT id FROM candidate_events").fetchall()
+    assert len(rows) == 0
+    conn.close()
+
+
+def test_active_game_not_skipped_by_generator():
+    """generate_candidates_for_game processes is_final=0 games normally."""
+    conn = _mem()
+    _setup_full_game_scenario(conn)  # inserts is_final=0 game
+    diag = generate_candidates_for_game(conn, _GAME_PK, _GAME_ID)
+    assert len(diag) >= 1, "Active game with trigger should generate candidates"
+    conn.close()
+
+
+def test_final_game_watcher_scanned_no_candidates():
+    """Live watcher scans recently-checked final game but generates no candidates."""
+    conn = _mem()
+    _insert_game(conn, is_final=1)   # recently checked, within 4h window
+    _insert_game_state(conn, inning=9)
+    _insert_play_event(conn, inning=9, event_type="single")
+    _insert_market(
+        conn, market_type="full_game_total",
+        yes_bid=63, yes_ask=66,
+        game_open_price_cents=50,
+        contract_direction="over_yes",
+        settlement_horizon="full_game",
+    )
+    result = run_one_cycle(conn)
+    assert result["games_scanned"] == 1, "Final game still counted in scan window"
+    assert result["candidates_generated"] == 0, "No candidates for final game"
+    conn.close()
+
+
+def test_unknown_game_pk_skipped_gracefully():
+    """generate_candidates_for_game returns empty diag when game_pk not in mlb_games."""
+    conn = _mem()
+    diag = generate_candidates_for_game(conn, 99999, "??@??")
+    assert len(diag) == 0
+    conn.close()
+
+
+# ── F5 watcher diagnostic ──────────────────────────────────────────────────────
+
+def test_f5_watcher_generates_candidate_with_trigger():
+    """F5 watcher fires when early scoring + f5_total mid > threshold."""
+    conn = _mem()
+    _setup_f5_scenario(conn)
+    diag = generate_candidates_for_game(conn, _GAME_PK, _GAME_ID)
+    rows = conn.execute(
+        "SELECT candidate_type, status FROM candidate_events"
+    ).fetchall()
+    f5_rows = [r for r in rows if "f5" in r["candidate_type"]]
+    assert len(f5_rows) >= 1, "F5 watcher should insert candidate when mid>55 and early scoring"
+    conn.close()
+
+
+def test_f5_watcher_skips_when_no_early_scoring():
+    """F5 watcher returns no_early_scoring skip when no plays in innings 1-3."""
+    conn = _mem()
+    _insert_game(conn)
+    _insert_game_state(conn, inning=3, inning_half="top", outs=2, runner_state="")
+    # No play events inserted — no early scoring
+    _insert_market(
+        conn, market_type="f5_total",
+        yes_bid=58, yes_ask=62,
+        game_open_price_cents=50,
+        contract_direction="f5_over_yes",
+        settlement_horizon="first_5",
+    )
+    diag = generate_candidates_for_game(conn, _GAME_PK, _GAME_ID)
+    assert diag.derivative_skips.get("f5_total", {}).get("no_early_scoring", 0) >= 1
+    conn.close()
+
+
+def test_f5_watcher_skips_when_mid_below_threshold():
+    """F5 watcher skips when f5_total mid price is at or below 55c threshold."""
+    conn = _mem()
+    _insert_game(conn)
+    _insert_game_state(conn, inning=2, inning_half="top", outs=1, runner_state="")
+    _insert_play_event(conn, inning=1, event_type="error")
+    _insert_market(
+        conn, market_type="f5_total",
+        yes_bid=48, yes_ask=52,     # mid=50 < 55 threshold
+        game_open_price_cents=50,
+        contract_direction="f5_over_yes",
+        settlement_horizon="first_5",
+    )
+    diag = generate_candidates_for_game(conn, _GAME_PK, _GAME_ID)
+    rows = conn.execute(
+        "SELECT id FROM candidate_events WHERE candidate_type LIKE '%f5%'"
+    ).fetchall()
+    assert len(rows) == 0, "F5 candidate must not be inserted below mid threshold"
+    conn.close()
+
+
+# ── Team context wiring tests ─────────────────────────────────────────────────
+#
+# These tests exercise _score_baseball_support_full and its integration into the
+# candidate generator. No external services — all data is in-memory SQLite.
+
+def _insert_team_context(
+    conn,
+    team_abbr: str,
+    season: str = "2026",
+    *,
+    offense_rating: float = 50.0,
+    defense_pitching_rating: float = 50.0,
+    f5_offense_rating: float = 50.0,
+    f5_pitching_risk_rating: float = 50.0,
+    bullpen_risk_rating: float = 50.0,
+) -> None:
+    conn.execute(
+        """
+        INSERT OR REPLACE INTO mlb_team_context
+          (team_abbr, season, team_name, games_played,
+           offense_rating, defense_pitching_rating,
+           f5_offense_rating, f5_pitching_risk_rating,
+           bullpen_risk_rating, late_game_risk_rating,
+           comeback_scoring_rating, overall_context_score,
+           sample_size, f5_sample_size, last_updated, context_confidence)
+        VALUES (?,?,?,30,?,?,?,?,?,50,50,50,30,20,datetime('now'),'medium')
+        """,
+        (
+            team_abbr, season, team_abbr,
+            offense_rating, defense_pitching_rating,
+            f5_offense_rating, f5_pitching_risk_rating,
+            bullpen_risk_rating,
+        ),
+    )
+    conn.commit()
+
+
+def _no_plays() -> list:
+    return []
+
+
+def test_baseball_support_full_no_context_preserves_play_event_logic():
+    """Without team context, result matches the original _score_baseball_support."""
+    conn = _mem()
+    _insert_play_event(conn, event_type="error")
+    plays = conn.execute(
+        "SELECT * FROM mlb_play_events WHERE is_scoring_play=1"
+    ).fetchall()
+    base = _score_baseball_support(plays)  # should be 70.0
+    full, detail = _score_baseball_support_full(
+        plays,
+        candidate_type="full_game_total_extreme_reprice_watch",
+        away_ctx=None,
+        home_ctx=None,
+    )
+    assert full == base, f"No-context result should match pure play scorer ({base})"
+    assert detail["play_event_adjustment"] == base - 50.0
+    assert detail["team_context_adjustment"] == 0.0
+    conn.close()
+
+
+def test_baseball_support_full_detail_dict_structure():
+    """Detail dict has all required formula-transparency keys."""
+    full, detail = _score_baseball_support_full(
+        _no_plays(),
+        candidate_type="full_game_total_extreme_reprice_watch",
+        away_ctx=None,
+        home_ctx=None,
+    )
+    required = {
+        "baseball_support_base",
+        "play_event_adjustment",
+        "team_context_adjustment",
+        "final_baseball_support_score",
+        "support_reasons",
+        "contradiction_reasons",
+        "missing_context_reasons",
+    }
+    assert required <= set(detail.keys()), f"Missing keys: {required - set(detail.keys())}"
+    assert detail["baseball_support_base"] == 50.0
+    assert detail["final_baseball_support_score"] == full
+
+
+def test_baseball_support_full_strong_offense_supports_trailing_team():
+    """Selected team with offense_rating=70 (dev +20) → +5 TC adjustment (strong support)."""
+    conn = _mem()
+    _insert_team_context(conn, "NYY", offense_rating=70.0)   # selected / away
+    _insert_team_context(conn, "BOS", defense_pitching_rating=50.0, bullpen_risk_rating=50.0)
+    from mlb.team_context import get_team_context
+    away_ctx = get_team_context("NYY", "2026", conn)
+    home_ctx = get_team_context("BOS", "2026", conn)
+    _, detail = _score_baseball_support_full(
+        _no_plays(),
+        candidate_type="trailing_team_total_lag_watch",
+        away_ctx=away_ctx,
+        home_ctx=home_ctx,
+        selected_team_abbr="NYY",
+        away_abbr="NYY",
+        home_abbr="BOS",
+    )
+    assert detail["team_context_adjustment"] == 5.0, (
+        f"Strong selected-team offense should add +5, got {detail['team_context_adjustment']}"
+    )
+    assert any("NYY_offense" in r for r in detail["support_reasons"])
+    conn.close()
+
+
+def test_baseball_support_full_high_opponent_defense_contradicts_trailing():
+    """Opponent defense=70 (dev +20) → -5 TC for trailing team candidate."""
+    conn = _mem()
+    _insert_team_context(conn, "NYY")                              # selected, neutral offense
+    _insert_team_context(conn, "BOS", defense_pitching_rating=70.0)  # strong opponent defense
+    from mlb.team_context import get_team_context
+    away_ctx = get_team_context("NYY", "2026", conn)
+    home_ctx = get_team_context("BOS", "2026", conn)
+    _, detail = _score_baseball_support_full(
+        _no_plays(),
+        candidate_type="trailing_team_total_lag_watch",
+        away_ctx=away_ctx,
+        home_ctx=home_ctx,
+        selected_team_abbr="NYY",
+        away_abbr="NYY",
+        home_abbr="BOS",
+    )
+    assert detail["team_context_adjustment"] == -5.0
+    assert any("BOS_defense" in r for r in detail["contradiction_reasons"])
+    conn.close()
+
+
+def test_baseball_support_full_high_opp_bp_risk_supports_trailing():
+    """Opponent bullpen_risk=70 → +5 for trailing team (bad bullpen = trailing team scores more)."""
+    conn = _mem()
+    _insert_team_context(conn, "NYY")
+    _insert_team_context(conn, "BOS", bullpen_risk_rating=70.0)  # bad opponent bullpen
+    from mlb.team_context import get_team_context
+    away_ctx = get_team_context("NYY", "2026", conn)
+    home_ctx = get_team_context("BOS", "2026", conn)
+    _, detail = _score_baseball_support_full(
+        _no_plays(),
+        candidate_type="trailing_team_total_lag_watch",
+        away_ctx=away_ctx,
+        home_ctx=home_ctx,
+        selected_team_abbr="NYY",
+        away_abbr="NYY",
+        home_abbr="BOS",
+    )
+    assert detail["team_context_adjustment"] == 5.0
+    assert any("BOS_bp_risk" in r for r in detail["support_reasons"])
+    conn.close()
+
+
+def test_baseball_support_full_high_offense_contradicts_full_game_fade():
+    """For full_game_total fade (NO), high offense on either team contradicts the thesis."""
+    conn = _mem()
+    _insert_team_context(conn, "NYY", offense_rating=70.0)  # strong offense = bad for fade
+    _insert_team_context(conn, "BOS")
+    from mlb.team_context import get_team_context
+    away_ctx = get_team_context("NYY", "2026", conn)
+    home_ctx = get_team_context("BOS", "2026", conn)
+    _, detail = _score_baseball_support_full(
+        _no_plays(),
+        candidate_type="full_game_total_extreme_reprice_watch",
+        away_ctx=away_ctx,
+        home_ctx=home_ctx,
+        away_abbr="NYY",
+        home_abbr="BOS",
+    )
+    assert detail["team_context_adjustment"] < 0, "Strong offense should contradict fade"
+    assert any("NYY_offense" in r for r in detail["contradiction_reasons"])
+    conn.close()
+
+
+def test_baseball_support_full_high_defense_supports_full_game_fade():
+    """For full_game_total fade, high defense on both teams supports the NO thesis."""
+    conn = _mem()
+    _insert_team_context(conn, "NYY", defense_pitching_rating=70.0)
+    _insert_team_context(conn, "BOS", defense_pitching_rating=70.0)
+    from mlb.team_context import get_team_context
+    away_ctx = get_team_context("NYY", "2026", conn)
+    home_ctx = get_team_context("BOS", "2026", conn)
+    _, detail = _score_baseball_support_full(
+        _no_plays(),
+        candidate_type="full_game_total_extreme_reprice_watch",
+        away_ctx=away_ctx,
+        home_ctx=home_ctx,
+        away_abbr="NYY",
+        home_abbr="BOS",
+    )
+    assert detail["team_context_adjustment"] == 10.0  # +5 each, two teams
+    assert len(detail["support_reasons"]) == 2
+    conn.close()
+
+
+def test_baseball_support_full_f5_offense_contradicts_f5_fade():
+    """For F5 fade, high F5 offense means early scoring → contradicts NO thesis."""
+    conn = _mem()
+    _insert_team_context(conn, "NYY", f5_offense_rating=70.0)
+    _insert_team_context(conn, "BOS")
+    from mlb.team_context import get_team_context
+    away_ctx = get_team_context("NYY", "2026", conn)
+    home_ctx = get_team_context("BOS", "2026", conn)
+    _, detail = _score_baseball_support_full(
+        _no_plays(),
+        candidate_type="f5_total_overreaction_fade_watch",
+        away_ctx=away_ctx,
+        home_ctx=home_ctx,
+        away_abbr="NYY",
+        home_abbr="BOS",
+    )
+    assert detail["team_context_adjustment"] < 0
+    assert any("NYY_f5_offense" in r for r in detail["contradiction_reasons"])
+    conn.close()
+
+
+def test_baseball_support_full_f5_pit_risk_contradicts_f5_fade():
+    """For F5 fade, high starter risk = bad starters = more early runs = contradicts fade."""
+    conn = _mem()
+    _insert_team_context(conn, "NYY", f5_pitching_risk_rating=70.0)
+    _insert_team_context(conn, "BOS")
+    from mlb.team_context import get_team_context
+    away_ctx = get_team_context("NYY", "2026", conn)
+    home_ctx = get_team_context("BOS", "2026", conn)
+    _, detail = _score_baseball_support_full(
+        _no_plays(),
+        candidate_type="f5_total_overreaction_fade_watch",
+        away_ctx=away_ctx,
+        home_ctx=home_ctx,
+        away_abbr="NYY",
+        home_abbr="BOS",
+    )
+    assert detail["team_context_adjustment"] < 0
+    assert any("NYY_f5_pit_risk" in r for r in detail["contradiction_reasons"])
+    conn.close()
+
+
+def test_baseball_support_full_tc_adjustment_clamped_at_15():
+    """Multiple contradictory signals summing beyond 15 are clamped to -15."""
+    conn = _mem()
+    # All six full_game signals contradictory: both teams high offense + high bp_risk
+    _insert_team_context(conn, "NYY", offense_rating=70.0, bullpen_risk_rating=70.0)
+    _insert_team_context(conn, "BOS", offense_rating=70.0, bullpen_risk_rating=70.0)
+    from mlb.team_context import get_team_context
+    away_ctx = get_team_context("NYY", "2026", conn)
+    home_ctx = get_team_context("BOS", "2026", conn)
+    _, detail = _score_baseball_support_full(
+        _no_plays(),
+        candidate_type="full_game_total_extreme_reprice_watch",
+        away_ctx=away_ctx,
+        home_ctx=home_ctx,
+        away_abbr="NYY",
+        home_abbr="BOS",
+    )
+    # Raw sum would be -5-5-5-5 = -20, clamped to -15
+    assert detail["team_context_adjustment"] == -15.0, (
+        f"Expected -15 clamp, got {detail['team_context_adjustment']}"
+    )
+    assert detail["final_baseball_support_score"] == 35.0  # 50 + 0 + (-15)
+    conn.close()
+
+
+def test_baseball_support_full_neutral_signals_no_tc_adjustment():
+    """All ratings at neutral 50 → zero team-context adjustment."""
+    conn = _mem()
+    _insert_team_context(conn, "NYY")  # all defaults are 50
+    _insert_team_context(conn, "BOS")
+    from mlb.team_context import get_team_context
+    away_ctx = get_team_context("NYY", "2026", conn)
+    home_ctx = get_team_context("BOS", "2026", conn)
+    _, detail = _score_baseball_support_full(
+        _no_plays(),
+        candidate_type="full_game_total_extreme_reprice_watch",
+        away_ctx=away_ctx,
+        home_ctx=home_ctx,
+        away_abbr="NYY",
+        home_abbr="BOS",
+    )
+    assert detail["team_context_adjustment"] == 0.0
+    assert detail["support_reasons"] == []
+    assert detail["contradiction_reasons"] == []
+    conn.close()
+
+
+def test_baseball_context_json_stored_in_db():
+    """generate_candidates_for_game stores baseball_context_json for every candidate."""
+    conn = _mem()
+    _setup_full_game_scenario(conn)
+    _insert_team_context(conn, "NYY")
+    _insert_team_context(conn, "BOS")
+    ids = generate_candidates_for_game(conn, _GAME_PK, _GAME_ID)
+    assert ids, "Expected at least one candidate"
+    for cid in ids:
+        row = conn.execute(
+            "SELECT baseball_context_json, candidate_type FROM candidate_events WHERE id = ?",
+            (cid,),
+        ).fetchone()
+        assert row["baseball_context_json"] is not None, (
+            f"candidate {cid} ({row['candidate_type']}) missing baseball_context_json"
+        )
+        parsed = json.loads(row["baseball_context_json"])
+        assert "final_baseball_support_score" in parsed
+    conn.close()
+
+
+def test_baseball_context_json_all_keys_present():
+    """baseball_context_json contains every formula-transparency field."""
+    conn = _mem()
+    _setup_full_game_scenario(conn)
+    _insert_team_context(conn, "NYY", offense_rating=65.0)  # mild support / contradiction
+    _insert_team_context(conn, "BOS")
+    ids = generate_candidates_for_game(conn, _GAME_PK, _GAME_ID)
+    fg_ids = [
+        cid for cid in ids
+        if conn.execute(
+            "SELECT candidate_type FROM candidate_events WHERE id = ?", (cid,)
+        ).fetchone()["candidate_type"] == "full_game_total_extreme_reprice_watch"
+    ]
+    assert fg_ids
+    detail = json.loads(
+        conn.execute(
+            "SELECT baseball_context_json FROM candidate_events WHERE id = ?",
+            (fg_ids[0],),
+        ).fetchone()["baseball_context_json"]
+    )
+    for key in (
+        "baseball_support_base", "play_event_adjustment", "team_context_adjustment",
+        "final_baseball_support_score", "support_reasons", "contradiction_reasons",
+        "missing_context_reasons",
+    ):
+        assert key in detail, f"Missing key: {key}"
+    conn.close()
+
+
+def test_baseball_support_full_missing_context_noted():
+    """When team contexts are None, missing_context_reasons is populated."""
+    _, detail = _score_baseball_support_full(
+        _no_plays(),
+        candidate_type="trailing_team_total_lag_watch",
+        away_ctx=None,
+        home_ctx=None,
+        selected_team_abbr="NYY",
+        away_abbr="NYY",
+        home_abbr="BOS",
+    )
+    assert len(detail["missing_context_reasons"]) > 0, "Should report missing context"
+    assert detail["team_context_adjustment"] == 0.0

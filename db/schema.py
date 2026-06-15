@@ -1,3 +1,4 @@
+import json
 import sqlite3
 
 DDL = """
@@ -236,10 +237,16 @@ CREATE TABLE IF NOT EXISTS kalshi_markets (
     away_team        TEXT,
     home_team        TEXT,
     line_value       REAL,
-    match_confidence TEXT NOT NULL DEFAULT 'unresolved',
-    raw_json         TEXT NOT NULL,
-    discovered_at    TEXT NOT NULL,
-    updated_at       TEXT NOT NULL
+    match_confidence     TEXT NOT NULL DEFAULT 'unresolved',
+    -- Market layer classification (set by reclassify_market_layers after semantics refresh)
+    market_layer_status  TEXT,
+    market_layer_reason  TEXT,
+    supported_by_bot     INTEGER NOT NULL DEFAULT 0,
+    candidate_surface    TEXT,
+    is_noisy_market      INTEGER NOT NULL DEFAULT 0,
+    raw_json             TEXT NOT NULL,
+    discovered_at        TEXT NOT NULL,
+    updated_at           TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS kalshi_orderbook_snapshots (
@@ -434,6 +441,58 @@ CREATE TABLE IF NOT EXISTS mlb_inning_scores (
 );
 CREATE INDEX IF NOT EXISTS idx_mlb_inning_scores_pk ON mlb_inning_scores(game_pk);
 
+-- ── External calibration metrics ──────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS mlb_external_metrics (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    source       TEXT    NOT NULL,
+    season       TEXT    NOT NULL,
+    date_as_of   TEXT    NOT NULL,
+    team         TEXT    NOT NULL,
+    metric_name  TEXT    NOT NULL,
+    metric_value REAL    NOT NULL,
+    metric_type  TEXT,
+    source_file  TEXT,
+    imported_at  TEXT    NOT NULL,
+    UNIQUE(source, season, date_as_of, team, metric_name)
+);
+CREATE INDEX IF NOT EXISTS idx_ext_metrics_team_season ON mlb_external_metrics(team, season);
+
+-- ── FanGraphs team offense (wide-format, one row per team per snapshot) ───
+
+CREATE TABLE IF NOT EXISTS fangraphs_team_offense (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    season          TEXT    NOT NULL,
+    date_as_of      TEXT    NOT NULL,
+    team            TEXT    NOT NULL,
+    -- Raw FanGraphs batting/offense stats
+    games           INTEGER,
+    pa              INTEGER,
+    hr              INTEGER,
+    r               INTEGER,
+    rbi             INTEGER,
+    bb_pct          REAL,
+    k_pct           REAL,
+    iso             REAL,
+    babip           REAL,
+    avg             REAL,
+    obp             REAL,
+    slg             REAL,
+    woba            REAL,
+    wrc_plus        REAL,
+    bsr             REAL,
+    fg_off          REAL,
+    fg_def          REAL,
+    war             REAL,
+    -- Computed quality scores (NOT used in candidate generation yet)
+    external_true_offense_score     REAL,
+    external_offense_tier           TEXT,
+    external_offense_explanation    TEXT,
+    imported_at     TEXT    NOT NULL,
+    UNIQUE(season, date_as_of, team)
+);
+CREATE INDEX IF NOT EXISTS idx_fg_offense_season ON fangraphs_team_offense(season, team);
+
 -- ── Live candidate events ──────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS candidate_events (
@@ -485,6 +544,14 @@ CREATE TABLE IF NOT EXISTS candidate_events (
     implied_probability_open    REAL,
     implied_probability_current REAL,
     baseline_explanation        TEXT,
+    baseline_source             TEXT,
+    baseline_quality            TEXT,
+    -- Derivative-first classification fields
+    derivative_type             TEXT,
+    read_type                   TEXT,
+    selected_derivative_type    TEXT,
+    derivative_rationale        TEXT,
+    rejected_derivatives_json   TEXT,
     -- Deduplication columns: prevent re-inserting unchanged setups each cycle
     dedupe_key                TEXT,
     first_seen_at             TEXT,
@@ -503,6 +570,14 @@ CREATE INDEX IF NOT EXISTS idx_candidate_events_status   ON candidate_events(sta
 CREATE INDEX IF NOT EXISTS idx_candidate_events_eligible ON candidate_events(eligible_for_paper);
 
 -- ── Manual trade journal ───────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS run_health (
+    process     TEXT PRIMARY KEY,
+    last_run_at TEXT,
+    error_count INTEGER NOT NULL DEFAULT 0,
+    last_error  TEXT,
+    extra_json  TEXT
+);
 
 CREATE TABLE IF NOT EXISTS manual_trade_journal (
     id                   INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -534,6 +609,26 @@ CREATE INDEX IF NOT EXISTS idx_manual_trades_game_pk   ON manual_trade_journal(g
 CREATE INDEX IF NOT EXISTS idx_manual_trades_game_id   ON manual_trade_journal(game_id);
 CREATE INDEX IF NOT EXISTS idx_manual_trades_status    ON manual_trade_journal(settlement_status);
 CREATE INDEX IF NOT EXISTS idx_manual_trades_entry     ON manual_trade_journal(entry_time);
+
+-- ── Live-watcher cycle log ────────────────────────────────────────────────
+-- Written by live_watcher at the end of each scan cycle.
+-- Used by the Slate Review page to show cycle-level health without tailing logs.
+
+CREATE TABLE IF NOT EXISTS watcher_cycles (
+    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+    started_at           TEXT NOT NULL,
+    finished_at          TEXT,
+    games_scanned        INTEGER NOT NULL DEFAULT 0,
+    markets_seen         INTEGER NOT NULL DEFAULT 0,
+    candidates_inserted  INTEGER NOT NULL DEFAULT 0,
+    watched_count        INTEGER NOT NULL DEFAULT 0,
+    blocked_count        INTEGER NOT NULL DEFAULT 0,
+    errors_count         INTEGER NOT NULL DEFAULT 0,
+    skip_reasons_json    TEXT,
+    derivative_counts_json TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_watcher_cycles_started ON watcher_cycles(started_at);
 """
 
 
@@ -575,6 +670,24 @@ def _apply_migrations(conn: sqlite3.Connection) -> None:
         "ALTER TABLE candidate_events ADD COLUMN implied_probability_open REAL",
         "ALTER TABLE candidate_events ADD COLUMN implied_probability_current REAL",
         "ALTER TABLE candidate_events ADD COLUMN baseline_explanation TEXT",
+        # Baseline source/quality — explicit provenance for the opening price
+        "ALTER TABLE kalshi_markets ADD COLUMN baseline_source TEXT",
+        # Label pre-existing markets as backfilled (idempotent — only touches NULL rows)
+        "UPDATE kalshi_markets SET baseline_source = 'backfilled_current' WHERE game_open_price_cents IS NOT NULL AND baseline_source IS NULL",
+        "ALTER TABLE candidate_events ADD COLUMN baseline_source TEXT",
+        "ALTER TABLE candidate_events ADD COLUMN baseline_quality TEXT",
+        # Derivative-first classification fields
+        "ALTER TABLE candidate_events ADD COLUMN derivative_type TEXT",
+        "ALTER TABLE candidate_events ADD COLUMN read_type TEXT",
+        "ALTER TABLE candidate_events ADD COLUMN selected_derivative_type TEXT",
+        "ALTER TABLE candidate_events ADD COLUMN derivative_rationale TEXT",
+        "ALTER TABLE candidate_events ADD COLUMN rejected_derivatives_json TEXT",
+        # Market layer classification fields
+        "ALTER TABLE kalshi_markets ADD COLUMN market_layer_status TEXT",
+        "ALTER TABLE kalshi_markets ADD COLUMN market_layer_reason TEXT",
+        "ALTER TABLE kalshi_markets ADD COLUMN supported_by_bot INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE kalshi_markets ADD COLUMN candidate_surface TEXT",
+        "ALTER TABLE kalshi_markets ADD COLUMN is_noisy_market INTEGER NOT NULL DEFAULT 0",
     ]
     for sql in _migrations:
         try:
@@ -582,6 +695,65 @@ def _apply_migrations(conn: sqlite3.Connection) -> None:
         except sqlite3.OperationalError:
             pass  # column already exists (fresh DB has it from DDL)
     conn.commit()
+
+
+def write_run_health(
+    conn: sqlite3.Connection,
+    process: str,
+    *,
+    last_run_at: str,
+    error_count: int = 0,
+    last_error: str | None = None,
+    extra_json: str | None = None,
+) -> None:
+    """Upsert a single row in run_health so the API can surface last-cycle times."""
+    conn.execute(
+        """
+        INSERT INTO run_health(process, last_run_at, error_count, last_error, extra_json)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(process) DO UPDATE SET
+            last_run_at = excluded.last_run_at,
+            error_count = excluded.error_count,
+            last_error  = excluded.last_error,
+            extra_json  = excluded.extra_json
+        """,
+        (process, last_run_at, error_count, last_error, extra_json),
+    )
+    conn.commit()
+
+
+def log_watcher_cycle(
+    conn: sqlite3.Connection,
+    *,
+    started_at: str,
+    finished_at: str | None = None,
+    games_scanned: int = 0,
+    markets_seen: int = 0,
+    candidates_inserted: int = 0,
+    watched_count: int = 0,
+    blocked_count: int = 0,
+    errors_count: int = 0,
+    skip_reasons: dict | None = None,
+    derivative_counts: dict | None = None,
+) -> int:
+    """Insert one watcher cycle row and return its id."""
+    cur = conn.execute(
+        """
+        INSERT INTO watcher_cycles
+          (started_at, finished_at, games_scanned, markets_seen,
+           candidates_inserted, watched_count, blocked_count, errors_count,
+           skip_reasons_json, derivative_counts_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            started_at, finished_at, games_scanned, markets_seen,
+            candidates_inserted, watched_count, blocked_count, errors_count,
+            json.dumps(skip_reasons or {}),
+            json.dumps(derivative_counts or {}),
+        ),
+    )
+    conn.commit()
+    return cur.lastrowid
 
 
 def init_db(db_path: str) -> sqlite3.Connection:

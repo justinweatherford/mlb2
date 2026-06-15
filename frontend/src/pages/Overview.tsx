@@ -3,7 +3,7 @@ import { api } from '../api/client'
 import { StatCard, CardSkeleton } from '../components/StatCard'
 import { ErrorState } from '../components/ErrorState'
 import { Badge } from '../components/Badge'
-import type { OverviewMlbGame, OverviewCandidate } from '../types/api'
+import type { OverviewMlbGame, OverviewCandidate, RunHealthEntry } from '../types/api'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -23,6 +23,30 @@ function WsStatusDot({ lastUpdate }: { lastUpdate: string | null }) {
     <span className={`inline-flex items-center gap-1.5 text-xs ${fresh ? 'text-emerald-400' : 'text-amber-400'}`}>
       <span className={`w-2 h-2 rounded-full ${fresh ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
       Live · updated {label}
+    </span>
+  )
+}
+
+function ProcessHealthDot({ label, entry }: { label: string; entry: RunHealthEntry | undefined }) {
+  if (!entry?.last_run_at) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs text-slate-600">
+        <span className="w-1.5 h-1.5 rounded-full bg-slate-700" />
+        {label}: no data
+      </span>
+    )
+  }
+  const utcStr = entry.last_run_at.endsWith('Z') ? entry.last_run_at : entry.last_run_at + 'Z'
+  const agoS = Math.round((Date.now() - new Date(utcStr).getTime()) / 1000)
+  const stale = agoS > 300
+  const hasErrors = entry.error_count > 0
+  const color = hasErrors ? 'text-red-400' : stale ? 'text-amber-400' : 'text-emerald-400'
+  const dotColor = hasErrors ? 'bg-red-400' : stale ? 'bg-amber-400' : 'bg-emerald-400 animate-pulse'
+  const ago = agoS <= 0 ? 'just now' : agoS < 60 ? `${agoS}s ago` : `${Math.round(agoS / 60)}m ago`
+  return (
+    <span className={`inline-flex items-center gap-1.5 text-xs ${color}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
+      {label}: {ago}{hasErrors ? ` · ${entry.error_count} err` : ''}
     </span>
   )
 }
@@ -153,12 +177,14 @@ export function Overview() {
         <span className="page-subtitle">{d?.today ?? '…'}</span>
       </div>
 
-      {/* WS status banner */}
-      <div className="mb-5 flex items-center justify-between">
+      {/* Process health banner */}
+      <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-1.5">
         <WsStatusDot lastUpdate={d?.kalshi?.last_ws_update ?? null} />
-        <span className="text-xs text-slate-600">
-          {d?.kalshi?.ws_updates_today.toLocaleString() ?? '0'} WS updates today ·{' '}
-          {d?.kalshi?.markets_open ?? 0} markets open
+        <ProcessHealthDot label="MLB poller" entry={d?.run_health?.['mlb_poller']} />
+        <ProcessHealthDot label="Live watcher" entry={d?.run_health?.['live_watcher']} />
+        <span className="ml-auto text-xs text-slate-600">
+          {d?.kalshi?.ws_updates_today.toLocaleString() ?? '0'} WS updates ·{' '}
+          {d?.kalshi?.markets_open ?? 0} open markets
         </span>
       </div>
 

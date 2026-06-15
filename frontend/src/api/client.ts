@@ -16,6 +16,15 @@ import type {
   KalshiMarketUpdate,
   KalshiLiveMarket,
   TeamContext,
+  TeamContextDebug,
+  SanityCheckResult,
+  TeamCompareResult,
+  CalibrationResult,
+  MarketLayerSummary,
+  PerformanceResponse,
+  SlateReviewResponse,
+  SetupOutcomeResponse,
+  FanGraphsOffenseCalibration,
 } from '../types/api'
 
 type Params = Record<string, string | number | boolean | undefined | null>
@@ -105,7 +114,20 @@ export interface LiveCandidatesParams {
   game_id?: string
   candidate_type?: string
   status?: string
+  date_from?: string
+  date_to?: string
+  current_setups?: boolean
+  latest_unique?: boolean
   limit?: number
+}
+
+export interface PerformanceParams {
+  date_from?: string
+  date_to?: string
+  derivative_type?: string
+  read_type?: string
+  candidate_type?: string
+  include_blocked?: boolean
 }
 
 export interface ManualTradesParams {
@@ -123,6 +145,9 @@ export interface KalshiMarketsParams {
   game_date?: string
   away_team?: string
   home_team?: string
+  supported_only?: boolean
+  hide_noisy?: boolean
+  candidate_surface?: string
   limit?: number
   offset?: number
 }
@@ -147,6 +172,8 @@ export interface KalshiLiveParams {
   market_type?: string
   game_id?: string
   status?: string
+  hide_noisy?: boolean
+  supported_only?: boolean
   limit?: number
   offset?: number
 }
@@ -197,6 +224,9 @@ export const api = {
   kalshiMarkets: (params?: KalshiMarketsParams) =>
     apiFetch<ListResponse<KalshiMarket>>('/api/kalshi/markets', params as Params),
 
+  kalshiMarketLayerSummary: (params?: { game_date?: string }) =>
+    apiFetch<MarketLayerSummary>('/api/kalshi/markets/layer-summary', params as Params),
+
   kalshiEvents: (params?: KalshiEventsParams) =>
     apiFetch<ListResponse<KalshiEvent>>('/api/kalshi/events', params as Params),
 
@@ -205,6 +235,17 @@ export const api = {
 
   kalshiLive: (params?: KalshiLiveParams) =>
     apiFetch<ListResponse<KalshiLiveMarket>>('/api/kalshi/markets/live', params as Params),
+
+  performance: (params?: PerformanceParams) =>
+    apiFetch<PerformanceResponse>('/api/performance/derivatives', params as Params),
+
+  exportCandidates: (for_date?: string, format: 'csv' | 'json' = 'csv') => {
+    const url = buildUrl('/api/candidates/export', { for_date, format })
+    return fetch(url).then((r) => {
+      if (!r.ok) throw new Error(`Export failed: ${r.status}`)
+      return r
+    })
+  },
 
   overview: () =>
     apiFetch<import('../types/api').OverviewResponse>('/api/overview'),
@@ -216,5 +257,59 @@ export const api = {
     apiPost<{ refreshed: boolean; team_count: number; teams: string[]; errors: string[] }>(
       `/api/mlb/team-context/refresh?season=${season}`,
       {},
+    ),
+
+  mlbTeamContextDebug: (team_abbr: string, season = '2026') =>
+    apiFetch<TeamContextDebug>(`/api/mlb/team-context/${team_abbr}/debug`, { season }),
+
+  mlbSanityCheck: (season = '2026') =>
+    apiFetch<SanityCheckResult>('/api/mlb/team-context/sanity-check', { season }),
+
+  mlbCompareTeams: (team_a: string, team_b: string, season = '2026') =>
+    apiFetch<TeamCompareResult>('/api/mlb/team-context/compare', { team_a, team_b, season }),
+
+  mlbCalibration: (season = '2026', team?: string) =>
+    apiFetch<CalibrationResult>('/api/mlb/team-context/calibration', { season, team }),
+
+  mlbCalibrationImport: (csv_text: string, source_file = 'manual_import') =>
+    apiPost<{ imported: number; skipped: number; errors: string[] }>(
+      '/api/mlb/team-context/calibration/import',
+      { csv_text, source_file },
+    ),
+
+  slateReview: (date?: string) =>
+    apiFetch<SlateReviewResponse>('/api/slate/review', { date }),
+
+  slateExport: (date?: string, format: 'csv' | 'json' = 'csv') => {
+    const url = buildUrl('/api/slate/export', { date, format })
+    return fetch(url).then((r) => {
+      if (!r.ok) throw new Error(`Slate export failed: ${r.status}`)
+      return r
+    })
+  },
+
+  setupOutcomes: (date?: string) =>
+    apiFetch<SetupOutcomeResponse>('/api/setup-outcomes', { date }),
+
+  setupOutcomesExport: (date?: string, format: 'csv' | 'json' = 'csv') => {
+    const url = buildUrl('/api/setup-outcomes/export', { date, format })
+    return fetch(url).then((r) => {
+      if (!r.ok) throw new Error(`Setup outcomes export failed: ${r.status}`)
+      return r
+    })
+  },
+
+  fgOffenseCalibration: (season?: string, team?: string) =>
+    apiFetch<FanGraphsOffenseCalibration>('/api/mlb/team-context/fangraphs-offense/calibration', { season, team }),
+
+  fgOffenseImport: (body: { csv_text: string; season?: string; date_as_of?: string }) =>
+    apiPost<{ imported: number; skipped: number; errors: string[] }>(
+      '/api/mlb/team-context/fangraphs-offense/import',
+      body,
+    ),
+
+  fgOffenseSampleCsv: () =>
+    apiFetch<{ sample_csv: string; required_columns: string[]; instructions: string }>(
+      '/api/mlb/team-context/fangraphs-offense/sample-csv',
     ),
 }

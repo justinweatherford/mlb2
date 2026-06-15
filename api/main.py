@@ -15,7 +15,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routers import candidates, health, ingest, kalshi_markets, manual_trades, mlb, overview, positions, signals, summary
+from api.routers import candidates, health, ingest, kalshi_markets, manual_trades, mlb, overview, performance, positions, signals, slate, summary, setup_outcomes
 from api.deps import DB_PATH
 from db.schema import init_db
 
@@ -68,6 +68,9 @@ app.include_router(health.router,          prefix=PREFIX, tags=["health"])
 app.include_router(ingest.router,          prefix=PREFIX, tags=["ingest"])
 app.include_router(kalshi_markets.router,  prefix=PREFIX, tags=["kalshi"])
 app.include_router(manual_trades.router, prefix=PREFIX, tags=["manual-trades"])
+app.include_router(performance.router,   prefix=PREFIX, tags=["performance"])
+app.include_router(slate.router,          prefix=PREFIX, tags=["slate"])
+app.include_router(setup_outcomes.router, prefix=PREFIX, tags=["setup-outcomes"])
 app.include_router(mlb.router, prefix=f"{PREFIX}/mlb/team-context", tags=["mlb"])
 
 

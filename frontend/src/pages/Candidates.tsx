@@ -37,6 +37,47 @@ function candidateTypeLabel(t: string): string {
   return t
 }
 
+function derivativeLabel(t: string | null): string {
+  if (!t) return '—'
+  const labels: Record<string, string> = {
+    fg_total:     'FG Total',
+    f5_total:     'F5 Total',
+    team_total:   'Team Total',
+    fg_spread:    'FG Spread',
+    f5_spread:    'F5 Spread',
+    fg_moneyline: 'FG ML',
+    f5_moneyline: 'F5 ML',
+    player_prop:  'Player Prop',
+    unsupported:  'Unsupported',
+    unknown:      '—',
+  }
+  return labels[t] ?? t.replace(/_/g, ' ')
+}
+
+function derivativeVariant(t: string | null): BadgeColor {
+  if (t === 'fg_total' || t === 'f5_total') return 'purple'
+  if (t === 'team_total') return 'orange'
+  if (t === 'fg_spread' || t === 'f5_spread') return 'cyan'
+  return 'purple'
+}
+
+function readTypeLabel(t: string | null): string {
+  if (!t || t === 'unknown') return '—'
+  const labels: Record<string, string> = {
+    market_overreaction:       'Overreaction',
+    fluky_scoring_fade:        'Fluky Fade',
+    team_total_lag:            'Team Lag',
+    starting_pitcher_edge:     'SP Edge',
+    bullpen_edge:              'Bullpen',
+    team_offense_edge:         'Off Edge',
+    team_pitching_edge:        'Pitch Edge',
+    environment_total_edge:    'Env Total',
+    late_game_volatility:      'Late Vol',
+    hard_contact_continuation: 'Hard Contact',
+  }
+  return labels[t] ?? t.replace(/_/g, ' ')
+}
+
 function marketLabel(c: LiveCandidate): string {
   const line = c.line_value != null ? ` ${c.line_value}` : ''
   if (c.market_type === 'team_total' && c.selected_team_abbr)
@@ -333,40 +374,212 @@ function LogTradeModal({ candidate, onClose, onSuccess }: {
 }
 
 
+function BaselineBadges({ c }: { c: LiveCandidate }) {
+  if (!c.baseline_source && !c.baseline_quality) return null
+  return (
+    <div className="mt-2 flex gap-2 flex-wrap">
+      {c.baseline_source && (
+        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-medium border ${
+          c.baseline_source === 'kalshi_open'        ? 'bg-emerald-950/40 border-emerald-700/40 text-emerald-300' :
+          c.baseline_source === 'first_discovery'    ? 'bg-blue-950/40 border-blue-700/40 text-blue-300' :
+          c.baseline_source === 'backfilled_current' ? 'bg-amber-950/40 border-amber-700/40 text-amber-300' :
+                                                       'bg-slate-800/40 border-slate-700/40 text-slate-500'
+        }`}>
+          {c.baseline_source.replace(/_/g, ' ')}
+        </span>
+      )}
+      {c.baseline_quality && (
+        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-medium border ${
+          c.baseline_quality === 'high'   ? 'bg-emerald-950/40 border-emerald-700/40 text-emerald-300' :
+          c.baseline_quality === 'medium' ? 'bg-blue-950/40 border-blue-700/40 text-blue-300' :
+          c.baseline_quality === 'low'    ? 'bg-amber-950/40 border-amber-700/40 text-amber-400' :
+                                            'bg-slate-800/40 border-slate-700/40 text-slate-500'
+        }`}>
+          {c.baseline_quality} quality
+        </span>
+      )}
+    </div>
+  )
+}
+
 function LiveCandidateDetail({ c, onLogTrade }: { c: LiveCandidate; onLogTrade: () => void }) {
   let guardrails: GuardrailsData | null = null
   try {
     if (c.guardrails_json) guardrails = JSON.parse(c.guardrails_json) as GuardrailsData
-  } catch { /* invalid JSON — display nothing */ }
+  } catch { /* invalid JSON */ }
+
+  // Split guardrails into failed vs passed; suppress duplicate_candidate in operator view
+  const failedChecks = guardrails && guardrails.blocked_reason
+    ? guardrails.guardrails_checked.filter(g => g === guardrails!.blocked_reason)
+    : []
+  const passedChecks = guardrails
+    ? guardrails.guardrails_checked.filter(
+        g => g !== guardrails!.blocked_reason && g !== 'duplicate_candidate'
+      )
+    : []
+
+  const statusLabel = c.blocked_reason ? 'Blocked'
+    : c.eligible_for_paper ? 'Eligible'
+    : 'Watch'
+  const statusVariant = c.blocked_reason ? 'red' : c.eligible_for_paper ? 'green' : 'blue'
 
   return (
     <>
+      {/* 1. STATUS SUMMARY */}
       <DetailSection title="Status">
         <div className="flex gap-2 flex-wrap">
           <Badge label={candidateTypeLabel(c.candidate_type)} variant={candidateTypeVariant(c.candidate_type)} size="sm" />
-          {c.blocked_reason ? (
-            <Badge label="Blocked" variant="red" dot size="sm" />
-          ) : (
-            <Badge label="Observed Only" variant="blue" dot size="sm" />
-          )}
+          <Badge label={statusLabel} variant={statusVariant} dot size="sm" />
         </div>
         {c.blocked_reason && (
           <div className="mt-2 rounded-md bg-red-950/30 border border-red-800/30 px-3 py-2">
             <div className="text-xs font-semibold text-red-300 font-mono">{c.blocked_reason.replace(/_/g, ' ')}</div>
-            <div className="text-[10px] text-slate-500 mt-0.5">Candidate blocked — observation recorded for audit. No position opened.</div>
+            <div className="text-[10px] text-slate-500 mt-0.5">Observation recorded. No position opened.</div>
           </div>
         )}
       </DetailSection>
 
-      {c.trigger_description && (
-        <DetailSection title="Trigger">
-          <p className="text-xs text-slate-400 bg-[#111827] rounded p-3 leading-relaxed font-mono">{c.trigger_description}</p>
+      {/* 2. BASEBALL READ */}
+      {(c.trigger_description || (c.read_type && c.read_type !== 'unknown')) && (
+        <DetailSection title="Baseball Read">
+          {c.read_type && c.read_type !== 'unknown' && (
+            <div className="text-[11px] font-medium text-slate-400 mb-1.5">
+              {readTypeLabel(c.read_type)}
+            </div>
+          )}
+          {c.trigger_description && (
+            <p className="text-xs text-slate-400 bg-[#111827] rounded p-3 leading-relaxed font-mono">
+              {c.trigger_description}
+            </p>
+          )}
           {c.trigger_event_type && (
-            <div className="mt-1 text-[10px] text-slate-600">type: {c.trigger_event_type}</div>
+            <div className="mt-1 text-[10px] text-slate-600">event: {c.trigger_event_type}</div>
           )}
         </DetailSection>
       )}
 
+      {/* 3. SELECTED DERIVATIVE */}
+      {(c.derivative_type && c.derivative_type !== 'unknown') && (
+        <DetailSection title="Derivative">
+          <div className="flex items-center gap-3 mb-2">
+            <Badge label={derivativeLabel(c.derivative_type)} variant={derivativeVariant(c.derivative_type)} size="sm" />
+            {c.read_type && c.read_type !== 'unknown' && (
+              <span className="text-[11px] text-slate-500">{readTypeLabel(c.read_type)}</span>
+            )}
+          </div>
+          {c.derivative_rationale && (
+            <p className="text-xs text-slate-400 bg-[#111827] rounded p-3 leading-relaxed font-mono">
+              {c.derivative_rationale}
+            </p>
+          )}
+          {c.rejected_derivatives_json && (() => {
+            try {
+              const rejected = JSON.parse(c.rejected_derivatives_json) as { derivative_type: string; reason: string }[]
+              if (!rejected.length) return null
+              return (
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-[10px] text-slate-500 hover:text-slate-400 select-none">
+                    {rejected.length} rejected derivative{rejected.length !== 1 ? 's' : ''} ▾
+                  </summary>
+                  <div className="mt-1.5 space-y-1 pl-2 border-l border-[#1a2540]">
+                    {rejected.map((r) => (
+                      <div key={r.derivative_type} className="flex items-start gap-2">
+                        <span className="text-[10px] font-mono text-slate-500 pt-0.5 min-w-[72px]">{derivativeLabel(r.derivative_type)}</span>
+                        <span className="text-[10px] text-slate-600">{r.reason}</span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )
+            } catch { return null }
+          })()}
+        </DetailSection>
+      )}
+
+      {/* 4. GUARDRAILS — failed prominently, passed collapsed */}
+      {guardrails && (
+        <DetailSection title="Guardrails">
+          {failedChecks.length > 0 ? (
+            <div className="space-y-1.5 mb-2">
+              {failedChecks.map((g) => (
+                <div key={g} className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-red-500" />
+                  <span className="text-[11px] text-red-300 font-mono">{g.replace(/_/g, ' ')}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-[11px] text-emerald-400 mb-2">No blocking guardrails fired.</div>
+          )}
+          {passedChecks.length > 0 && (
+            <details>
+              <summary className="cursor-pointer text-[10px] text-slate-600 hover:text-slate-400 select-none">
+                {passedChecks.length} checks passed ▾
+              </summary>
+              <div className="mt-1.5 space-y-1 pl-2">
+                {passedChecks.map((g) => (
+                  <div key={g} className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-emerald-700" />
+                    <span className="text-[11px] text-slate-600 font-mono">{g.replace(/_/g, ' ')}</span>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+          {guardrails.warnings.length > 0 && (
+            <div className="mt-2 pt-2 border-t border-[#1a2540] space-y-1">
+              {guardrails.warnings.map((w) => (
+                <div key={w} className="text-[11px] text-amber-500/70 font-mono">{w}</div>
+              ))}
+            </div>
+          )}
+        </DetailSection>
+      )}
+
+      {/* 5. MARKET & PRICE */}
+      <DetailSection title="Market">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+          <DetailRow label="Market" value={marketLabel(c)} />
+          <DetailRow label="Horizon" value={c.settlement_horizon} />
+          <DetailRow label="Bid" value={c.entry_yes_bid != null ? `${c.entry_yes_bid}¢` : '—'} mono />
+          <DetailRow label="Ask" value={c.entry_yes_ask != null ? `${c.entry_yes_ask}¢` : '—'} mono />
+          <DetailRow label="Spread" value={c.spread_cents != null ? `${c.spread_cents}¢` : '—'} mono />
+          <DetailRow label="Fill est." value={c.expected_fill_price != null ? `${c.expected_fill_price}¢` : '—'} mono />
+          {c.opening_price_cents != null && (
+            <DetailRow label="Open" value={`${c.opening_price_cents}¢`} mono />
+          )}
+          {c.current_mid_price_cents != null && (
+            <DetailRow label="Mid" value={`${c.current_mid_price_cents}¢`} mono />
+          )}
+          {c.price_delta_from_open_cents != null && (
+            <DetailRow
+              label="Δ open"
+              value={`${c.price_delta_from_open_cents >= 0 ? '+' : ''}${c.price_delta_from_open_cents}¢`}
+              mono
+            />
+          )}
+          {c.implied_probability_open != null && (
+            <DetailRow label="Prob open" value={`${(c.implied_probability_open * 100).toFixed(0)}%`} />
+          )}
+          {c.implied_probability_current != null && (
+            <DetailRow label="Prob now" value={`${(c.implied_probability_current * 100).toFixed(0)}%`} />
+          )}
+        </div>
+        <BaselineBadges c={c} />
+        {c.baseline_explanation && (
+          <details className="mt-2">
+            <summary className="cursor-pointer text-[10px] text-slate-500 hover:text-slate-400 select-none">
+              Baseline explanation ▾
+            </summary>
+            <p className="mt-1.5 text-xs text-slate-400 bg-[#111827] rounded p-3 leading-relaxed font-mono">
+              {c.baseline_explanation}
+            </p>
+          </details>
+        )}
+        <div className="mt-2 text-[10px] text-slate-700 font-mono truncate">{c.market_ticker}</div>
+      </DetailSection>
+
+      {/* 6. GAME STATE */}
       <DetailSection title="Game State">
         <div className="grid grid-cols-2 gap-x-4 gap-y-3">
           <DetailRow label="Game" value={c.game_id ?? '—'} />
@@ -384,43 +597,7 @@ function LiveCandidateDetail({ c, onLogTrade }: { c: LiveCandidate; onLogTrade: 
         </div>
       </DetailSection>
 
-      <DetailSection title="Market">
-        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-          <DetailRow label="Ticker" value={c.market_ticker ?? '—'} mono />
-          <DetailRow label="Horizon" value={c.settlement_horizon} />
-          <DetailRow label="YES bid" value={c.entry_yes_bid != null ? `${c.entry_yes_bid}¢` : '—'} mono />
-          <DetailRow label="YES ask" value={c.entry_yes_ask != null ? `${c.entry_yes_ask}¢` : '—'} mono />
-          <DetailRow label="Spread" value={c.spread_cents != null ? `${c.spread_cents}¢` : '—'} mono />
-          <DetailRow label="Fill est." value={c.expected_fill_price != null ? `${c.expected_fill_price}¢` : '—'} mono />
-        </div>
-      </DetailSection>
-
-      <DetailSection title="Price Baseline">
-        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-          <DetailRow label="Open" value={c.opening_price_cents != null ? `${c.opening_price_cents}¢` : '—'} mono />
-          <DetailRow label="Current mid" value={c.current_mid_price_cents != null ? `${c.current_mid_price_cents}¢` : '—'} mono />
-          <DetailRow
-            label="Δ from open"
-            value={c.price_delta_from_open_cents != null
-              ? `${c.price_delta_from_open_cents >= 0 ? '+' : ''}${c.price_delta_from_open_cents}¢`
-              : '—'}
-            mono
-          />
-          <DetailRow label="Baseline" value={c.has_baseline_price ? 'Yes' : 'No'} />
-          {c.implied_probability_open != null && (
-            <DetailRow label="Impl prob open" value={`${(c.implied_probability_open * 100).toFixed(0)}%`} />
-          )}
-          {c.implied_probability_current != null && (
-            <DetailRow label="Impl prob now" value={`${(c.implied_probability_current * 100).toFixed(0)}%`} />
-          )}
-        </div>
-        {c.baseline_explanation && (
-          <p className="mt-2 text-xs text-slate-400 bg-[#111827] rounded p-3 leading-relaxed font-mono">
-            {c.baseline_explanation}
-          </p>
-        )}
-      </DetailSection>
-
+      {/* 7. SCORES */}
       {c.overall_watch_score != null && (
         <DetailSection title="Scores">
           <div className="space-y-2">
@@ -444,42 +621,25 @@ function LiveCandidateDetail({ c, onLogTrade }: { c: LiveCandidate; onLogTrade: 
         </DetailSection>
       )}
 
-      {guardrails && (
-        <DetailSection title="Guardrails">
-          <div className="space-y-1.5">
-            {guardrails.guardrails_checked.map((g) => (
-              <div key={g} className="flex items-center gap-2">
-                <span
-                  className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                    guardrails!.blocked_reason === g ? 'bg-red-500' : 'bg-emerald-500'
-                  }`}
-                />
-                <span className="text-[11px] text-slate-400 font-mono">{g.replace(/_/g, ' ')}</span>
-              </div>
-            ))}
-            {guardrails.warnings.length > 0 && (
-              <div className="mt-2 pt-2 border-t border-[#1a2540] space-y-1">
-                {guardrails.warnings.map((w) => (
-                  <div key={w} className="text-[11px] text-amber-500/70 font-mono">{w}</div>
-                ))}
-              </div>
-            )}
+      {/* 8. RAW AUDIT — collapsed by default */}
+      <details className="border-t border-[#1a2540]">
+        <summary className="cursor-pointer px-4 py-2 text-[11px] text-slate-600 hover:text-slate-400 select-none">
+          Raw audit ▾
+        </summary>
+        <div className="px-4 pb-3">
+          <div className="bg-[#080d18] rounded p-3 font-mono text-[11px] text-slate-500 space-y-1">
+            <div><span className="text-slate-600">id: </span><span className="text-slate-400">{c.id}</span></div>
+            <div><span className="text-slate-600">candidate_type: </span><span className="text-slate-400">{c.candidate_type}</span></div>
+            <div><span className="text-slate-600">market_ticker: </span><span className="text-slate-400 break-all">{c.market_ticker ?? '—'}</span></div>
+            <div><span className="text-slate-600">settlement_horizon: </span><span className="text-slate-400">{c.settlement_horizon}</span></div>
+            <div><span className="text-slate-600">seen_count: </span><span className="text-slate-400">{c.seen_count}</span></div>
+            <div><span className="text-slate-600">first_seen_at: </span><span className="text-slate-400">{c.first_seen_at ?? c.created_at}</span></div>
+            <div><span className="text-slate-600">last_seen_at: </span><span className="text-slate-400">{c.last_seen_at ?? c.updated_at}</span></div>
+            <div><span className="text-slate-600">created_at: </span><span className="text-slate-400">{c.created_at}</span></div>
+            <div><span className="text-slate-600">dedupe_key: </span><span className="text-slate-400 break-all">{(c as any).dedupe_key ?? '—'}</span></div>
           </div>
-        </DetailSection>
-      )}
-
-      <DetailSection title="Raw">
-        <div className="bg-[#080d18] rounded p-3 font-mono text-[11px] text-slate-500 space-y-1">
-          <div><span className="text-slate-600">id: </span><span className="text-slate-400">{c.id}</span></div>
-          <div><span className="text-slate-600">candidate_type: </span><span className="text-slate-400">{c.candidate_type}</span></div>
-          <div><span className="text-slate-600">market_ticker: </span><span className="text-slate-400 break-all">{c.market_ticker ?? '—'}</span></div>
-          <div><span className="text-slate-600">settlement_horizon: </span><span className="text-slate-400">{c.settlement_horizon}</span></div>
-          <div><span className="text-slate-600">seen_count: </span><span className="text-slate-400">{c.seen_count}</span></div>
-          <div><span className="text-slate-600">first_seen_at: </span><span className="text-slate-400">{c.first_seen_at ?? c.created_at}</span></div>
-          <div><span className="text-slate-600">last_seen_at: </span><span className="text-slate-400">{c.last_seen_at ?? c.updated_at}</span></div>
-          <div><span className="text-slate-600">created_at: </span><span className="text-slate-400">{c.created_at}</span></div>
         </div>
-      </DetailSection>
+      </details>
 
       <DetailSection title="Actions">
         <button className="btn-primary w-full" onClick={onLogTrade}>
@@ -810,20 +970,32 @@ function MidgameBlowupTab() {
   )
 }
 
+function liveWatchToday(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
 function LiveWatchTab() {
-  const [filters, setFilters] = useState({ game_id: '', candidate_type: '', status: '' })
+  const today = liveWatchToday()
+  const [mode, setMode] = useState<'setups' | 'history'>('setups')
+  const [filters, setFilters] = useState({ game_id: '', candidate_type: '', status: '', date_from: today })
   const [applied, setApplied] = useState(filters)
   const [selected, setSelected] = useState<LiveCandidate | null>(null)
   const [logging, setLogging] = useState<LiveCandidate | null>(null)
   const [logSuccess, setLogSuccess] = useState(false)
 
+  // Current Setups: live games only, one row per setup (game+market+derivative+read)
+  // History: full audit trail across all game states, date-filtered
   const { data, isLoading, isError, refetch, dataUpdatedAt } = useQuery({
-    queryKey: ['live-candidates', applied],
+    queryKey: ['live-candidates', applied, mode],
     queryFn: () => api.liveCandidates({
       game_id: applied.game_id || undefined,
       candidate_type: applied.candidate_type || undefined,
       status: applied.status || undefined,
-      limit: 200,
+      // setups mode requires live games — backend enforces this; no date filter needed
+      date_from: mode === 'history' ? (applied.date_from || undefined) : undefined,
+      current_setups: mode === 'setups',
+      latest_unique: false,
+      limit: mode === 'setups' ? 100 : 300,
     }),
     refetchInterval: 30_000,
   })
@@ -834,8 +1006,49 @@ function LiveWatchTab() {
 
   return (
     <div>
-      {/* Filters */}
-      <div className="card p-3 mb-4 flex flex-wrap gap-2 items-end">
+      {/* Mode toggle + filters */}
+      <div className="card p-3 mb-4 flex flex-wrap gap-3 items-end">
+        {/* Mode switcher */}
+        <div className="flex gap-0.5 bg-[#080d18] p-0.5 rounded-md border border-[#1a2540]">
+          {(
+            [
+              ['setups', 'Current Setups'],
+              ['history', 'History'],
+            ] as const
+          ).map(([m, label]) => (
+            <button
+              key={m}
+              onClick={() => {
+                const newDateFrom = m === 'setups' ? today : ''
+                setMode(m)
+                setSelected(null)
+                setFilters(f => ({ ...f, date_from: newDateFrom }))
+                setApplied(a => ({ ...a, date_from: newDateFrom }))
+              }}
+              className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                mode === m
+                  ? 'bg-blue-600/25 text-blue-300 border border-blue-700/40'
+                  : 'text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="h-4 border-l border-[#1a2540]" />
+
+        {mode === 'history' && (
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">From</label>
+            <input
+              type="date"
+              className="field-input w-36"
+              value={filters.date_from}
+              onChange={(e) => setFilters((f) => ({ ...f, date_from: e.target.value }))}
+            />
+          </div>
+        )}
         <div className="flex flex-col gap-1">
           <label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Game</label>
           <input
@@ -867,15 +1080,31 @@ function LiveWatchTab() {
             onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}
           >
             <option value="">All</option>
-            <option value="observed_only">Observed</option>
+            <option value="observed_only">Watch</option>
             <option value="blocked">Blocked</option>
           </select>
         </div>
         <button className="btn-primary" onClick={() => setApplied(filters)}>Apply</button>
         <button className="btn-ghost" onClick={() => {
-          const r = { game_id: '', candidate_type: '', status: '' }
+          const r = { game_id: '', candidate_type: '', status: '', date_from: mode === 'setups' ? today : '' }
           setFilters(r); setApplied(r)
         }}>Reset</button>
+        <button
+          className="btn-ghost ml-1"
+          title="Download today's candidates as CSV"
+          onClick={async () => {
+            const r = await api.exportCandidates(undefined, 'csv')
+            const blob = await r.blob()
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = r.headers.get('content-disposition')?.match(/filename="([^"]+)"/)?.[1] ?? 'candidates.csv'
+            a.click()
+            URL.revokeObjectURL(url)
+          }}
+        >
+          Export CSV
+        </button>
         {updatedTime && (
           <span className="ml-auto text-[11px] text-slate-600 self-center font-mono">
             updated {updatedTime} · 30s auto-refresh
@@ -883,32 +1112,48 @@ function LiveWatchTab() {
         )}
       </div>
 
+      {/* Mode description */}
+      {mode === 'setups' ? (
+        <p className="text-[11px] text-slate-600 mb-3 ml-1">
+          Live games only — one row per active market/read setup. Final, preview, and historical candidates are excluded. Refreshes every 30s.
+        </p>
+      ) : (
+        <p className="text-[11px] text-slate-600 mb-3 ml-1">
+          Full candidate event history — every evaluation logged across all games. Use for debugging and audit.
+        </p>
+      )}
+
       {/* Table */}
       <div className="card overflow-hidden">
         {isLoading ? (
-          <LoadingState rows={6} cols={8} />
+          <LoadingState rows={6} cols={11} />
         ) : isError ? (
           <ErrorState retry={() => refetch()} />
         ) : !data?.items.length ? (
           <EmptyState
-            title="No live watch candidates"
-            description="Live candidates appear here when the watcher detects price dislocations or market opportunities during active games. Run live_watcher.py to start generating candidates."
+            title={mode === 'setups' ? 'No live game setups' : 'No candidate history'}
+            description={
+              mode === 'setups'
+                ? 'No current live setups. Games may be in Preview, all games may have finished, or no qualifying setup has fired yet during this slate.'
+                : 'No candidate events in history. Run live_watcher.py to start generating candidates.'
+            }
           />
         ) : (
           <div className="overflow-x-auto">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Time</th>
+                  <th>{mode === 'setups' ? 'Last Seen' : 'Logged At'}</th>
                   <th>Game</th>
-                  <th>Signal</th>
+                  <th>Derivative</th>
+                  <th>Read</th>
                   <th>Inn</th>
                   <th>Score</th>
                   <th>Market</th>
-                  <th>Price</th>
+                  <th>Bid/Ask</th>
                   <th>Watch</th>
                   <th>Status</th>
-                  <th>Cycles</th>
+                  <th>{mode === 'setups' ? 'Seen' : 'ID'}</th>
                 </tr>
               </thead>
               <tbody>
@@ -918,11 +1163,18 @@ function LiveWatchTab() {
                     onClick={() => setSelected(c)}
                     className={selected?.id === c.id ? 'selected' : ''}
                   >
-                    <td className="font-mono text-[11px] text-slate-500">{formatDateTime(c.first_seen_at ?? c.created_at)}</td>
+                    <td className="font-mono text-[11px] text-slate-500">
+                      {mode === 'setups'
+                        ? formatDateTime(c.last_seen_at ?? c.first_seen_at ?? c.created_at)
+                        : formatDateTime(c.created_at)}
+                    </td>
                     <td className="font-mono font-medium">{c.game_id ?? '—'}</td>
                     <td>
-                      <Badge label={candidateTypeLabel(c.candidate_type)} variant={candidateTypeVariant(c.candidate_type)} />
+                      {c.derivative_type && c.derivative_type !== 'unknown'
+                        ? <Badge label={derivativeLabel(c.derivative_type)} variant={derivativeVariant(c.derivative_type)} />
+                        : <Badge label={candidateTypeLabel(c.candidate_type)} variant={candidateTypeVariant(c.candidate_type)} />}
                     </td>
+                    <td className="text-[11px] text-slate-400">{readTypeLabel(c.read_type)}</td>
                     <td className="font-mono text-slate-300 text-[11px]">
                       {c.inning != null ? formatInning(c.half_inning ?? 'top', c.inning) : '—'}
                     </td>
@@ -939,17 +1191,21 @@ function LiveWatchTab() {
                     <td>
                       {c.blocked_reason
                         ? <Badge label="Blocked" variant="red" dot />
-                        : <Badge label="Watch" variant="blue" dot />}
+                        : c.eligible_for_paper
+                          ? <Badge label="Eligible" variant="green" dot />
+                          : <Badge label="Watch" variant="blue" dot />}
                     </td>
-                    <td className="font-mono text-[11px] text-slate-600">
-                      {c.seen_count > 1 ? `×${c.seen_count}` : ''}
+                    <td className="font-mono text-[11px] text-slate-500">
+                      {mode === 'setups'
+                        ? (c.seen_count > 1 ? `×${c.seen_count}` : '1')
+                        : `#${c.id}`}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
             <div className="px-4 py-2 border-t border-[#1a2540]">
-              <span className="text-xs text-slate-500">{data.total} candidates</span>
+              <span className="text-xs text-slate-500">{data.total} {mode === 'setups' ? 'active setups' : 'events'}</span>
             </div>
           </div>
         )}

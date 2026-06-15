@@ -14,6 +14,7 @@ from typing import Optional
 from kalshi.client import KalshiClient
 from kalshi.logger import KalshiLogger
 from kalshi.semantics import refresh_market_semantics
+from mlb.market_layer import classify_market_layer
 
 # ── Market type classification ────────────────────────────────────────────────
 
@@ -351,8 +352,8 @@ def _upsert_market(
              rules_primary, open_time, close_time, expiration_time, status,
              yes_bid_cents, yes_ask_cents, last_price_cents, volume, open_interest,
              game_id, away_team, home_team, line_value, match_confidence,
-             game_open_price_cents, raw_json, discovered_at, updated_at)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+             game_open_price_cents, baseline_source, raw_json, discovered_at, updated_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(market_ticker) DO UPDATE SET
             status           = excluded.status,
             yes_bid_cents    = excluded.yes_bid_cents,
@@ -368,7 +369,9 @@ def _upsert_market(
             match_confidence = excluded.match_confidence,
             raw_json         = excluded.raw_json,
             updated_at       = excluded.updated_at
-        """,  # game_open_price_cents intentionally omitted from UPDATE: preserved from first insert
+        """,
+        # game_open_price_cents and baseline_source intentionally omitted from
+        # ON CONFLICT UPDATE — both are preserved from the first INSERT only.
         (
             ticker,
             mkt.get("event_ticker", ""),
@@ -391,6 +394,7 @@ def _upsert_market(
             line_val,
             _match_confidence_from_teams(away, home) if game_id else "unresolved",
             open_price,
+            "first_discovery" if open_price is not None else None,
             json.dumps(mkt, default=str),
             now,
             now,
@@ -553,6 +557,7 @@ def discover_event(
     conn.commit()
     sem = refresh_market_semantics(conn)
     result.semantics_refreshed = sem.get("updated_clear", 0) + sem.get("updated_unclear", 0)
+    reclassify_market_layers(conn)
     return result
 
 
@@ -651,11 +656,47 @@ def discover_mlb(
     conn.commit()
     sem = refresh_market_semantics(conn)
     total.semantics_refreshed = sem.get("updated_clear", 0) + sem.get("updated_unclear", 0)
+    reclassify_market_layers(conn)
 
     if include_unknown:
         total.series_probed = probe_series(client, _ALL_MLB_SERIES, status=status)
 
     return total
+
+
+def reclassify_market_layers(conn: sqlite3.Connection) -> dict:
+    """
+    Re-run classify_market_layer on every kalshi_markets row and store the
+    5 layer fields. Called after refresh_market_semantics so is_semantics_clear
+    is already current when the classifier evaluates each row.
+
+    Safe to run multiple times (idempotent UPDATE).
+    Returns {"updated": N}.
+    """
+    rows = conn.execute("SELECT * FROM kalshi_markets").fetchall()
+    for row in rows:
+        layer = classify_market_layer(dict(row))
+        conn.execute(
+            """
+            UPDATE kalshi_markets
+            SET market_layer_status = ?,
+                market_layer_reason = ?,
+                supported_by_bot    = ?,
+                candidate_surface   = ?,
+                is_noisy_market     = ?
+            WHERE id = ?
+            """,
+            (
+                layer["market_layer_status"],
+                layer["market_layer_reason"],
+                layer["supported_by_bot"],
+                layer["candidate_surface"],
+                layer["is_noisy_market"],
+                row["id"],
+            ),
+        )
+    conn.commit()
+    return {"updated": len(rows)}
 
 
 def backfill_game_ids(conn: sqlite3.Connection) -> dict:

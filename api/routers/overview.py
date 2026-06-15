@@ -101,6 +101,19 @@ def get_overview(db: sqlite3.Connection = Depends(get_db)) -> dict:
         "SELECT COUNT(*) FROM kalshi_markets",
     ).fetchone()[0]
 
+    # ── Run health (last cycle timestamps for background processes) ───────────
+    health_rows = db.execute(
+        "SELECT process, last_run_at, error_count, last_error FROM run_health",
+    ).fetchall()
+    run_health = {
+        r["process"]: {
+            "last_run_at":  r["last_run_at"],
+            "error_count":  r["error_count"],
+            "last_error":   r["last_error"],
+        }
+        for r in health_rows
+    }
+
     return {
         "today": today,
         "mlb": {
@@ -135,4 +148,5 @@ def get_overview(db: sqlite3.Connection = Depends(get_db)) -> dict:
             "last_ws_update":   ws_row["last_update"]  if ws_row else None,
             "ws_updates_today": ws_row["total_today"] if ws_row else 0,
         },
+        "run_health": run_health,
     }

@@ -410,3 +410,484 @@ def get_team_context(
         (team_abbr, season),
     ).fetchone()
     return dict(row) if row else None
+
+
+# ── Formula transparency ───────────────────────────────────────────────────────
+
+def _rating_detail(
+    label: str,
+    higher_is_better: Optional[bool],
+    formula: str,
+    inputs: dict,
+    blended_input: Optional[float],
+    blend_formula: Optional[str],
+    league_avg: float,
+    scale: float,
+    raw_result: Optional[float],
+    final: float,
+    is_default_50: bool,
+    note: Optional[str] = None,
+) -> dict:
+    return {
+        "label": label,
+        "higher_is_better": higher_is_better,
+        "formula": formula,
+        "inputs": inputs,
+        "blended_input": blended_input,
+        "blend_formula": blend_formula,
+        "league_avg": league_avg,
+        "scale": scale,
+        "raw_result": raw_result,
+        "final": final,
+        "is_default_50": is_default_50,
+        "note": note,
+    }
+
+
+def compute_team_context_debug(
+    team_abbr: str,
+    season: str,
+    conn: sqlite3.Connection,
+) -> Optional[dict]:
+    """
+    Return full formula-by-formula breakdown for stored team context.
+    Does not update the database — audit/debugging only.
+    """
+    stored = get_team_context(team_abbr, season, conn)
+    if stored is None:
+        return None
+
+    rpg        = stored.get("runs_per_game")
+    ra_pg      = stored.get("runs_allowed_per_game")
+    rec_7      = stored.get("recent_runs_per_game_7")
+    rec_ra_7   = stored.get("recent_runs_allowed_per_game_7")
+    f5_rpg     = stored.get("f5_runs_per_game")
+    f5_ra_pg   = stored.get("f5_runs_allowed_per_game")
+    late_rpg   = stored.get("late_runs_per_game")
+    late_ra_pg = stored.get("late_runs_allowed_per_game")
+    f5_n       = stored.get("f5_sample_size", 0)
+
+    # ── Offense ──────────────────────────────────────────────────────────────
+    if rpg is None:
+        off_d = _rating_detail(
+            "Offense Rating", True,
+            f"50 + (eff_rpg - {_LEAGUE_AVG_RPG}) × {_SCALE_RPG}",
+            {"season_rpg": None, "recent_7_rpg": None},
+            None, None, _LEAGUE_AVG_RPG, _SCALE_RPG,
+            None, 50.0, True, "No season RPG data",
+        )
+    else:
+        if rec_7 is not None:
+            eff = round(0.6 * rec_7 + 0.4 * rpg, 4)
+            bf = f"0.6×recent7({rec_7:.3f}) + 0.4×season({rpg:.3f}) = {eff:.4f}"
+        else:
+            eff = rpg
+            bf = "season only (fewer than 7 games)"
+        raw = 50.0 + (eff - _LEAGUE_AVG_RPG) * _SCALE_RPG
+        off_d = _rating_detail(
+            "Offense Rating", True,
+            f"50 + (eff_rpg - {_LEAGUE_AVG_RPG}) × {_SCALE_RPG}",
+            {"season_rpg": rpg, "recent_7_rpg": rec_7},
+            eff, bf, _LEAGUE_AVG_RPG, _SCALE_RPG,
+            round(raw, 3), round(_clamp(raw), 1), False,
+        )
+
+    # ── Defense ──────────────────────────────────────────────────────────────
+    if ra_pg is None:
+        def_d = _rating_detail(
+            "Defense/Pitching Rating", True,
+            f"50 + ({_LEAGUE_AVG_RPG} - eff_ra) × {_SCALE_RPG}  [lower RA = better]",
+            {"season_ra_pg": None, "recent_7_ra_pg": None},
+            None, None, _LEAGUE_AVG_RPG, _SCALE_RPG,
+            None, 50.0, True, "No season RA/G data",
+        )
+    else:
+        if rec_ra_7 is not None:
+            eff = round(0.6 * rec_ra_7 + 0.4 * ra_pg, 4)
+            bf = f"0.6×recent_ra7({rec_ra_7:.3f}) + 0.4×season({ra_pg:.3f}) = {eff:.4f}"
+        else:
+            eff = ra_pg
+            bf = "season only (fewer than 7 games)"
+        raw = 50.0 + (_LEAGUE_AVG_RPG - eff) * _SCALE_RPG
+        def_d = _rating_detail(
+            "Defense/Pitching Rating", True,
+            f"50 + ({_LEAGUE_AVG_RPG} - eff_ra) × {_SCALE_RPG}  [lower RA = better]",
+            {"season_ra_pg": ra_pg, "recent_7_ra_pg": rec_ra_7},
+            eff, bf, _LEAGUE_AVG_RPG, _SCALE_RPG,
+            round(raw, 3), round(_clamp(raw), 1), False,
+        )
+
+    # ── F5 Offense ───────────────────────────────────────────────────────────
+    if f5_rpg is None:
+        f5o_d = _rating_detail(
+            "F5 Offense Rating", True,
+            f"50 + (f5_rpg - {_LEAGUE_AVG_F5}) × {_SCALE_F5}",
+            {"f5_rpg": None, "f5_sample_size": f5_n},
+            None, None, _LEAGUE_AVG_F5, _SCALE_F5,
+            None, 50.0, True, f"No inning data (f5_sample_size={f5_n})",
+        )
+    else:
+        raw = 50.0 + (f5_rpg - _LEAGUE_AVG_F5) * _SCALE_F5
+        f5o_d = _rating_detail(
+            "F5 Offense Rating", True,
+            f"50 + (f5_rpg - {_LEAGUE_AVG_F5}) × {_SCALE_F5}",
+            {"f5_rpg": f5_rpg, "f5_sample_size": f5_n},
+            f5_rpg, "no blending — season only", _LEAGUE_AVG_F5, _SCALE_F5,
+            round(raw, 3), round(_clamp(raw), 1), False,
+        )
+
+    # ── F5 Pitching Risk ─────────────────────────────────────────────────────
+    if f5_ra_pg is None:
+        f5p_d = _rating_detail(
+            "F5 Pitching Risk", False,
+            f"50 + (f5_ra_pg - {_LEAGUE_AVG_F5}) × {_SCALE_F5}  [higher = more risk]",
+            {"f5_ra_pg": None, "f5_sample_size": f5_n},
+            None, None, _LEAGUE_AVG_F5, _SCALE_F5,
+            None, 50.0, True,
+            f"No inning data (f5_sample_size={f5_n}). "
+            "CAUTION: higher score = MORE pitching risk — green in UI means bad.",
+        )
+    else:
+        raw = 50.0 + (f5_ra_pg - _LEAGUE_AVG_F5) * _SCALE_F5
+        f5p_d = _rating_detail(
+            "F5 Pitching Risk", False,
+            f"50 + (f5_ra_pg - {_LEAGUE_AVG_F5}) × {_SCALE_F5}  [higher = more risk]",
+            {"f5_ra_pg": f5_ra_pg, "f5_sample_size": f5_n},
+            f5_ra_pg, "no blending — season only", _LEAGUE_AVG_F5, _SCALE_F5,
+            round(raw, 3), round(_clamp(raw), 1), False,
+            "CAUTION: higher score = MORE pitching risk — green in UI means bad.",
+        )
+
+    # ── Bullpen Risk ─────────────────────────────────────────────────────────
+    if late_ra_pg is None:
+        bp_d = _rating_detail(
+            "Bullpen Risk Rating", False,
+            f"50 + (late_ra_pg - {_LEAGUE_AVG_LATE}) × {_SCALE_F5}  [higher = more risk]",
+            {"late_ra_pg": None, "f5_sample_size": f5_n},
+            None, None, _LEAGUE_AVG_LATE, _SCALE_F5,
+            None, 50.0, True,
+            f"No inning data (f5_sample_size={f5_n}). "
+            "CAUTION: higher score = MORE bullpen risk — green in UI means bad.",
+        )
+    else:
+        raw = 50.0 + (late_ra_pg - _LEAGUE_AVG_LATE) * _SCALE_F5
+        bp_d = _rating_detail(
+            "Bullpen Risk Rating", False,
+            f"50 + (late_ra_pg - {_LEAGUE_AVG_LATE}) × {_SCALE_F5}  [higher = more risk]",
+            {"late_ra_pg": late_ra_pg, "f5_sample_size": f5_n},
+            late_ra_pg, "no blending — season only", _LEAGUE_AVG_LATE, _SCALE_F5,
+            round(raw, 3), round(_clamp(raw), 1), False,
+            "CAUTION: higher score = MORE bullpen risk — green in UI means bad.",
+        )
+
+    # ── Comeback ─────────────────────────────────────────────────────────────
+    if late_rpg is None or rpg is None:
+        cmb_d = _rating_detail(
+            "Comeback Scoring Rating", True,
+            f"50 + (0.6×late_rpg + 0.4×rpg - {0.6*_LEAGUE_AVG_LATE+0.4*_LEAGUE_AVG_RPG:.3f}) × {_SCALE_F5}",
+            {"late_rpg": late_rpg, "season_rpg": rpg},
+            None, None,
+            round(0.6 * _LEAGUE_AVG_LATE + 0.4 * _LEAGUE_AVG_RPG, 3), _SCALE_F5,
+            None, 50.0, True, "Requires both late_rpg and season rpg",
+        )
+    else:
+        composite = round(0.6 * late_rpg + 0.4 * rpg, 4)
+        avg_comp = 0.6 * _LEAGUE_AVG_LATE + 0.4 * _LEAGUE_AVG_RPG
+        raw = 50.0 + (composite - avg_comp) * _SCALE_F5
+        bf = f"0.6×late({late_rpg:.3f}) + 0.4×season({rpg:.3f}) = {composite:.4f}"
+        cmb_d = _rating_detail(
+            "Comeback Scoring Rating", True,
+            f"50 + (composite - {round(avg_comp,3)}) × {_SCALE_F5}",
+            {"late_rpg": late_rpg, "season_rpg": rpg},
+            composite, bf, round(avg_comp, 3), _SCALE_F5,
+            round(raw, 3), round(_clamp(raw), 1), False,
+        )
+
+    # ── Overall ──────────────────────────────────────────────────────────────
+    off_r = off_d["final"]
+    def_r = def_d["final"]
+    f5o_r = f5o_d["final"]
+    ovr   = round(0.4 * off_r + 0.4 * def_r + 0.2 * f5o_r, 1)
+    ovr_d = _rating_detail(
+        "Overall Context Score", True,
+        "0.4×offense + 0.4×defense + 0.2×f5_offense",
+        {"offense_rating": off_r, "defense_rating": def_r, "f5_offense_rating": f5o_r},
+        None, None, 50.0, 1.0, ovr, ovr, False,
+    )
+
+    return {
+        "team_abbr": team_abbr,
+        "season": season,
+        "calibration_constants": {
+            "league_avg_rpg":  _LEAGUE_AVG_RPG,
+            "league_avg_f5":   _LEAGUE_AVG_F5,
+            "league_avg_late": _LEAGUE_AVG_LATE,
+            "scale_rpg": _SCALE_RPG,
+            "scale_f5":  _SCALE_F5,
+            "note": "All ratings are 0-100; ~50 = league average. SCALE controls rating sensitivity to deviations.",
+        },
+        "ratings": {
+            "offense":          off_d,
+            "defense":          def_d,
+            "f5_offense":       f5o_d,
+            "f5_pitching_risk": f5p_d,
+            "bullpen_risk":     bp_d,
+            "comeback":         cmb_d,
+            "overall":          ovr_d,
+        },
+        "baseball_support_note": {
+            "summary": (
+                "baseball_support_score is computed at candidate generation time from live "
+                "scoring plays, NOT from stored team context ratings."
+            ),
+            "default_value": 50.0,
+            "adjustments": {
+                "home_run": -25,
+                "error_or_wild_pitch_or_passed_ball": +20,
+                "walk_driven_rally": +10,
+            },
+            "why_mostly_50": (
+                "Scoring plays that are singles, doubles, triples, fielder's choices, "
+                "or other neutral hit types do not trigger any adjustment. If all scoring "
+                "plays are neutral hits, the score stays at 50.0. Team context ratings "
+                "are NOT fed into baseball_support_score — the two systems are independent."
+            ),
+        },
+    }
+
+
+# ── Sanity checks ─────────────────────────────────────────────────────────────
+
+def run_sanity_checks(season: str, conn: sqlite3.Connection) -> dict:
+    """
+    Compare all teams for suspicious rating divergences.
+    Returns {flags, pairs, summary}.
+    """
+    teams = get_all_team_contexts(season, conn)
+    if not teams:
+        return {"flags": [], "pairs": [], "summary": "No team data for this season."}
+
+    flags: list[dict] = []
+    pairs: list[dict] = []
+
+    for t in teams:
+        abbr    = t["team_abbr"]
+        rpg     = t.get("runs_per_game")
+        ra_pg   = t.get("runs_allowed_per_game")
+        off     = t.get("offense_rating")
+        deff    = t.get("defense_pitching_rating")
+        rec_7   = t.get("recent_runs_per_game_7")
+        rec_ra7 = t.get("recent_runs_allowed_per_game_7")
+        f5_n    = t.get("f5_sample_size", 0)
+
+        # Recent form heavily dominates offense vs season-only baseline
+        if rpg is not None and off is not None:
+            season_off = round(_clamp(50.0 + (rpg - _LEAGUE_AVG_RPG) * _SCALE_RPG), 1)
+            div = abs(off - season_off)
+            if div >= 15:
+                flags.append({
+                    "team": abbr,
+                    "rating": "offense",
+                    "flag": "recent_form_dominates",
+                    "season_only_rating": season_off,
+                    "actual_rating": off,
+                    "divergence": round(div, 1),
+                    "season_rpg": rpg,
+                    "recent_7_rpg": rec_7,
+                    "explanation": (
+                        f"Recent 7-game RPG ({rec_7}) diverges enough from season ({rpg}) "
+                        f"that the 60% recent weighting drives the rating {div:.0f}pt away "
+                        f"from the season-only value ({season_off})."
+                    ),
+                })
+
+        # Recent form heavily dominates defense vs season-only baseline
+        if ra_pg is not None and deff is not None:
+            season_def = round(_clamp(50.0 + (_LEAGUE_AVG_RPG - ra_pg) * _SCALE_RPG), 1)
+            div = abs(deff - season_def)
+            if div >= 15:
+                flags.append({
+                    "team": abbr,
+                    "rating": "defense",
+                    "flag": "recent_form_dominates",
+                    "season_only_rating": season_def,
+                    "actual_rating": deff,
+                    "divergence": round(div, 1),
+                    "season_ra_pg": ra_pg,
+                    "recent_7_ra_pg": rec_ra7,
+                    "explanation": (
+                        f"Recent 7-game RA/G ({rec_ra7}) diverges enough from season ({ra_pg}) "
+                        f"that the 60% recent weighting drives the defense rating {div:.0f}pt "
+                        f"away from the season-only value ({season_def})."
+                    ),
+                })
+
+        # No inning-level data — all F5/late ratings are default 50
+        if f5_n == 0:
+            flags.append({
+                "team": abbr,
+                "rating": "f5_all",
+                "flag": "no_inning_data",
+                "f5_sample_size": 0,
+                "explanation": (
+                    "No mlb_inning_scores rows for this team's games. "
+                    "F5-Off, F5-Pit, BP Risk, and Comeback all default to 50.0."
+                ),
+            })
+
+    # Cross-team pair checks
+    for i, a in enumerate(teams):
+        for b in teams[i + 1:]:
+            rpg_a = a.get("runs_per_game")
+            rpg_b = b.get("runs_per_game")
+            off_a = a.get("offense_rating")
+            off_b = b.get("offense_rating")
+            ra_a  = a.get("runs_allowed_per_game")
+            ra_b  = b.get("runs_allowed_per_game")
+            def_a = a.get("defense_pitching_rating")
+            def_b = b.get("defense_pitching_rating")
+
+            if (rpg_a is not None and rpg_b is not None
+                    and off_a is not None and off_b is not None):
+                rpg_diff = abs(rpg_a - rpg_b)
+                off_diff = abs(off_a - off_b)
+                if rpg_diff < 0.5 and off_diff > 15:
+                    pairs.append({
+                        "team_a": a["team_abbr"],
+                        "team_b": b["team_abbr"],
+                        "flag": "similar_rpg_divergent_offense",
+                        "rpg_a": rpg_a, "rpg_b": rpg_b,
+                        "rpg_diff": round(rpg_diff, 3),
+                        "offense_a": off_a, "offense_b": off_b,
+                        "offense_diff": round(off_diff, 1),
+                        "recent_7_a": a.get("recent_runs_per_game_7"),
+                        "recent_7_b": b.get("recent_runs_per_game_7"),
+                        "explanation": (
+                            "Similar season RPG but offense ratings differ by "
+                            f"{off_diff:.0f}pt — driven by recent 7-game form divergence."
+                        ),
+                    })
+
+            if (ra_a is not None and ra_b is not None
+                    and def_a is not None and def_b is not None):
+                ra_diff  = abs(ra_a - ra_b)
+                def_diff = abs(def_a - def_b)
+                if ra_diff < 0.5 and def_diff > 15:
+                    pairs.append({
+                        "team_a": a["team_abbr"],
+                        "team_b": b["team_abbr"],
+                        "flag": "similar_ra_divergent_defense",
+                        "ra_pg_a": ra_a, "ra_pg_b": ra_b,
+                        "ra_diff": round(ra_diff, 3),
+                        "defense_a": def_a, "defense_b": def_b,
+                        "defense_diff": round(def_diff, 1),
+                        "recent_ra7_a": a.get("recent_runs_allowed_per_game_7"),
+                        "recent_ra7_b": b.get("recent_runs_allowed_per_game_7"),
+                        "explanation": (
+                            "Similar season RA/G but defense ratings differ by "
+                            f"{def_diff:.0f}pt — driven by recent 7-game defensive form."
+                        ),
+                    })
+
+    n_f = len(flags)
+    n_p = len(pairs)
+    summary = (
+        "No suspicious divergences detected."
+        if n_f == 0 and n_p == 0
+        else f"{n_f} individual flag(s), {n_p} cross-team pair(s) flagged."
+    )
+    return {"flags": flags, "pairs": pairs, "summary": summary}
+
+
+# ── Team comparison ───────────────────────────────────────────────────────────
+
+_COMPARE_FIELDS = [
+    ("runs_per_game",                  "RPG (season)",        None),
+    ("runs_allowed_per_game",          "RA/G (season)",       None),
+    ("recent_runs_per_game_7",         "RPG (last 7)",        None),
+    ("recent_runs_allowed_per_game_7", "RA/G (last 7)",       None),
+    ("offense_rating",                 "Offense",             True),
+    ("defense_pitching_rating",        "Defense/Pitching",    True),
+    ("f5_runs_per_game",               "F5 RPG",              None),
+    ("f5_runs_allowed_per_game",       "F5 RA/G",             None),
+    ("f5_offense_rating",              "F5 Offense",          True),
+    ("f5_pitching_risk_rating",        "F5 Pitching Risk",    False),
+    ("late_runs_per_game",             "Late+ Scoring",       None),
+    ("late_runs_allowed_per_game",     "Late- Allowed",       None),
+    ("bullpen_risk_rating",            "Bullpen Risk",        False),
+    ("comeback_scoring_rating",        "Comeback",            True),
+    ("overall_context_score",          "Overall",             True),
+]
+
+_RATING_TO_RAW = {
+    "offense_rating":           "runs_per_game",
+    "defense_pitching_rating":  "runs_allowed_per_game",
+    "f5_offense_rating":        "f5_runs_per_game",
+    "f5_pitching_risk_rating":  "f5_runs_allowed_per_game",
+    "bullpen_risk_rating":      "late_runs_allowed_per_game",
+    "comeback_scoring_rating":  "late_runs_per_game",
+}
+
+
+def compare_teams(
+    team_a: str,
+    team_b: str,
+    season: str,
+    conn: sqlite3.Connection,
+) -> Optional[dict]:
+    """Side-by-side comparison with formula-aware warnings."""
+    ctx_a = get_team_context(team_a.upper(), season, conn)
+    ctx_b = get_team_context(team_b.upper(), season, conn)
+    if ctx_a is None or ctx_b is None:
+        return None
+
+    rows = []
+    for field, label, higher_is_better in _COMPARE_FIELDS:
+        va = ctx_a.get(field)
+        vb = ctx_b.get(field)
+        diff = round(va - vb, 3) if va is not None and vb is not None else None
+
+        warning = None
+        if diff is not None and higher_is_better is not None:
+            abs_diff = abs(diff)
+            if abs_diff > 15:
+                raw_field = _RATING_TO_RAW.get(field)
+                if raw_field:
+                    raw_a = ctx_a.get(raw_field)
+                    raw_b = ctx_b.get(raw_field)
+                    if raw_a is not None and raw_b is not None:
+                        raw_diff = abs(raw_a - raw_b)
+                        if raw_diff < 0.5:
+                            warning = (
+                                f"Rating gap {abs_diff:.0f}pt but raw stat diff "
+                                f"is only {raw_diff:.2f} — likely driven by recent-7 weighting."
+                            )
+                        else:
+                            warning = (
+                                f"Rating gap {abs_diff:.0f}pt; raw stat diff is {raw_diff:.2f}."
+                            )
+                    else:
+                        warning = f"Rating gap {abs_diff:.0f}pt."
+
+        rows.append({
+            "field": field,
+            "label": label,
+            "value_a": va,
+            "value_b": vb,
+            "diff_a_minus_b": diff,
+            "higher_is_better": higher_is_better,
+            "warning": warning,
+        })
+
+    warnings = [r["warning"] for r in rows if r["warning"]]
+    return {
+        "team_a": team_a.upper(),
+        "team_b": team_b.upper(),
+        "season": season,
+        "comparison": rows,
+        "warnings": warnings,
+        "games_played_a": ctx_a.get("games_played"),
+        "games_played_b": ctx_b.get("games_played"),
+        "confidence_a": ctx_a.get("context_confidence"),
+        "confidence_b": ctx_b.get("context_confidence"),
+    }

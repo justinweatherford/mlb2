@@ -243,6 +243,13 @@ class CandidateEventOut(BaseModel):
     implied_probability_open: Optional[float] = None
     implied_probability_current: Optional[float] = None
     baseline_explanation: Optional[str] = None
+    baseline_source: Optional[str] = None
+    baseline_quality: Optional[str] = None
+    derivative_type: Optional[str] = None
+    read_type: Optional[str] = None
+    selected_derivative_type: Optional[str] = None
+    derivative_rationale: Optional[str] = None
+    rejected_derivatives_json: Optional[str] = None
     seen_count: int = 1
     first_seen_at: Optional[str] = None
     last_seen_at: Optional[str] = None
@@ -423,6 +430,12 @@ class KalshiMarketOut(BaseModel):
     contract_direction: Optional[str]  = None
     settlement_horizon: Optional[str]  = None
     selected_team_abbr: Optional[str]  = None
+    # Market layer classification
+    market_layer_status: Optional[str] = None
+    market_layer_reason: Optional[str] = None
+    supported_by_bot:    int           = 0
+    candidate_surface:   Optional[str] = None
+    is_noisy_market:     int           = 0
 
     @model_validator(mode="before")
     @classmethod
@@ -431,6 +444,24 @@ class KalshiMarketOut(BaseModel):
             mtype = data.get("market_type", "unknown") or "unknown"
             data["market_type_label"] = MARKET_TYPE_LABELS.get(mtype, mtype.replace("_", " ").title())
         return data
+
+
+# ---------------------------------------------------------------------------
+# Market layer summary (aggregate counts for the summary cards)
+# ---------------------------------------------------------------------------
+
+class MarketLayerSummaryOut(BaseModel):
+    total:            int = 0
+    candidate_worthy: int = 0
+    supported:        int = 0
+    blocked:          int = 0
+    needs_review:     int = 0
+    noisy_ignored:    int = 0
+    unsupported:      int = 0
+    discovered:       int = 0
+    missing_game_id:  int = 0
+    unclear_semantics:int = 0
+    no_prices:        int = 0
 
 
 # ---------------------------------------------------------------------------
@@ -464,7 +495,13 @@ class KalshiLiveMarketOut(BaseModel):
     away_team: Optional[str]
     home_team: Optional[str]
     line_value: Optional[float]
+    selected_team_abbr: Optional[str] = None
     status: Optional[str]
+    # Market layer fields
+    candidate_surface:   Optional[str] = None
+    market_layer_status: Optional[str] = None
+    supported_by_bot:    int           = 0
+    is_noisy_market:     int           = 0
     # Latest prices (from kalshi_markets, kept in sync by WS collector)
     yes_bid_cents: Optional[int]
     yes_ask_cents: Optional[int]
@@ -571,3 +608,8 @@ class TeamContextOut(BaseModel):
     f5_sample_size: int
     context_confidence: str = "low"
     last_updated: str
+
+
+class CalibrationImportBody(BaseModel):
+    csv_text: str
+    source_file: str = "manual_import"

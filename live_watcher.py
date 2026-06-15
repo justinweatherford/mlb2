@@ -16,8 +16,9 @@ import os
 import time
 from datetime import datetime, timedelta
 
-from db.schema import init_db
+from db.schema import init_db, write_run_health
 from mlb.candidate_generator import generate_candidates_for_game
+from mlb.derivatives import MARKET_TYPE_TO_DERIVATIVE
 
 log = logging.getLogger("live_watcher")
 
@@ -27,16 +28,21 @@ def run_one_cycle(conn, verbose: bool = False) -> dict:
     One polling cycle: find active / recently-ended games, generate candidates.
 
     Returns a summary dict (keys):
-        games_scanned        int
-        live_games           int   — non-final games this cycle
-        markets_seen         int   — total kalshi_markets rows for scanned games
-        semantics_clear      int   — subset with is_semantics_clear=1
-        rules_evaluated      int   — check_all() calls across all games
-        candidates_generated int   — candidate_events rows inserted (observed + blocked)
-        candidates_inserted  int   — same as candidates_generated (alias)
-        blocked              int   — subset of inserted with status='blocked'
-        skip_reasons         dict  — pre-insertion skip reason counts
-        errors               list[str]
+        games_scanned              int
+        live_games                 int   — non-final games this cycle
+        markets_seen               int   — total kalshi_markets rows for scanned games
+        semantics_clear            int   — subset with is_semantics_clear=1
+        markets_by_derivative_type dict  — {derivative_type: market_count}
+        rules_evaluated            int   — check_all() calls across all games
+        candidates_generated       int   — candidate_events rows inserted (observed + blocked)
+        candidates_inserted        int   — same as candidates_generated (alias)
+        blocked                    int   — subset of inserted with status='blocked'
+        skip_reasons               dict  — pre-insertion skip reason counts
+        derivative_skips           dict  — {derivative_type: {skip_reason: count}}
+        derivative_evaluated       dict  — {derivative_type: rules_evaluated_count}
+        spread_markets_discovered  int   — total spread markets seen across all games
+        spread_skip_reason         str   — canonical reason spread Watch candidates are blocked
+        errors                     list[str]
     """
     cutoff = (datetime.now() - timedelta(hours=4)).isoformat()
 
@@ -54,6 +60,7 @@ def run_one_cycle(conn, verbose: bool = False) -> dict:
     # Cycle-level market stats
     markets_seen = 0
     semantics_clear = 0
+    markets_by_derivative_type: dict[str, int] = {}
     if games:
         game_ids = [g["game_id"] for g in games]
         placeholders = ",".join("?" * len(game_ids))
@@ -66,12 +73,25 @@ def run_one_cycle(conn, verbose: bool = False) -> dict:
             f"WHERE game_id IN ({placeholders}) AND is_semantics_clear = 1",
             game_ids,
         ).fetchone()[0]
+        for row in conn.execute(
+            f"SELECT market_type, COUNT(*) AS cnt FROM kalshi_markets "
+            f"WHERE game_id IN ({placeholders}) GROUP BY market_type",
+            game_ids,
+        ).fetchall():
+            deriv = MARKET_TYPE_TO_DERIVATIVE.get(row["market_type"] or "", "unknown")
+            markets_by_derivative_type[deriv] = (
+                markets_by_derivative_type.get(deriv, 0) + row["cnt"]
+            )
 
     total_rules_evaluated  = 0
     total_candidates       = 0
     total_blocked          = 0
     total_dedupe_skipped   = 0
     all_skip_reasons: dict[str, int] = {}
+    all_derivative_skips: dict[str, dict] = {}
+    all_derivative_evaluated: dict[str, int] = {}
+    total_spread_discovered = 0
+    spread_skip_reason = ""
     errors: list[str] = []
 
     for game in games:
@@ -81,17 +101,29 @@ def run_one_cycle(conn, verbose: bool = False) -> dict:
             total_candidates      += len(diag.ids)
             total_blocked         += diag.blocked
             total_dedupe_skipped  += diag.dedupe_skipped
+            total_spread_discovered += diag.spread_markets_discovered
+            spread_skip_reason = diag.spread_skip_reason
+
             for reason, n in diag.skip_reasons.items():
                 all_skip_reasons[reason] = all_skip_reasons.get(reason, 0) + n
 
+            for dt, reason_counts in diag.derivative_skips.items():
+                dt_agg = all_derivative_skips.setdefault(dt, {})
+                for r, n in reason_counts.items():
+                    dt_agg[r] = dt_agg.get(r, 0) + n
+
+            for dt, n in diag.derivative_evaluated.items():
+                all_derivative_evaluated[dt] = all_derivative_evaluated.get(dt, 0) + n
+
             if verbose:
                 log.info(
-                    "  game=%s new=%d deduped=%d (blocked=%d) skips=%s",
+                    "  game=%s new=%d deduped=%d (blocked=%d) skips=%s spreads=%d",
                     game["game_id"],
                     len(diag.ids),
                     diag.dedupe_skipped,
                     diag.blocked,
                     diag.skip_reasons or "{}",
+                    diag.spread_markets_discovered,
                 )
         except Exception as exc:
             msg = f"game_pk={game['game_pk']}: {exc}"
@@ -101,26 +133,36 @@ def run_one_cycle(conn, verbose: bool = False) -> dict:
     log.info(
         "cycle complete: games_scanned=%d, live_games=%d, markets_seen=%d, "
         "semantics_clear=%d, rules_evaluated=%d, candidates_inserted=%d, "
-        "dedupe_skipped=%d, blocked=%d, errors=%d",
+        "dedupe_skipped=%d, blocked=%d, spread_discovered=%d, errors=%d",
         len(games), live_games, markets_seen, semantics_clear,
         total_rules_evaluated, total_candidates,
-        total_dedupe_skipped, total_blocked, len(errors),
+        total_dedupe_skipped, total_blocked, total_spread_discovered, len(errors),
     )
     if all_skip_reasons:
         log.info("  skip_reasons: %s", all_skip_reasons)
+    if total_spread_discovered:
+        log.info(
+            "  spread_markets_discovered=%d — no Watch candidates (semantics blocked)",
+            total_spread_discovered,
+        )
 
     return {
-        "games_scanned":        len(games),
-        "live_games":           live_games,
-        "markets_seen":         markets_seen,
-        "semantics_clear":      semantics_clear,
-        "rules_evaluated":      total_rules_evaluated,
-        "candidates_generated": total_candidates,  # backward-compat key
-        "candidates_inserted":  total_candidates,
-        "dedupe_skipped":       total_dedupe_skipped,
-        "blocked":              total_blocked,
-        "skip_reasons":         all_skip_reasons,
-        "errors":               errors,
+        "games_scanned":              len(games),
+        "live_games":                 live_games,
+        "markets_seen":               markets_seen,
+        "semantics_clear":            semantics_clear,
+        "markets_by_derivative_type": markets_by_derivative_type,
+        "rules_evaluated":            total_rules_evaluated,
+        "candidates_generated":       total_candidates,  # backward-compat key
+        "candidates_inserted":        total_candidates,
+        "dedupe_skipped":             total_dedupe_skipped,
+        "blocked":                    total_blocked,
+        "skip_reasons":               all_skip_reasons,
+        "derivative_skips":           all_derivative_skips,
+        "derivative_evaluated":       all_derivative_evaluated,
+        "spread_markets_discovered":  total_spread_discovered,
+        "spread_skip_reason":         spread_skip_reason,
+        "errors":                     errors,
     }
 
 
@@ -168,6 +210,12 @@ def main() -> None:
             result = run_one_cycle(conn, verbose=args.verbose)
             for err in result["errors"]:
                 log.error("cycle error: %s", err)
+            write_run_health(
+                conn, "live_watcher",
+                last_run_at=datetime.utcnow().isoformat(),
+                error_count=len(result["errors"]),
+                last_error=result["errors"][-1] if result["errors"] else None,
+            )
 
             if args.once:
                 break

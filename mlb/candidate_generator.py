@@ -18,8 +18,10 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from mlb.candidates import upsert_candidate_event
+from mlb.derivatives import derive_candidate_metadata
 from mlb.guardrails import check_all
 from mlb.price_utils import compute_price_baseline
+from mlb.team_context import get_team_context
 
 log = logging.getLogger(__name__)
 
@@ -36,6 +38,21 @@ class GameDiag:
 
     # Keyed by reason string; counts pre-insertion skips (nothing written to DB).
     skip_reasons: dict[str, int] = field(default_factory=dict)
+
+    # Per-derivative-type breakdowns — keyed by derivative_type string.
+    # derivative_skips: {derivative_type: {skip_reason: count}}
+    # derivative_evaluated: {derivative_type: times check_all() was called}
+    derivative_skips: dict = field(default_factory=dict)
+    derivative_evaluated: dict = field(default_factory=dict)
+
+    # Spread diagnostics — how many fg_spread/f5_spread markets exist for this game,
+    # and the canonical reason why no spread Watch candidates are generated.
+    spread_markets_discovered: int = 0
+    spread_skip_reason: str = (
+        "spread_direction_requires_manual_review: spread markets are visible in Bot Markets "
+        "but generate no Watch candidates — YES/NO direction cannot be reliably derived "
+        "from Kalshi metadata alone."
+    )
 
     # ── List-compatible interface so existing callers work unchanged ──────────
     def __iter__(self):
@@ -108,6 +125,14 @@ _W_BASEBALL   = 0.30
 _W_EXECUTION  = 0.25
 _W_RISK       = 0.15
 
+# Team-context signal thresholds — conservative ±5/±2/0 step per signal.
+# High risk ratings (F5-Pit, BP) have inverted polarity: higher = more risk = worse.
+_TC_STRONG_THRESHOLD = 15   # |rating − 50| ≥ 15 → ±5 pts
+_TC_MILD_THRESHOLD   = 7    # |rating − 50| ≥ 7  → ±2 pts
+_TC_STRONG_STEP      = 5.0
+_TC_MILD_STEP        = 2.0
+_TC_MAX_ADJ          = 15.0  # combined team-context adj clamped to ±15
+
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
@@ -123,21 +148,41 @@ def generate_candidates_for_game(
     GameDiag is list-compatible (supports len/iter/bool/index) so existing
     callers that treat the return as list[int] work unchanged.
     """
-    diag          = GameDiag()
+    _fn_derivative_type = [
+        (_try_full_game_total_watch,    "fg_total"),
+        (_try_f5_fade_watch,            "f5_total"),
+        (_try_trailing_team_total_watch, "team_total"),
+    ]
+
+    diag = GameDiag()
+
+    # Skip final games: stale game state + date-unfiltered _best_market() would
+    # pair a finished game's score with today's market ticker.
+    game_row = conn.execute(
+        "SELECT is_final, game_date FROM mlb_games WHERE game_pk = ?", (game_pk,)
+    ).fetchone()
+    if game_row and game_row["is_final"]:
+        return diag
+    season = (game_row["game_date"][:4] if game_row and game_row["game_date"] else "2026")
+
     gs            = _latest_game_state(conn, game_pk)
     scoring_plays = _recent_scoring_plays(conn, game_pk)
 
-    for fn in (
-        _try_full_game_total_watch,
-        _try_f5_fade_watch,
-        _try_trailing_team_total_watch,
-    ):
+    # Count spread markets that exist but are structurally blocked from Watch candidates.
+    diag.spread_markets_discovered = _count_spread_markets(conn, game_id)
+
+    for fn, deriv_type in _fn_derivative_type:
         try:
-            cid, skip_reason, guardrail_blocked, is_new = fn(conn, game_pk, game_id, gs, scoring_plays)
+            cid, skip_reason, guardrail_blocked, is_new = fn(conn, game_pk, game_id, gs, scoring_plays, season)
             if skip_reason is not None:
                 diag.skip_reasons[skip_reason] = diag.skip_reasons.get(skip_reason, 0) + 1
+                dt_skips = diag.derivative_skips.setdefault(deriv_type, {})
+                dt_skips[skip_reason] = dt_skips.get(skip_reason, 0) + 1
             else:
                 diag.rules_evaluated += 1
+                diag.derivative_evaluated[deriv_type] = (
+                    diag.derivative_evaluated.get(deriv_type, 0) + 1
+                )
                 if cid is not None:
                     if is_new:
                         diag.ids.append(cid)
@@ -155,11 +200,16 @@ def generate_candidates_for_game(
 
 def _score_market_mismatch(
     yes_bid: int, yes_ask: int, open_price: Optional[int],
+    baseline_quality: Optional[str] = None,
 ) -> float:
-    """0–100 pts for how far the market mid has moved from the open price."""
+    """0–100 pts for how far the market mid has moved from the open price.
+
+    Returns neutral 50 when the baseline is low-quality (backfilled_current)
+    or missing — we don't want to overtrust a fake opening delta.
+    """
+    if open_price is None or baseline_quality in ("none", "low"):
+        return 50.0  # neutral: no reliable baseline to compare
     mid = (yes_bid + yes_ask) / 2.0
-    if open_price is None:
-        return 50.0  # neutral: no baseline to compare
     move = abs(mid - open_price)
     return min(100.0, round(move * _REPRICE_PTS_PER_CENT, 1))
 
@@ -179,6 +229,135 @@ def _score_baseball_support(scoring_plays: list[sqlite3.Row]) -> float:
             # Walk-driven rally: somewhat fluky
             score += _FLUKY_WALK_BOOST
     return max(0.0, min(100.0, round(score, 1)))
+
+
+def _ctx_get(ctx: Optional[dict], field: str) -> Optional[float]:
+    """Safely extract a float field from a team-context dict."""
+    if ctx is None:
+        return None
+    return ctx.get(field)
+
+
+def _fetch_team_ctx(
+    conn: sqlite3.Connection, team_abbr: Optional[str], season: str,
+) -> Optional[dict]:
+    """Return the team context row dict, or None when not found."""
+    if not team_abbr:
+        return None
+    return get_team_context(team_abbr, season, conn)
+
+
+def _score_baseball_support_full(
+    scoring_plays: list[sqlite3.Row],
+    *,
+    candidate_type: str,
+    away_ctx: Optional[dict],
+    home_ctx: Optional[dict],
+    selected_team_abbr: Optional[str] = None,
+    away_abbr: Optional[str] = None,
+    home_abbr: Optional[str] = None,
+) -> tuple[float, dict]:
+    """
+    Return (final_baseball_support_score, detail_dict) combining play-event logic
+    with a conservative team-context adjustment layer.
+
+    Team context is an *adjustment*, not the main model.  Each signal contributes
+    ±5 (strong) / ±2 (mild) / 0 (neutral/missing); the total is clamped to ±15.
+
+    Risk ratings (f5_pitching_risk_rating, bullpen_risk_rating) are inverted:
+    higher value = more risk = bad for the team that owns it.  When the OPPONENT'S
+    bullpen risk is high it SUPPORTS a YES-side trailing-team candidate.
+    """
+    play_event_score = _score_baseball_support(scoring_plays)
+    play_event_adj   = round(play_event_score - 50.0, 1)
+
+    # Build signals: (rating | None, supports_thesis, human-readable label)
+    # "supports_thesis" means: high value of this rating is GOOD for the candidate direction.
+    signals: list[tuple[Optional[float], bool, str]] = []
+
+    a = away_abbr or "away"
+    h = home_abbr or "home"
+
+    if candidate_type == "trailing_team_total_lag_watch":
+        # YES side: watching for the trailing team to score more.
+        # Determine opponent from selected_team_abbr.
+        if selected_team_abbr and away_abbr and home_abbr:
+            sel_ctx = away_ctx if selected_team_abbr == away_abbr else home_ctx
+            opp_ctx = home_ctx if selected_team_abbr == away_abbr else away_ctx
+            opp_lbl = h      if selected_team_abbr == away_abbr else a
+        else:
+            sel_ctx = opp_ctx = None
+            opp_lbl = "opp"
+        sel_lbl = selected_team_abbr or "sel"
+        signals = [
+            (_ctx_get(sel_ctx, "offense_rating"),       True,  f"{sel_lbl}_offense"),
+            (_ctx_get(opp_ctx, "defense_pitching_rating"), False, f"{opp_lbl}_defense"),
+            # Opponent's high BP risk means their bullpen gives up more runs → supports YES
+            (_ctx_get(opp_ctx, "bullpen_risk_rating"),  True,  f"{opp_lbl}_bp_risk"),
+        ]
+
+    elif candidate_type == "full_game_total_extreme_reprice_watch":
+        # NO side: fading the over — high offense / bullpen risk contradicts, high defense supports.
+        signals = [
+            (_ctx_get(away_ctx, "offense_rating"),          False, f"{a}_offense"),
+            (_ctx_get(home_ctx, "offense_rating"),          False, f"{h}_offense"),
+            (_ctx_get(away_ctx, "defense_pitching_rating"), True,  f"{a}_defense"),
+            (_ctx_get(home_ctx, "defense_pitching_rating"), True,  f"{h}_defense"),
+            # High bullpen risk = more late runs = contradicts the fade
+            (_ctx_get(away_ctx, "bullpen_risk_rating"),     False, f"{a}_bp_risk"),
+            (_ctx_get(home_ctx, "bullpen_risk_rating"),     False, f"{h}_bp_risk"),
+        ]
+
+    elif candidate_type == "f5_total_overreaction_fade_watch":
+        # NO side: fading F5 over — high F5 offense or bad starters both contradict the fade.
+        signals = [
+            (_ctx_get(away_ctx, "f5_offense_rating"),         False, f"{a}_f5_offense"),
+            (_ctx_get(home_ctx, "f5_offense_rating"),         False, f"{h}_f5_offense"),
+            # High starter risk = bad starters = more early runs = contradicts fade
+            (_ctx_get(away_ctx, "f5_pitching_risk_rating"),   False, f"{a}_f5_pit_risk"),
+            (_ctx_get(home_ctx, "f5_pitching_risk_rating"),   False, f"{h}_f5_pit_risk"),
+        ]
+
+    # Compute per-signal step contributions.
+    total_tc_adj = 0.0
+    support_reasons: list[str] = []
+    contradiction_reasons: list[str] = []
+    missing_context_reasons: list[str] = []
+
+    for rating, supports, label in signals:
+        if rating is None:
+            missing_context_reasons.append(f"{label}=missing")
+            continue
+        dev = rating - 50.0
+        if abs(dev) >= _TC_STRONG_THRESHOLD:
+            step = _TC_STRONG_STEP
+        elif abs(dev) >= _TC_MILD_THRESHOLD:
+            step = _TC_MILD_STEP
+        else:
+            # Within neutral band — no contribution.
+            continue
+        direction_supports = (dev > 0) == supports
+        contrib = step if direction_supports else -step
+        total_tc_adj += contrib
+        reason_str = f"{label}={rating:.0f}"
+        if direction_supports:
+            support_reasons.append(reason_str)
+        else:
+            contradiction_reasons.append(reason_str)
+
+    tc_adj = max(-_TC_MAX_ADJ, min(_TC_MAX_ADJ, total_tc_adj))
+    final  = max(0.0, min(100.0, round(50.0 + play_event_adj + tc_adj, 1)))
+
+    detail = {
+        "baseball_support_base":      50.0,
+        "play_event_adjustment":      play_event_adj,
+        "team_context_adjustment":    round(tc_adj, 1),
+        "final_baseball_support_score": final,
+        "support_reasons":            support_reasons,
+        "contradiction_reasons":      contradiction_reasons,
+        "missing_context_reasons":    missing_context_reasons,
+    }
+    return final, detail
 
 
 def _score_execution_quality(spread: int) -> float:
@@ -302,6 +481,20 @@ def _get_team_abbrs(
     return row["away_abbr"], row["home_abbr"]
 
 
+def _count_spread_markets(conn: sqlite3.Connection, game_id: str) -> int:
+    """Count fg_spread + f5_spread markets that exist for the game.
+
+    These markets are always is_semantics_clear=False (see kalshi/semantics.py),
+    so they can never be selected by _best_market() for Watch candidates.
+    The count surfaces in GameDiag.spread_markets_discovered for diagnostics.
+    """
+    return conn.execute(
+        "SELECT COUNT(*) FROM kalshi_markets "
+        "WHERE game_id = ? AND market_type IN ('spread_run_line', 'f5_spread')",
+        (game_id,),
+    ).fetchone()[0]
+
+
 # ── Candidate type A: full_game_total_extreme_reprice_watch ──────────────────
 
 def _try_full_game_total_watch(
@@ -310,6 +503,7 @@ def _try_full_game_total_watch(
     game_id: str,
     gs: Optional[sqlite3.Row],
     scoring_plays: list[sqlite3.Row],
+    season: str = "2026",
 ) -> tuple[Optional[int], Optional[str], bool, bool]:
     """
     Trigger: scoring occurred AND full-game total mid-price has repriced
@@ -361,13 +555,26 @@ def _try_full_game_total_watch(
         conn=conn,
     )
 
+    away_abbr, home_abbr = _get_team_abbrs(conn, game_pk)
+    away_ctx  = _fetch_team_ctx(conn, away_abbr, season)
+    home_ctx  = _fetch_team_ctx(conn, home_abbr, season)
+
+    baseline         = compute_price_baseline(market)
+    derivative_meta  = derive_candidate_metadata("full_game_total_extreme_reprice_watch")
     spread    = yes_ask - yes_bid
-    mismatch  = _score_market_mismatch(yes_bid, yes_ask, open_price)
-    baseball  = _score_baseball_support(scoring_plays)
+    mismatch  = _score_market_mismatch(yes_bid, yes_ask, open_price,
+                                        baseline["baseline_quality"])
+    baseball, baseball_detail = _score_baseball_support_full(
+        scoring_plays,
+        candidate_type="full_game_total_extreme_reprice_watch",
+        away_ctx=away_ctx,
+        home_ctx=home_ctx,
+        away_abbr=away_abbr,
+        home_abbr=home_abbr,
+    )
     execution = _score_execution_quality(spread)
     risk      = _score_risk(scoring_plays, spread)
     overall   = _overall_watch_score(mismatch, baseball, execution, risk)
-    baseline  = compute_price_baseline(market)
 
     trigger_desc = (
         f"Full-game mid repriced {move:+.0f}c from "
@@ -409,7 +616,9 @@ def _try_full_game_total_watch(
         confidence_breakdown_json=_build_confidence_json(
             mismatch, baseball, execution, risk, overall
         ),
+        baseball_context_json=json.dumps(baseball_detail),
         **baseline,
+        **derivative_meta,
     )
     return cid, None, not gr.passed, is_new
 
@@ -422,6 +631,7 @@ def _try_f5_fade_watch(
     game_id: str,
     gs: Optional[sqlite3.Row],
     scoring_plays: list[sqlite3.Row],
+    season: str = "2026",
 ) -> tuple[Optional[int], Optional[str], bool, bool]:
     """
     Trigger: early scoring (innings 1-3) AND F5 over market mid > _F5_OVER_MID_THRESHOLD.
@@ -474,13 +684,26 @@ def _try_f5_fade_watch(
         conn=conn,
     )
 
+    away_abbr, home_abbr = _get_team_abbrs(conn, game_pk)
+    away_ctx  = _fetch_team_ctx(conn, away_abbr, season)
+    home_ctx  = _fetch_team_ctx(conn, home_abbr, season)
+
+    baseline         = compute_price_baseline(market)
+    derivative_meta  = derive_candidate_metadata("f5_total_overreaction_fade_watch")
     spread    = yes_ask - yes_bid
-    mismatch  = _score_market_mismatch(yes_bid, yes_ask, market["game_open_price_cents"])
-    baseball  = _score_baseball_support(early_plays)
+    mismatch  = _score_market_mismatch(yes_bid, yes_ask, market["game_open_price_cents"],
+                                        baseline["baseline_quality"])
+    baseball, baseball_detail = _score_baseball_support_full(
+        early_plays,
+        candidate_type="f5_total_overreaction_fade_watch",
+        away_ctx=away_ctx,
+        home_ctx=home_ctx,
+        away_abbr=away_abbr,
+        home_abbr=home_abbr,
+    )
     execution = _score_execution_quality(spread)
     risk      = _score_risk(early_plays, spread)
     overall   = _overall_watch_score(mismatch, baseball, execution, risk)
-    baseline  = compute_price_baseline(market)
 
     trigger_desc = (
         f"F5 over mid={mid:.0f}c after {len(early_plays)} early-inning scoring play(s); "
@@ -521,7 +744,9 @@ def _try_f5_fade_watch(
         confidence_breakdown_json=_build_confidence_json(
             mismatch, baseball, execution, risk, overall
         ),
+        baseball_context_json=json.dumps(baseball_detail),
         **baseline,
+        **derivative_meta,
     )
     return cid, None, not gr.passed, is_new
 
@@ -534,6 +759,7 @@ def _try_trailing_team_total_watch(
     game_id: str,
     gs: Optional[sqlite3.Row],
     scoring_plays: list[sqlite3.Row],
+    season: str = "2026",
 ) -> tuple[Optional[int], Optional[str], bool, bool]:
     """
     Trigger: one team trails by >= _TRAILING_RUN_THRESHOLD in innings 1–6 AND
@@ -600,13 +826,26 @@ def _try_trailing_team_total_watch(
         conn=conn,
     )
 
+    away_ctx = _fetch_team_ctx(conn, away_abbr, season)
+    home_ctx = _fetch_team_ctx(conn, home_abbr, season)
+
+    baseline         = compute_price_baseline(market)
+    derivative_meta  = derive_candidate_metadata("trailing_team_total_lag_watch")
     spread    = yes_ask - yes_bid
-    mismatch  = _score_market_mismatch(yes_bid, yes_ask, market["game_open_price_cents"])
-    baseball  = _score_baseball_support(scoring_plays)
+    mismatch  = _score_market_mismatch(yes_bid, yes_ask, market["game_open_price_cents"],
+                                        baseline["baseline_quality"])
+    baseball, baseball_detail = _score_baseball_support_full(
+        scoring_plays,
+        candidate_type="trailing_team_total_lag_watch",
+        away_ctx=away_ctx,
+        home_ctx=home_ctx,
+        selected_team_abbr=trailing_abbr,
+        away_abbr=away_abbr,
+        home_abbr=home_abbr,
+    )
     execution = _score_execution_quality(spread)
     risk      = _score_risk(scoring_plays, spread)
     overall   = _overall_watch_score(mismatch, baseball, execution, risk)
-    baseline  = compute_price_baseline(market)
 
     trigger_desc = (
         f"{trailing_abbr} trails {leading_score}-{trailing_score} in inning {inning}; "
@@ -648,6 +887,8 @@ def _try_trailing_team_total_watch(
         confidence_breakdown_json=_build_confidence_json(
             mismatch, baseball, execution, risk, overall
         ),
+        baseball_context_json=json.dumps(baseball_detail),
         **baseline,
+        **derivative_meta,
     )
     return cid, None, not gr.passed, is_new

@@ -20,9 +20,9 @@ import argparse
 import logging
 import os
 import time
-from datetime import date as _date
+from datetime import date as _date, datetime
 
-from db.schema import init_db
+from db.schema import init_db, write_run_health
 from mlb.game_store import fetch_and_store_game, fetch_and_store_schedule
 
 log = logging.getLogger("mlb_poller")
@@ -181,6 +181,12 @@ def main() -> None:
             )
             for err in result["errors"]:
                 log.warning("cycle error: %s", err)
+            write_run_health(
+                conn, "mlb_poller",
+                last_run_at=datetime.utcnow().isoformat(),
+                error_count=len(result["errors"]),
+                last_error=result["errors"][-1] if result["errors"] else None,
+            )
 
             if args.once:
                 break
