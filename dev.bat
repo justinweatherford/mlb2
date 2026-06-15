@@ -26,7 +26,7 @@ echo.
 echo Usage for live slate: dev.bat slate [YYYY-MM-DD]
 echo.
 
-start "MLB2 API"      cmd /k "cd /d "%ROOT%" && uvicorn api.main:app --reload --port 8000 || pause"
+start "MLB2 API"      cmd /k "cd /d "%ROOT%" && python -m uvicorn api.main:app --reload --port 8000 || pause"
 timeout /t 3 /nobreak >nul
 
 if not exist "%ROOT%frontend\package.json" (
@@ -78,7 +78,7 @@ echo.
 echo Step 3/3: Launching slate stack...
 echo.
 
-start "MLB2 API"                cmd /k "cd /d "%ROOT%" && uvicorn api.main:app --reload --port 8000 || pause"
+start "MLB2 API"                cmd /k "cd /d "%ROOT%" && python -m uvicorn api.main:app --reload --port 8000 || pause"
 timeout /t 2 /nobreak >nul
 
 if not exist "%ROOT%frontend\package.json" (

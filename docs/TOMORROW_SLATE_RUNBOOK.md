@@ -6,9 +6,19 @@ This runbook covers what to start, in what order, and how to verify each compone
 
 ---
 
-## Quick Start (one command)
+## Quick Start
 
-From the repo root, run:
+### Preferred: double-click launcher
+
+Double-click **`RUN_TONIGHT_SLATE.bat`** in the repo root.
+
+It will show today's date and ask you to confirm or override it, then launch
+the full slate stack. No terminal typing required.
+
+To run for a specific date instead, double-click **`RUN_SLATE_FOR_DATE.bat`**
+and enter the date when prompted.
+
+### Manual: command line
 
 ```
 dev.bat slate 2026-06-15
@@ -146,7 +156,7 @@ python live_watcher.py
 ### E — Start the API server
 
 ```bash
-uvicorn api.main:app --reload --port 8000
+python -m uvicorn api.main:app --reload --port 8000
 ```
 
 **What to expect:** FastAPI starts on port 8000. Check `/docs` for the interactive endpoint list.
