@@ -177,7 +177,8 @@ class _KalshiClient:
                 break
         return markets
 
-    def get_orderbook(self, market_ticker: str, depth: int = 10) -> dict:
+    def get_orderbook(self, market_ticker: str, depth: int = 100) -> dict:
+        # depth=100 covers the full Kalshi binary book (prices 1-99 = max 98 levels per side)
         return self._request("GET", f"/markets/{market_ticker}/orderbook", {"depth": depth})
 
 

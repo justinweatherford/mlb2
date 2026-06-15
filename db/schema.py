@@ -267,6 +267,24 @@ CREATE INDEX IF NOT EXISTS idx_kalshi_markets_type    ON kalshi_markets(market_t
 CREATE INDEX IF NOT EXISTS idx_kalshi_markets_game_id ON kalshi_markets(game_id);
 CREATE INDEX IF NOT EXISTS idx_kalshi_ob_ticker       ON kalshi_orderbook_snapshots(market_ticker);
 
+CREATE TABLE IF NOT EXISTS kalshi_market_trades (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    trade_id       TEXT NOT NULL UNIQUE,
+    market_ticker  TEXT NOT NULL,
+    event_ticker   TEXT,
+    sport          TEXT NOT NULL DEFAULT 'mlb',
+    created_time   TEXT NOT NULL,
+    taker_side     TEXT,
+    count          INTEGER,
+    yes_price      INTEGER,
+    no_price       INTEGER,
+    fetched_at     TEXT NOT NULL,
+    raw_json       TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_kalshi_trades_ticker ON kalshi_market_trades(market_ticker);
+CREATE INDEX IF NOT EXISTS idx_kalshi_trades_time   ON kalshi_market_trades(created_time);
+
 -- ── Kalshi WebSocket stream ────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS kalshi_market_updates (

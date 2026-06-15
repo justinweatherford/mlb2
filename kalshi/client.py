@@ -153,8 +153,27 @@ class KalshiClient:
     def get_market(self, market_ticker: str) -> dict:
         return self._request("GET", f"/markets/{market_ticker}")
 
-    def get_orderbook(self, market_ticker: str, depth: int = 10) -> dict:
+    def get_orderbook(self, market_ticker: str, depth: int = 100) -> dict:
+        # depth=100 covers the full Kalshi binary book (prices 1-99 = max 98 levels per side)
         return self._request("GET", f"/markets/{market_ticker}/orderbook", {"depth": depth})
+
+    def get_market_trades(
+        self,
+        market_ticker: str,
+        limit: int = 100,
+        cursor: Optional[str] = None,
+        min_ts: Optional[str] = None,
+        max_ts: Optional[str] = None,
+    ) -> dict:
+        """Fetch recent executed trades for a market. Read-only. Does not place trades."""
+        params: dict[str, Any] = {"limit": limit}
+        if cursor:
+            params["cursor"] = cursor
+        if min_ts:
+            params["min_ts"] = min_ts
+        if max_ts:
+            params["max_ts"] = max_ts
+        return self._request("GET", f"/markets/{market_ticker}/trades", params)
 
     # ── Pagination helpers ───────────────────────────────────────────────────
 
