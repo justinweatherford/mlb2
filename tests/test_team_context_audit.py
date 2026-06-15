@@ -70,8 +70,8 @@ class TestFormulaTransparency:
         _seed_team(conn, "MIL", [(5, 3)] * 15)
         result = compute_team_context_debug("MIL", "2026", conn)
         assert result is not None
-        expected_keys = {"offense", "defense", "f5_offense", "f5_pitching_risk",
-                         "bullpen_risk", "comeback", "overall"}
+        expected_keys = {"team_strength", "offense", "defense", "f5_offense",
+                         "f5_pitching_risk", "bullpen_risk", "comeback", "overall"}
         assert expected_keys == set(result["ratings"].keys())
         conn.close()
 

@@ -604,6 +604,10 @@ class TeamContextOut(BaseModel):
     late_game_risk_rating: Optional[float] = None
     comeback_scoring_rating: Optional[float] = None
     overall_context_score: Optional[float] = None
+    # Pure season-quality ratings (no recent-form weighting)
+    season_offense_rating: Optional[float] = None
+    season_defense_rating: Optional[float] = None
+    team_strength_rating:  Optional[float] = None
     sample_size: int
     f5_sample_size: int
     context_confidence: str = "low"

@@ -139,8 +139,35 @@ def _rate_comeback_scoring(late_rpg: Optional[float], rpg: Optional[float]) -> f
     return round(_clamp(50.0 + (composite - avg_composite) * _SCALE_F5), 1)
 
 
+def _rate_season_offense(rpg: Optional[float]) -> float:
+    """Pure season RPG offense quality — no recent-form weighting."""
+    if rpg is None:
+        return 50.0
+    return round(_clamp(50.0 + (rpg - _LEAGUE_AVG_RPG) * _SCALE_RPG), 1)
+
+
+def _rate_season_defense(ra_pg: Optional[float]) -> float:
+    """Pure season RA/G defense quality — no recent-form weighting."""
+    if ra_pg is None:
+        return 50.0
+    return round(_clamp(50.0 + (_LEAGUE_AVG_RPG - ra_pg) * _SCALE_RPG), 1)
+
+
+def _team_strength_score(
+    season_offense: float, season_defense: float, f5_offense: float
+) -> float:
+    """
+    True team quality baseline: season offense + season defense + F5 offense.
+    Uses season-only stats; no recent-form weighting.
+    Distinct from overall_context_score, which blends in 60% recent-7 form.
+    """
+    return round(0.4 * season_offense + 0.4 * season_defense + 0.2 * f5_offense, 1)
+
+
 def _overall_score(offense: float, defense: float, f5_offense: float) -> float:
-    """40% offense + 40% defense/pitching + 20% F5 offense."""
+    """40% offense + 40% defense/pitching + 20% F5 offense.
+    NOTE: offense and defense include 60% recent-7 form weighting.
+    Use team_strength_rating for a pure season-quality baseline."""
     return round(0.4 * offense + 0.4 * defense + 0.2 * f5_offense, 1)
 
 
@@ -258,13 +285,17 @@ def compute_team_context(
     late_ra_pg = _avg(late_allowed_list)
 
     # ── Ratings ───────────────────────────────────────────────────────────────
-    offense_r  = _rate_offense(rpg, recent_rpg_7)
-    defense_r  = _rate_defense(ra_pg, recent_ra_7)
-    f5_off_r   = _rate_f5_offense(f5_rpg)
-    f5_pit_r   = _rate_f5_pitching_risk(f5_ra_pg)
-    bp_risk_r  = _rate_bullpen_risk(late_ra_pg)
-    comeback_r = _rate_comeback_scoring(late_rpg, rpg)
-    overall_r  = _overall_score(offense_r, defense_r, f5_off_r)
+    offense_r        = _rate_offense(rpg, recent_rpg_7)
+    defense_r        = _rate_defense(ra_pg, recent_ra_7)
+    f5_off_r         = _rate_f5_offense(f5_rpg)
+    f5_pit_r         = _rate_f5_pitching_risk(f5_ra_pg)
+    bp_risk_r        = _rate_bullpen_risk(late_ra_pg)
+    comeback_r       = _rate_comeback_scoring(late_rpg, rpg)
+    overall_r        = _overall_score(offense_r, defense_r, f5_off_r)
+    # Pure season-quality ratings (no recent-form blend)
+    season_off_r     = _rate_season_offense(rpg)
+    season_def_r     = _rate_season_defense(ra_pg)
+    team_strength_r  = _team_strength_score(season_off_r, season_def_r, f5_off_r)
 
     l1_rating  = _rate_scoring_form(l1_rpg)
     l5_rating  = _rate_scoring_form(l5_rpg)
@@ -299,6 +330,10 @@ def compute_team_context(
         "late_game_risk_rating":          bp_risk_r,  # bullpen risk and late risk are the same metric
         "comeback_scoring_rating":        comeback_r,
         "overall_context_score":          overall_r,
+        # Pure season-quality: no recent-form weighting
+        "season_offense_rating":          season_off_r,
+        "season_defense_rating":          season_def_r,
+        "team_strength_rating":           team_strength_r,
         "sample_size":                    len(all_games),
         "f5_sample_size":                 len(f5_scored_list),
         "context_confidence":             _context_confidence(len(all_games)),
@@ -322,8 +357,9 @@ def _upsert_team_context(conn: sqlite3.Connection, ctx: dict) -> None:
            f5_offense_rating, f5_pitching_risk_rating,
            bullpen_risk_rating, late_game_risk_rating,
            comeback_scoring_rating, overall_context_score,
+           season_offense_rating, season_defense_rating, team_strength_rating,
            sample_size, f5_sample_size, context_confidence, last_updated)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(team_abbr, season) DO UPDATE SET
           team_name                       = excluded.team_name,
           games_played                    = excluded.games_played,
@@ -351,6 +387,9 @@ def _upsert_team_context(conn: sqlite3.Connection, ctx: dict) -> None:
           late_game_risk_rating           = excluded.late_game_risk_rating,
           comeback_scoring_rating         = excluded.comeback_scoring_rating,
           overall_context_score           = excluded.overall_context_score,
+          season_offense_rating           = excluded.season_offense_rating,
+          season_defense_rating           = excluded.season_defense_rating,
+          team_strength_rating            = excluded.team_strength_rating,
           sample_size                     = excluded.sample_size,
           f5_sample_size                  = excluded.f5_sample_size,
           context_confidence              = excluded.context_confidence,
@@ -370,6 +409,7 @@ def _upsert_team_context(conn: sqlite3.Connection, ctx: dict) -> None:
             ctx["f5_offense_rating"],    ctx["f5_pitching_risk_rating"],
             ctx["bullpen_risk_rating"],  ctx["late_game_risk_rating"],
             ctx["comeback_scoring_rating"], ctx["overall_context_score"],
+            ctx["season_offense_rating"], ctx["season_defense_rating"], ctx["team_strength_rating"],
             ctx["sample_size"],          ctx["f5_sample_size"],
             ctx["context_confidence"],   ctx["last_updated"],
         ),
@@ -649,16 +689,46 @@ def compute_team_context_debug(
             round(raw, 3), round(_clamp(raw), 1), False,
         )
 
-    # ── Overall ──────────────────────────────────────────────────────────────
+    # ── Overall (form-weighted) ───────────────────────────────────────────────
     off_r = off_d["final"]
     def_r = def_d["final"]
     f5o_r = f5o_d["final"]
     ovr   = round(0.4 * off_r + 0.4 * def_r + 0.2 * f5o_r, 1)
     ovr_d = _rating_detail(
-        "Overall Context Score", True,
-        "0.4×offense + 0.4×defense + 0.2×f5_offense",
+        "Form Context Score (overall_context_score)", True,
+        "0.4×offense_rating + 0.4×defense_rating + 0.2×f5_offense  [60% recent-7 blended]",
         {"offense_rating": off_r, "defense_rating": def_r, "f5_offense_rating": f5o_r},
         None, None, 50.0, 1.0, ovr, ovr, False,
+        "offense_rating and defense_rating each use 60% recent-7 form, so this score "
+        "reflects current context, not pure team quality. See team_strength_rating below.",
+    )
+
+    # ── Team Strength (pure season quality) ──────────────────────────────────
+    s_off_r = stored.get("season_offense_rating")
+    s_def_r = stored.get("season_defense_rating")
+    ts_r    = stored.get("team_strength_rating")
+    if s_off_r is None:
+        s_off_r = _rate_season_offense(rpg)
+    if s_def_r is None:
+        s_def_r = _rate_season_defense(ra_pg)
+    if ts_r is None:
+        ts_r = _team_strength_score(s_off_r, s_def_r, f5o_r)
+    s_off_raw = 50.0 + (rpg - _LEAGUE_AVG_RPG) * _SCALE_RPG if rpg is not None else None
+    s_def_raw = 50.0 + (_LEAGUE_AVG_RPG - ra_pg) * _SCALE_RPG if ra_pg is not None else None
+    strength_d = _rating_detail(
+        "Team Strength Rating (season quality, no form blend)", True,
+        "0.4×season_offense_rating + 0.4×season_defense_rating + 0.2×f5_offense_rating",
+        {
+            "season_offense_rating": round(s_off_r, 1),
+            "season_defense_rating": round(s_def_r, 1),
+            "f5_offense_rating":     f5o_r,
+            "season_rpg":            rpg,
+            "season_ra_pg":          ra_pg,
+        },
+        None, "season-only, no blending", 50.0, 1.0,
+        round(ts_r, 3), round(ts_r, 1), rpg is None,
+        f"vs. Form Context Score = {ovr}. "
+        f"Gap of {round(ts_r - ovr, 1):+.1f}pt shows how much recent form is dragging/boosting OVERALL.",
     )
 
     return {
@@ -673,6 +743,7 @@ def compute_team_context_debug(
             "note": "All ratings are 0-100; ~50 = league average. SCALE controls rating sensitivity to deviations.",
         },
         "ratings": {
+            "team_strength":    strength_d,
             "offense":          off_d,
             "defense":          def_d,
             "f5_offense":       f5o_d,
@@ -850,24 +921,32 @@ def run_sanity_checks(season: str, conn: sqlite3.Connection) -> dict:
 # ── Team comparison ───────────────────────────────────────────────────────────
 
 _COMPARE_FIELDS = [
-    ("runs_per_game",                  "RPG (season)",        None),
-    ("runs_allowed_per_game",          "RA/G (season)",       None),
-    ("recent_runs_per_game_7",         "RPG (last 7)",        None),
-    ("recent_runs_allowed_per_game_7", "RA/G (last 7)",       None),
-    ("offense_rating",                 "Offense",             True),
-    ("defense_pitching_rating",        "Defense/Pitching",    True),
-    ("f5_runs_per_game",               "F5 RPG",              None),
-    ("f5_runs_allowed_per_game",       "F5 RA/G",             None),
-    ("f5_offense_rating",              "F5 Offense",          True),
-    ("f5_pitching_risk_rating",        "F5 Pitching Risk",    False),
-    ("late_runs_per_game",             "Late+ Scoring",       None),
-    ("late_runs_allowed_per_game",     "Late- Allowed",       None),
-    ("bullpen_risk_rating",            "Bullpen Risk",        False),
-    ("comeback_scoring_rating",        "Comeback",            True),
-    ("overall_context_score",          "Overall",             True),
+    ("runs_per_game",                  "RPG (season)",             None),
+    ("runs_allowed_per_game",          "RA/G (season)",            None),
+    ("recent_runs_per_game_7",         "RPG (last 7)",             None),
+    ("recent_runs_allowed_per_game_7", "RA/G (last 7)",            None),
+    # Season-quality ratings (no form weighting) — use these for team strength comparisons
+    ("season_offense_rating",          "Season Offense",           True),
+    ("season_defense_rating",          "Season Defense",           True),
+    ("team_strength_rating",           "Team Strength",            True),
+    # Form-blended ratings (60% recent-7) — used in baseball_support context adjustment
+    ("offense_rating",                 "Scoring Form (OFF)",       True),
+    ("defense_pitching_rating",        "Scoring Form (DEF)",       True),
+    ("overall_context_score",          "Form Context Score",       True),
+    # F5 / late-game splits
+    ("f5_runs_per_game",               "F5 RPG",                   None),
+    ("f5_runs_allowed_per_game",       "F5 RA/G",                  None),
+    ("f5_offense_rating",              "F5 Offense",               True),
+    ("f5_pitching_risk_rating",        "F5 Pit Risk [↑=worse]",   False),
+    ("late_runs_per_game",             "Late+ Scoring",            None),
+    ("late_runs_allowed_per_game",     "Late- Allowed",            None),
+    ("bullpen_risk_rating",            "BP Risk [↑=worse]",       False),
+    ("comeback_scoring_rating",        "Comeback",                 True),
 ]
 
 _RATING_TO_RAW = {
+    "season_offense_rating":    "runs_per_game",
+    "season_defense_rating":    "runs_allowed_per_game",
     "offense_rating":           "runs_per_game",
     "defense_pitching_rating":  "runs_allowed_per_game",
     "f5_offense_rating":        "f5_runs_per_game",

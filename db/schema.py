@@ -435,14 +435,21 @@ CREATE TABLE IF NOT EXISTS mlb_team_context (
     late_runs_allowed_per_game      REAL,
 
     -- Derived ratings (0-100, ~50 = league average)
-    offense_rating                  REAL,
-    defense_pitching_rating         REAL,
+    -- Form-blended: offense_rating and defense_pitching_rating use 60% recent-7 weighting.
+    -- Use season_offense_rating / season_defense_rating / team_strength_rating for
+    -- pure team-quality comparisons without recent-form influence.
+    offense_rating                  REAL,  -- 0.6×recent7 + 0.4×season (form-weighted)
+    defense_pitching_rating         REAL,  -- 0.6×recent7 + 0.4×season (form-weighted)
     f5_offense_rating               REAL,
-    f5_pitching_risk_rating         REAL,
-    bullpen_risk_rating             REAL,
+    f5_pitching_risk_rating         REAL,  -- higher = more starter risk (inverted)
+    bullpen_risk_rating             REAL,  -- higher = more bullpen risk (inverted)
     late_game_risk_rating           REAL,
     comeback_scoring_rating         REAL,
-    overall_context_score           REAL,
+    overall_context_score           REAL,  -- form-weighted composite (see team_strength_rating)
+    -- Pure season-quality ratings (no recent-form weighting)
+    season_offense_rating           REAL,
+    season_defense_rating           REAL,
+    team_strength_rating            REAL,  -- 0.4×season_off + 0.4×season_def + 0.2×f5_off
 
     -- Metadata
     sample_size                     INTEGER NOT NULL DEFAULT 0,
@@ -821,6 +828,10 @@ def _apply_migrations(conn: sqlite3.Connection) -> None:
         "ALTER TABLE mlb_team_context ADD COLUMN l1_scoring_form_rating REAL",
         "ALTER TABLE mlb_team_context ADD COLUMN l5_scoring_form_rating REAL",
         "ALTER TABLE mlb_team_context ADD COLUMN l10_scoring_form_rating REAL",
+        # Team strength v1 — pure season-quality ratings separate from form-blended offense/defense
+        "ALTER TABLE mlb_team_context ADD COLUMN season_offense_rating REAL",
+        "ALTER TABLE mlb_team_context ADD COLUMN season_defense_rating REAL",
+        "ALTER TABLE mlb_team_context ADD COLUMN team_strength_rating REAL",
         # Good Entry Evaluation v1 columns on paper_setups
         "ALTER TABLE paper_setups ADD COLUMN good_entry_score REAL",
         "ALTER TABLE paper_setups ADD COLUMN good_entry_label TEXT",
