@@ -1,0 +1,32 @@
+{
+  "date": "2026-06-15",
+  "label": "tuning_pass_1",
+  "script_version": "1.0.0",
+  "total_candidates": 159,
+  "changed_count": 67,
+  "before": {
+    "watch": 84,
+    "blocked": 75
+  },
+  "after": {
+    "observe": 46,
+    "blocked": 79,
+    "suppress": 17,
+    "watch": 17
+  },
+  "team_lag": {
+    "total": 107,
+    "watch_before": 63,
+    "watch_after": 0,
+    "demoted": 63
+  },
+  "first_discovery_cap": {
+    "affected": 122
+  },
+  "f5_cleared": 4,
+  "avg_mismatch": {
+    "before": 72.6,
+    "after": 21.3
+  },
+  "git_hash": null
+}

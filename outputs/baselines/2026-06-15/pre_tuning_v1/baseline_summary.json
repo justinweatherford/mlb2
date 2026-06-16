@@ -1,0 +1,41 @@
+{
+  "date": "2026-06-15",
+  "label": "pre_tuning_v1",
+  "created_at_utc": "2026-06-16T03:52:00.729286+00:00",
+  "candidates": {
+    "total": 159,
+    "by_derivative": {
+      "team_total": 107,
+      "f5_total": 8,
+      "fg_total": 44
+    },
+    "team_total_pct": 67.3,
+    "first_discovery_count": 159,
+    "first_discovery_pct": 100.0,
+    "rally_still_active_blocks": 55,
+    "near_settled_missed": 0,
+    "missing_derivative_lanes": [
+      "spread",
+      "f5_spread"
+    ]
+  },
+  "paper_setups": {
+    "total": 31,
+    "by_outcome": {
+      "unknown": 24,
+      "lost": 5,
+      "won": 1,
+      "pushed": 1
+    },
+    "by_good_entry_label": {
+      "strong_value": 2,
+      "not_evaluable": 5,
+      "possible_value": 9,
+      "watch_only": 2
+    }
+  },
+  "market_data": {
+    "focused_watch_snap_count": 1049,
+    "total_snap_count": 337159
+  }
+}

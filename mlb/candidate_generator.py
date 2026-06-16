@@ -99,6 +99,20 @@ _TRAILING_MAX_INNING    = 6
 #   25c of movement from open → 100 pts; 8c (trigger) → 32 pts
 _REPRICE_PTS_PER_CENT = 4.0
 
+# First-discovery baselines (baseline_quality="medium") are not confirmed opening
+# prices — the market was captured for the first time at discovery, not at game
+# open. Cap mismatch to avoid treating discovery-time price as a real baseline.
+_FIRST_DISCOVERY_MISMATCH_CAP = 25.0
+
+# Team Lag classification thresholds
+# deficit >= this → "blowout", suppress the candidate
+_TEAM_LAG_BLOWOUT_MARGIN          = 7
+# baseball_support < this → insufficient signal, suppress
+_TEAM_LAG_MIN_BASEBALL_SUPPORT    = 40.0
+
+# F5 already-cleared: bid >= this (near-certainty) → market_effectively_settled
+_F5_NEAR_SETTLED_BID              = 95
+
 # baseball_support_score adjustments applied to a 50-pt neutral baseline:
 #   fluky events (error, WP, PB) boost confidence that the move may fade
 #   hard contact (HR, barrel-like) penalises confidence in a fade
@@ -206,12 +220,21 @@ def _score_market_mismatch(
 
     Returns neutral 50 when the baseline is low-quality (backfilled_current)
     or missing — we don't want to overtrust a fake opening delta.
+
+    First-discovery baselines (quality="medium") are capped at
+    _FIRST_DISCOVERY_MISMATCH_CAP: the "open price" was the price at first
+    market discovery, not a true game-open price, so large deltas are
+    artifacts of discovery timing rather than real market moves.
     """
     if open_price is None or baseline_quality in ("none", "low"):
         return 50.0  # neutral: no reliable baseline to compare
     mid = (yes_bid + yes_ask) / 2.0
     move = abs(mid - open_price)
-    return min(100.0, round(move * _REPRICE_PTS_PER_CENT, 1))
+    raw = min(100.0, round(move * _REPRICE_PTS_PER_CENT, 1))
+    if baseline_quality == "medium":
+        # baseline_unverified_first_discovery: cap to avoid inflated mismatch
+        return min(raw, _FIRST_DISCOVERY_MISMATCH_CAP)
+    return raw
 
 
 def _score_baseball_support(scoring_plays: list[sqlite3.Row]) -> float:
@@ -378,6 +401,40 @@ def _score_risk(scoring_plays: list[sqlite3.Row], spread: int) -> float:
     if spread > 8:              # in the warn zone (8–12c)
         risk += _RISK_WIDE_SPREAD
     return min(100.0, risk)
+
+
+def _classify_team_lag_watch(
+    *,
+    deficit_runs: int,
+    baseball_support: float,
+    mismatch: float,
+    runners_state: Optional[str],
+    recent_scoring: bool,
+) -> tuple[Optional[str], str]:
+    """Classify a trailing_team_total_lag_watch signal quality.
+
+    Returns (blocked_reason_or_None, label) where label is one of:
+      "watch"    — real pressure + adequate scores, surface as actionable
+      "observe"  — early trailing but no active pressure; record but deprioritise
+      "suppress" — blowout / low support; block with a specific reason
+
+    Called only after guardrails pass (never overrides rally_still_active etc.).
+    """
+    # Hard suppression: blowout margin
+    if deficit_runs >= _TEAM_LAG_BLOWOUT_MARGIN:
+        return "team_lag_blowout", "suppress"
+
+    # Hard suppression: insufficient baseball support signal
+    if baseball_support < _TEAM_LAG_MIN_BASEBALL_SUPPORT:
+        return "team_lag_insufficient_baseball_support", "suppress"
+
+    # "observe" when no active pressure exists
+    _runners = (runners_state or "").strip().lower()
+    _has_runners = bool(_runners) and _runners not in ("", "empty", "bases_empty", "---")
+    if not _has_runners and not recent_scoring:
+        return "team_lag_observe_only", "observe"
+
+    return None, "watch"
 
 
 def _overall_watch_score(
@@ -660,6 +717,10 @@ def _try_f5_fade_watch(
     if yes_bid is None or yes_ask is None:
         return None, "missing_bid_ask", False, False
 
+    # F5 near-settled: YES bid is near certainty — over is effectively decided
+    if yes_bid >= _F5_NEAR_SETTLED_BID:
+        return None, "market_effectively_settled", False, False
+
     mid = (yes_bid + yes_ask) / 2.0
     if mid < _F5_OVER_MID_THRESHOLD:
         return None, "no_trigger_condition", False, False
@@ -669,6 +730,12 @@ def _try_f5_fade_watch(
     runners     = gs["runner_state"] if gs else None
     away_score  = gs["away_score"]   if gs else None
     home_score  = gs["home_score"]   if gs else None
+
+    # F5 already-cleared: current combined score has already exceeded the line
+    _line = market["line_value"]
+    if _line is not None and away_score is not None and home_score is not None:
+        if (away_score + home_score) > _line:
+            return None, "f5_total_already_cleared", False, False
 
     gr = check_all(
         market=market,
@@ -788,10 +855,12 @@ def _try_trailing_team_total_watch(
         trailing_abbr  = away_abbr
         trailing_score = away_score
         leading_score  = home_score
+        actual_deficit = deficit_away
     elif deficit_home >= _TRAILING_RUN_THRESHOLD and home_abbr:
         trailing_abbr  = home_abbr
         trailing_score = home_score
         leading_score  = away_score
+        actual_deficit = deficit_home
     else:
         return None, "no_trailing_team", False, False
 
@@ -852,6 +921,27 @@ def _try_trailing_team_total_watch(
         f"team total may be lagging"
     )
 
+    # Team Lag classification: only applied when guardrails already passed.
+    # Never overrides rally_still_active or other hard guardrail blocks.
+    if gr.passed:
+        _lag_block, _lag_label = _classify_team_lag_watch(
+            deficit_runs=actual_deficit,
+            baseball_support=baseball,
+            mismatch=mismatch,
+            runners_state=runners,
+            recent_scoring=bool(scoring_plays),
+        )
+        if _lag_block:
+            effective_blocked_reason = _lag_block
+            effective_status = "blocked"
+        else:
+            effective_blocked_reason = None
+            effective_status = "observed_only"
+    else:
+        _lag_label = "guardrail_blocked"
+        effective_blocked_reason = gr.blocked_reason
+        effective_status = "blocked"
+
     cid, is_new = upsert_candidate_event(
         conn,
         candidate_type="trailing_team_total_lag_watch",
@@ -881,9 +971,9 @@ def _try_trailing_team_total_watch(
         trigger_event_type="trailing_team_total_lag",
         trigger_description=trigger_desc,
         guardrails_json=gr.guardrails_json,
-        blocked_reason=gr.blocked_reason,
+        blocked_reason=effective_blocked_reason,
         eligible_for_paper=0,
-        status="observed_only" if gr.passed else "blocked",
+        status=effective_status,
         confidence_breakdown_json=_build_confidence_json(
             mismatch, baseball, execution, risk, overall
         ),
@@ -891,4 +981,4 @@ def _try_trailing_team_total_watch(
         **baseline,
         **derivative_meta,
     )
-    return cid, None, not gr.passed, is_new
+    return cid, None, effective_status == "blocked", is_new

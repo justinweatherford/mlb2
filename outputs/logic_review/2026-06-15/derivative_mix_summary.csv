@@ -1,4 +1,4 @@
 derivative_type,total_candidates,observed_count,blocked_count,paper_setups,pct_of_all,good_entry_breakdown,notes
-team_total,96,57,39,96,65.8,"{""strong_value"": 17, ""not_evaluable"": 31, ""possible_value"": 30, ""watch_only"": 18}",dominant: 65.8% of all candidates exceeds 60% threshold
-fg_total,42,17,25,42,28.8,"{""possible_value"": 36, ""not_evaluable"": 6}",
-f5_total,8,4,4,8,5.5,"{""possible_value"": 8}",
+team_total,107,63,44,107,67.3,"{""strong_value"": 17, ""not_evaluable"": 31, ""possible_value"": 41, ""watch_only"": 18}",dominant: 67.3% of all candidates exceeds 60% threshold
+fg_total,44,17,27,44,27.7,"{""possible_value"": 38, ""not_evaluable"": 6}",
+f5_total,8,4,4,8,5.0,"{""possible_value"": 8}",

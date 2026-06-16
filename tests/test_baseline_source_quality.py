@@ -139,10 +139,16 @@ def test_score_neutral_for_none_quality_baseline():
 
 
 def test_score_normal_for_medium_quality_baseline():
-    """first_discovery baseline → full delta calculation."""
+    """first_discovery baseline → capped at _FIRST_DISCOVERY_MISMATCH_CAP.
+
+    first_discovery is not a confirmed opening price, so large deltas are
+    artifacts of discovery timing.  The raw score (100) is capped to prevent
+    inflated market_mismatch on first-seen candidates.
+    """
+    from mlb.candidate_generator import _FIRST_DISCOVERY_MISMATCH_CAP
     score = _score_market_mismatch(70, 80, open_price=50, baseline_quality="medium")
-    # mid=75, delta=25, score = min(100, 25*4) = 100
-    assert score == 100.0
+    # mid=75, delta=25, raw=100 → capped to _FIRST_DISCOVERY_MISMATCH_CAP
+    assert score == _FIRST_DISCOVERY_MISMATCH_CAP
 
 
 def test_score_normal_for_high_quality_baseline():
