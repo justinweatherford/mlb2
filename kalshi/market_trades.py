@@ -86,7 +86,7 @@ def fetch_and_store_trades(
     fetched_at = datetime.now(timezone.utc).isoformat()
     inserted = skipped = errors = 0
 
-    endpoint = f"/markets/{market_ticker}/trades"
+    endpoint = f"/markets/trades?ticker={market_ticker}"
     try:
         page = client.get_market_trades(
             market_ticker=market_ticker,

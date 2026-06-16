@@ -1,0 +1,4 @@
+funnel_stage,final_decision,count,pct
+RAW_CANDIDATE,observe,22,14%
+RAW_CANDIDATE,suppress,59,37%
+SITUATIONAL_READ,observe,78,49%

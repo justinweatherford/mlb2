@@ -173,7 +173,26 @@ class KalshiClient:
             params["min_ts"] = min_ts
         if max_ts:
             params["max_ts"] = max_ts
-        return self._request("GET", f"/markets/{market_ticker}/trades", params)
+        params["ticker"] = market_ticker
+        return self._request("GET", "/markets/trades", params)
+
+    def get_orderbooks_batch(self, tickers: list) -> dict:
+        """
+        Fetch orderbooks for up to 100 tickers in one REST call.
+        Returns {ticker: orderbook_fp_dict}.
+        GET /trade-api/v2/markets/orderbooks?tickers=T1&tickers=T2...
+        """
+        if not tickers:
+            return {}
+        if len(tickers) > 100:
+            raise ValueError("Batch orderbook endpoint supports max 100 tickers per call")
+        qs = urlencode([("tickers", t) for t in tickers])
+        result = self._request("GET", f"/markets/orderbooks?{qs}")
+        return {
+            ob["ticker"]: ob.get("orderbook_fp", {})
+            for ob in result.get("orderbooks", [])
+            if ob.get("ticker")
+        }
 
     # ── Pagination helpers ───────────────────────────────────────────────────
 

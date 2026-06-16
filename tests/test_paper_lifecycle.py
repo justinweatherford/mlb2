@@ -848,3 +848,92 @@ class TestSyncAndSettle:
         assert rows == 1  # only one setup created despite two syncs
         settle_r = settle_paper_setups_for_date(conn, DATE)
         assert settle_r["settled"] == 0  # game not final
+
+
+# ── reconcile_open_positions ──────────────────────────────────────────────────
+
+from mlb.paper_lifecycle import reconcile_open_positions  # noqa: E402
+
+
+class TestReconcileOpenPositions:
+    def test_returns_dict_with_expected_keys(self):
+        conn = _mem()
+        _add_game(conn, is_final=0)
+        result = reconcile_open_positions(conn, DATE)
+        assert "checked" in result
+        assert "settled" in result
+        conn.close()
+
+    def test_no_open_positions_returns_zero_settled(self):
+        conn = _mem()
+        _add_game(conn, is_final=1, final_away=3, final_home=5, final_total=8)
+        result = reconcile_open_positions(conn, DATE)
+        assert result["settled"] == 0
+        conn.close()
+
+    def test_does_not_create_new_paper_setups(self):
+        conn = _mem()
+        _add_game(conn, is_final=1, final_away=3, final_home=5, final_total=8)
+        before = conn.execute("SELECT COUNT(*) FROM paper_setups").fetchone()[0]
+        reconcile_open_positions(conn, DATE)
+        after = conn.execute("SELECT COUNT(*) FROM paper_setups").fetchone()[0]
+        assert before == after
+        conn.close()
+
+    def test_settles_open_team_total_position_when_final(self):
+        GAME_ID = "NYY@BOS"
+        conn = _mem()
+        _add_game(conn, is_final=1, final_away=3, final_home=5, final_total=8,
+                  game_pk=12345)
+        cid = _add_candidate(conn, game_pk=12345, game_id=GAME_ID,
+                             line_value=7.0, selected_team_abbr="NYY",
+                             market_type="team_total", derivative_type="team_total",
+                             read_type="live",
+                             market_ticker="KXMLBTEAMTOTAL-NYY7")
+        conn.execute(
+            """
+            INSERT INTO paper_setups
+              (setup_key, first_candidate_event_id, game_pk, game_id,
+               market_ticker, derivative_type, read_type, proposed_side,
+               paper_status, entry_price_cents, outcome, created_at, updated_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """,
+            (f"{GAME_ID}|KXMLBTEAMTOTAL-NYY7|team_total|live", cid, 12345,
+             GAME_ID, "KXMLBTEAMTOTAL-NYY7", "team_total", "live",
+             "YES", "paper_open", 45, "unknown",
+             f"{DATE}T10:00:00", f"{DATE}T10:00:00"),
+        )
+        conn.commit()
+        result = reconcile_open_positions(conn, DATE)
+        assert result["checked"] == 1
+        assert result["settled"] == 1
+        row = conn.execute(
+            "SELECT outcome, paper_status FROM paper_setups"
+        ).fetchone()
+        assert row["paper_status"] == "paper_closed"
+        assert row["outcome"] in ("won", "lost", "pushed")
+        conn.close()
+
+    def test_does_not_modify_already_closed_positions(self):
+        conn = _mem()
+        _add_game(conn, is_final=1, final_away=3, final_home=5, final_total=8)
+        _add_candidate(conn)
+        cid = conn.execute("SELECT id FROM candidate_events").fetchone()["id"]
+        conn.execute(
+            """
+            INSERT INTO paper_setups
+              (setup_key, first_candidate_event_id, game_pk, game_id,
+               market_ticker, derivative_type, read_type, proposed_side,
+               paper_status, entry_price_cents, outcome, net_pnl_cents,
+               created_at, updated_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """,
+            ("g|t|d|r", cid, 12345, "NYY@BOS", "KXMLBTEAMTOTAL-NYY7",
+             "team_total", "live", "YES", "paper_closed", 45, "won", 52,
+             f"{DATE}T10:00:00", f"{DATE}T10:00:00"),
+        )
+        conn.commit()
+        reconcile_open_positions(conn, DATE)
+        row = conn.execute("SELECT outcome FROM paper_setups").fetchone()
+        assert row["outcome"] == "won"  # unchanged
+        conn.close()

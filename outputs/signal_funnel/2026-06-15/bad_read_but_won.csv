@@ -1,0 +1,14 @@
+candidate_id,game,derivative_type,market_ticker,proposed_side,inning,situational_score,situational_label,market_expression_score,final_decision,failed_reason,settlement_result,paper_net_pnl_cents,note
+859,MIN@TEX,fg_total,KXMLBTOTAL-26JUN152005MINTEX-8,NO,5,22,bad_read,20,suppress,bad_situational_read,win,52,model said bad/weak read but market resolved in this direction
+864,MIN@TEX,fg_total,KXMLBTOTAL-26JUN152005MINTEX-8,NO,5,33,weak_read,20,observe,weak_situational_read,win,52,model said bad/weak read but market resolved in this direction
+869,MIN@TEX,fg_total,KXMLBTOTAL-26JUN152005MINTEX-8,NO,5,22,bad_read,20,suppress,bad_situational_read,win,52,model said bad/weak read but market resolved in this direction
+873,MIN@TEX,fg_total,KXMLBTOTAL-26JUN152005MINTEX-8,NO,5,33,weak_read,20,observe,weak_situational_read,win,52,model said bad/weak read but market resolved in this direction
+884,MIN@TEX,fg_total,KXMLBTOTAL-26JUN152005MINTEX-8,NO,6,22,bad_read,20,suppress,bad_situational_read,win,52,model said bad/weak read but market resolved in this direction
+889,MIN@TEX,fg_total,KXMLBTOTAL-26JUN152005MINTEX-8,NO,6,22,bad_read,20,suppress,bad_situational_read,win,52,model said bad/weak read but market resolved in this direction
+895,MIN@TEX,fg_total,KXMLBTOTAL-26JUN152005MINTEX-8,NO,7,22,bad_read,20,suppress,bad_situational_read,win,52,model said bad/weak read but market resolved in this direction
+900,MIN@TEX,fg_total,KXMLBTOTAL-26JUN152005MINTEX-8,NO,7,22,bad_read,20,suppress,bad_situational_read,win,52,model said bad/weak read but market resolved in this direction
+903,MIN@TEX,fg_total,KXMLBTOTAL-26JUN152005MINTEX-8,NO,8,22,bad_read,20,suppress,bad_situational_read,win,52,model said bad/weak read but market resolved in this direction
+906,MIN@TEX,fg_total,KXMLBTOTAL-26JUN152005MINTEX-8,NO,8,22,bad_read,20,suppress,bad_situational_read,win,52,model said bad/weak read but market resolved in this direction
+907,MIN@TEX,fg_total,KXMLBTOTAL-26JUN152005MINTEX-8,NO,8,33,weak_read,20,observe,weak_situational_read,win,52,model said bad/weak read but market resolved in this direction
+912,MIN@TEX,fg_total,KXMLBTOTAL-26JUN152005MINTEX-8,NO,9,17,bad_read,20,suppress,bad_situational_read,win,52,model said bad/weak read but market resolved in this direction
+915,MIN@TEX,fg_total,KXMLBTOTAL-26JUN152005MINTEX-8,NO,9,17,bad_read,20,suppress,bad_situational_read,win,52,model said bad/weak read but market resolved in this direction

@@ -9,6 +9,11 @@ Handles three message types:
 Control messages (subscribed, login, error) are ignored.
 For binary markets, NO prices are derived: no_bid = 100 - yes_ask,
 no_ask = 100 - yes_bid.
+
+Bridge:
+  ticker and orderbook_delta messages are also written to
+  kalshi_orderbook_snapshots so the live analysis pipeline sees
+  WebSocket prices at sub-second cadence (source='ws_ticker' or 'ws_orderbook').
 """
 import json
 import sqlite3
@@ -17,6 +22,11 @@ from typing import Optional
 
 
 _NOW = lambda: datetime.now(timezone.utc).isoformat()  # noqa: E731
+
+_WS_SOURCE_MAP = {
+    "ticker": "ws_ticker",
+    "orderbook_delta": "ws_orderbook",
+}
 
 
 def _extract_prices(msg_type: str, body: dict) -> dict:
@@ -76,6 +86,72 @@ def _parse_exchange_ts(body: dict) -> Optional[str]:
         return None
 
 
+# ── WebSocket → orderbook_snapshots bridge ───────────────────────────────────
+
+def _bridge_ws_to_orderbook_snapshots(
+    conn: sqlite3.Connection,
+    market_ticker: str,
+    prices: dict,
+    now: str,
+    mkt_row,  # sqlite3.Row or None
+    raw_msg: dict,
+    source: str,
+) -> None:
+    """
+    Write a normalized row to kalshi_orderbook_snapshots from a WebSocket message.
+
+    This bridges the WS feed into the analysis pipeline, which reads exclusively
+    from kalshi_orderbook_snapshots.  Rows written here have source='ws_ticker'
+    or source='ws_orderbook' depending on channel.
+
+    Does NOT commit — caller is responsible for committing.
+    """
+    yes_bid    = prices["yes_bid_cents"]
+    yes_ask    = prices["yes_ask_cents"]
+    no_bid     = prices["no_bid_cents"]
+    no_ask     = prices["no_ask_cents"]
+    last_price = prices["last_price_cents"]
+
+    # Skip if there is no meaningful price to store
+    if yes_bid is None and yes_ask is None and last_price is None:
+        return
+
+    spread = mid = None
+    if yes_bid is not None and yes_ask is not None:
+        spread = yes_ask - yes_bid
+        mid    = (yes_bid + yes_ask) // 2
+
+    event_ticker = market_type = home_team = away_team = game_pk = None
+    if mkt_row:
+        mkt = dict(mkt_row)
+        event_ticker = mkt.get("event_ticker")
+        market_type  = mkt.get("market_type")
+        home_team    = mkt.get("home_team")
+        away_team    = mkt.get("away_team")
+        gp           = mkt.get("game_pk")
+        game_pk      = str(gp) if gp is not None else None
+
+    conn.execute(
+        """
+        INSERT INTO kalshi_orderbook_snapshots
+          (market_ticker, snapped_at, event_ticker, sport,
+           home_team, away_team, game_pk, market_type,
+           yes_bid, yes_ask, no_bid, no_ask,
+           last_price, volume, open_interest,
+           spread_cents, mid_cents, source, raw_json)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        """,
+        (
+            market_ticker, now, event_ticker, "mlb",
+            home_team, away_team, game_pk, market_type,
+            yes_bid, yes_ask, no_bid, no_ask,
+            last_price, prices.get("volume"), prices.get("open_interest"),
+            spread, mid, source,
+            json.dumps(raw_msg, default=str),
+        ),
+    )
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 _SKIP_TYPES = {"subscribed", "login", "error", "connected", "pong"}
@@ -110,9 +186,11 @@ def normalize_and_insert(
     prices = _extract_prices(msg_type, body)
     exchange_ts = _parse_exchange_ts(body)
 
-    # Look up event_ticker from already-discovered markets
+    # Look up market metadata from already-discovered markets.
+    # Fetch extra fields used by the orderbook_snapshots bridge below.
     mkt_row = conn.execute(
-        "SELECT event_ticker FROM kalshi_markets WHERE market_ticker = ?",
+        "SELECT event_ticker, market_type, home_team, away_team, game_pk "
+        "FROM kalshi_markets WHERE market_ticker = ?",
         (market_ticker,),
     ).fetchone()
     event_ticker = mkt_row["event_ticker"] if mkt_row else None
@@ -133,6 +211,14 @@ def normalize_and_insert(
             json.dumps(raw_msg, default=str),
         ),
     )
+
+    # Bridge: also write to kalshi_orderbook_snapshots so analysis modules
+    # (liveness validator, candidate generator) see WebSocket prices.
+    if msg_type in _WS_SOURCE_MAP:
+        _bridge_ws_to_orderbook_snapshots(
+            conn, market_ticker, prices, now, mkt_row,
+            raw_msg, _WS_SOURCE_MAP[msg_type],
+        )
 
     # Keep kalshi_markets in sync for ticker messages
     if msg_type == "ticker":

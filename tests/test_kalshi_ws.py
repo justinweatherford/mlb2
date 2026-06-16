@@ -388,3 +388,118 @@ async def test_run_collector_calls_on_message_then_stops():
 
     assert len(received) >= 1
     assert received[0]["type"] == "ticker"
+
+
+# ── Part B: WS URL and batch size constants ───────────────────────────────────
+
+def test_prod_ws_url_is_external_api():
+    from kalshi.ws_client import _PROD_WS
+    assert "external-api-ws.kalshi.com" in _PROD_WS, (
+        f"WS URL must use external-api-ws.kalshi.com, got: {_PROD_WS}"
+    )
+
+
+def test_max_tickers_per_batch_is_100():
+    from kalshi.ws_client import _MAX_TICKERS_PER_BATCH
+    assert _MAX_TICKERS_PER_BATCH == 100, (
+        f"Batch limit must be 100 (Kalshi error code 26 above limit), got: {_MAX_TICKERS_PER_BATCH}"
+    )
+
+
+# ── Part A: WS → kalshi_orderbook_snapshots bridge ───────────────────────────
+
+def test_ticker_message_writes_orderbook_snapshot(seeded_conn):
+    """ticker message must write to both kalshi_market_updates AND kalshi_orderbook_snapshots."""
+    msg = {
+        "type": "ticker",
+        "msg": {
+            "market_ticker": "TICKER-A",
+            "yes_bid": 44, "yes_ask": 46, "last_price": 45,
+            "volume": 300, "open_interest": 500,
+        },
+    }
+    normalize_and_insert(seeded_conn, msg)
+    seeded_conn.commit()
+
+    snap = seeded_conn.execute(
+        "SELECT * FROM kalshi_orderbook_snapshots WHERE market_ticker = 'TICKER-A'"
+    ).fetchone()
+    assert snap is not None, "ticker message must bridge to kalshi_orderbook_snapshots"
+    assert snap["yes_bid"] == 44
+    assert snap["yes_ask"] == 46
+    assert snap["spread_cents"] == 2   # 46 - 44
+    assert snap["mid_cents"] == 45     # (44 + 46) // 2
+    assert snap["source"] == "ws_ticker"
+    assert snap["sport"] == "mlb"
+    assert snap["market_type"] == "full_game_total"
+
+
+def test_orderbook_delta_writes_orderbook_snapshot(seeded_conn):
+    """orderbook_delta message must also bridge to kalshi_orderbook_snapshots."""
+    msg = {
+        "type": "orderbook_delta",
+        "msg": {
+            "market_ticker": "TICKER-A",
+            "yes": {
+                "bids": [[43, 50]],
+                "asks": [[47, 40]],
+            },
+        },
+    }
+    normalize_and_insert(seeded_conn, msg)
+    seeded_conn.commit()
+
+    snap = seeded_conn.execute(
+        "SELECT source, yes_bid FROM kalshi_orderbook_snapshots "
+        "WHERE market_ticker = 'TICKER-A'"
+    ).fetchone()
+    assert snap is not None, "orderbook_delta must bridge to kalshi_orderbook_snapshots"
+    assert snap["source"] == "ws_orderbook"
+    assert snap["yes_bid"] == 43
+
+
+def test_skipped_messages_do_not_write_snapshot(seeded_conn):
+    """Control messages (subscribed, login, error) must not write to kalshi_orderbook_snapshots."""
+    for msg_type in ("subscribed", "login", "error", "connected", "pong"):
+        normalize_and_insert(seeded_conn, {"type": msg_type, "msg": {}})
+    seeded_conn.commit()
+
+    count = seeded_conn.execute(
+        "SELECT COUNT(*) FROM kalshi_orderbook_snapshots"
+    ).fetchone()[0]
+    assert count == 0, f"Control messages must not write snapshots, got {count} rows"
+
+
+def test_ticker_no_prices_skips_snapshot(seeded_conn):
+    """ticker with no price data must not write a snapshot row."""
+    msg = {
+        "type": "ticker",
+        "msg": {"market_ticker": "TICKER-A"},  # no yes_bid/yes_ask/last_price
+    }
+    normalize_and_insert(seeded_conn, msg)
+    seeded_conn.commit()
+
+    count = seeded_conn.execute(
+        "SELECT COUNT(*) FROM kalshi_orderbook_snapshots WHERE market_ticker = 'TICKER-A'"
+    ).fetchone()[0]
+    assert count == 0, "Ticker with no prices must not bridge to kalshi_orderbook_snapshots"
+
+
+def test_ticker_last_price_only_writes_snapshot(seeded_conn):
+    """ticker with only last_price (no bid/ask) should still write a snapshot."""
+    msg = {
+        "type": "ticker",
+        "msg": {"market_ticker": "TICKER-A", "last_price": 50},
+    }
+    normalize_and_insert(seeded_conn, msg)
+    seeded_conn.commit()
+
+    snap = seeded_conn.execute(
+        "SELECT * FROM kalshi_orderbook_snapshots WHERE market_ticker = 'TICKER-A'"
+    ).fetchone()
+    assert snap is not None
+    assert snap["last_price"] == 50
+    assert snap["yes_bid"] is None
+    assert snap["yes_ask"] is None
+    assert snap["spread_cents"] is None
+    assert snap["mid_cents"] is None

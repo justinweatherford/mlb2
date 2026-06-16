@@ -1,0 +1,11 @@
+source,reason,count
+candidates,missing_bid_ask,0
+candidates,severe_wide_spread,7
+candidates,no_tape,0
+candidates,insufficient_net_edge,2
+candidates,eligible,150
+paper_setups,missing_bid_ask,0
+paper_setups,severe_wide_spread,0
+paper_setups,no_tape,0
+paper_setups,insufficient_net_edge,2
+paper_setups,eligible,11

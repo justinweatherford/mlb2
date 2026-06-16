@@ -30,7 +30,7 @@ except ImportError:
 
 from db.schema import init_db
 from kalshi.client import KalshiClient, KalshiClientConfig
-from kalshi.orderbook_recorder import poll_once
+from kalshi.orderbook_recorder import poll_once, poll_once_batch
 
 log = logging.getLogger("kalshi_orderbook_recorder")
 
@@ -104,6 +104,13 @@ def main() -> None:
         "--verbose", "-v", action="store_true",
         help="Log per-market snapshot details",
     )
+    parser.add_argument(
+        "--batch", action="store_true",
+        help=(
+            "Use batch orderbook endpoint (100 tickers/call, source=rest_batch). "
+            "Faster than sequential mode (~5 calls per sweep vs 422)."
+        ),
+    )
 
     args = parser.parse_args()
 
@@ -158,14 +165,24 @@ def main() -> None:
             log.info("--- Cycle %d ---", cycle)
 
             try:
-                result = poll_once(
-                    client,
-                    conn,
-                    sport=args.sport,
-                    market_types=market_types,
-                    jsonl_path=args.jsonl,
-                    verbose=args.verbose,
-                )
+                if args.batch:
+                    result = poll_once_batch(
+                        client,
+                        conn,
+                        sport=args.sport,
+                        market_types=market_types,
+                        jsonl_path=args.jsonl,
+                        verbose=args.verbose,
+                    )
+                else:
+                    result = poll_once(
+                        client,
+                        conn,
+                        sport=args.sport,
+                        market_types=market_types,
+                        jsonl_path=args.jsonl,
+                        verbose=args.verbose,
+                    )
             except Exception as exc:
                 log.error("Cycle %d failed: %s", cycle, exc)
                 result = {"markets_polled": 0, "snapshots_written": 0, "errors": [str(exc)]}

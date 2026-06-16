@@ -39,8 +39,8 @@ def _parse_line_from_ticker(ticker: str) -> Optional[float]:
     """Extract numeric line from the trailing segment of a Kalshi ticker.
 
     Pattern: last hyphen-delimited segment, strip alpha prefix.
-      KXMLBTEAMTOTAL-26JUN141337NYYTOR-TOR7  → 7.0
-      KXMLBMLBTOTAL-26JUN141410STLMIN-3      → 3.0
+      KXMLBTEAMTOTAL-26JUN141337NYYTOR-TOR7  -> 7.0
+      KXMLBMLBTOTAL-26JUN141410STLMIN-3      -> 3.0
     Returns None if the segment contains no digits or conversion fails.
     """
     if not ticker:
@@ -53,6 +53,11 @@ def _parse_line_from_ticker(ticker: str) -> Optional[float]:
         return float(digits)
     except ValueError:
         return None
+
+
+def parse_line_from_ticker(ticker: Optional[str]) -> Optional[float]:
+    """Public: extract numeric line from a Kalshi ticker suffix."""
+    return _parse_line_from_ticker(ticker)
 
 
 # ── Final score helpers ───────────────────────────────────────────────────────

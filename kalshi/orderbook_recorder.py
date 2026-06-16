@@ -50,34 +50,78 @@ def compute_spread_midpoint(
 
 # ── Orderbook parsing helpers ─────────────────────────────────────────────────
 
+def _coerce_price_cents(value) -> Optional[int]:
+    """Convert any Kalshi price value to integer cents.
+
+    Kalshi uses two price representations depending on the endpoint:
+      - Integer cents:   45       (dict-format orderbook levels, WS ticker)
+      - Dollar decimals: "0.4500" (orderbook_fp arrays from REST endpoints)
+
+    Rules:
+      - None → None
+      - int  → return as-is (already cents; int 1 = 1 cent, int 45 = 45 cents)
+      - str/float ≤ 1.0 → multiply by 100 (dollar decimal: "0.0600" → 6 cents)
+      - str/float > 1.0 → round to int (cent string: "45" → 45 cents)
+      - unparseable → None
+    """
+    if value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    try:
+        v = float(value)
+    except (ValueError, TypeError):
+        return None
+    if v <= 1.0:
+        return round(v * 100)
+    return round(v)
+
+
 def _best_price(levels) -> Optional[int]:
     """Extract the best (first) price from a Kalshi orderbook level list.
 
     Handles:
-      - [{"price": 45, "delta": 100}, ...]   dict format
-      - [[45, 100], [43, 50], ...]            list-of-lists format
-      - [45, 43, ...]                         bare int list (rare)
+      - [{"price": 45, "delta": 100}, ...]        dict with int cents
+      - [["0.0600", "3760.00"], ...]               orderbook_fp dollar-decimal arrays
+      - [[45, 100], [43, 50], ...]                 list-of-lists with int cents
+      - [45, 43, ...]                              bare int list (rare)
+
+    Always returns integer cents via _coerce_price_cents.
     """
     if not levels:
         return None
     first = levels[0]
     if isinstance(first, dict):
-        return first.get("price")
-    if isinstance(first, (list, tuple)):
-        return first[0] if first else None
-    if isinstance(first, int):
-        return first
-    return None
+        raw = first.get("price")
+    elif isinstance(first, (list, tuple)):
+        raw = first[0] if first else None
+    elif isinstance(first, int):
+        raw = first
+    else:
+        raw = first  # let _coerce_price_cents decide
+    return _coerce_price_cents(raw)
 
 
 def _extract_orderbook_levels(ob_data: dict) -> tuple[list, list]:
     """
     Return (yes_levels, no_levels) from a raw Kalshi orderbook response.
-    Tolerates nested `{"orderbook": {"yes": ..., "no": ...}}` and flat formats.
+
+    Handles all observed Kalshi shapes:
+      - batch:          {"orderbook_fp": {"yes_dollars": [...], "no_dollars": [...]}}
+      - single-market:  {"orderbook": {"orderbook_fp": {"yes_dollars": [...], ...}}}
+      - legacy single:  {"orderbook": {"yes": [...], "no": [...]}}
+      - flat:           {"yes": [...], "no": [...]}
+
+    Prices in yes_dollars/no_dollars are decimal dollar strings ("0.0600" = 6c).
+    Prices in yes/no dicts are integer cents (45 = 45c).
+    _best_price normalizes both via _coerce_price_cents.
     """
-    inner = ob_data.get("orderbook") or ob_data
-    yes_levels = inner.get("yes") or inner.get("bids") or []
-    no_levels  = inner.get("no")  or inner.get("asks") or []
+    # Peel outer wrapper: prefer explicit orderbook_fp key, else orderbook, else raw
+    inner = ob_data.get("orderbook_fp") or ob_data.get("orderbook") or ob_data
+    # Peel second wrapper: handles {"orderbook": {"orderbook_fp": {...}}}
+    inner = inner.get("orderbook_fp") or inner
+    yes_levels = inner.get("yes_dollars") or inner.get("yes") or inner.get("bids") or []
+    no_levels  = inner.get("no_dollars")  or inner.get("no") or inner.get("asks") or []
     return yes_levels, no_levels
 
 
@@ -329,5 +373,71 @@ def poll_once(
 
         if sleep_between > 0 and i < len(markets) - 1:
             time.sleep(sleep_between)
+
+    return result
+
+
+def poll_once_batch(
+    client,
+    conn: sqlite3.Connection,
+    *,
+    sport: str = "mlb",
+    market_types=None,
+    jsonl_path: Optional[str] = None,
+    verbose: bool = False,
+    batch_size: int = 100,
+) -> dict:
+    """
+    One poll cycle using the batch orderbook endpoint.
+    Calls GET /markets/orderbooks with up to batch_size tickers per request.
+    Uses source='rest_batch' in kalshi_orderbook_snapshots.
+    """
+    markets = _get_markets_to_poll(conn, market_types)
+    captured_at = datetime.now(timezone.utc).isoformat()
+    market_map = {m["market_ticker"]: m for m in markets}
+    tickers = list(market_map.keys())
+
+    result: dict[str, Any] = {
+        "markets_polled":    len(tickers),
+        "snapshots_written": 0,
+        "errors":            [],
+    }
+
+    for i in range(0, max(len(tickers), 1), batch_size):
+        batch = tickers[i: i + batch_size]
+        if not batch:
+            continue
+        try:
+            ob_by_ticker = client.get_orderbooks_batch(batch)
+        except Exception as exc:
+            msg = f"batch {i // batch_size} fetch: {exc}"
+            log.error("poll_once_batch error: %s", msg)
+            result["errors"].append(msg)
+            continue
+
+        for ticker, ob_fp in ob_by_ticker.items():
+            try:
+                mkt = market_map.get(ticker, {"market_ticker": ticker})
+                snap = parse_snapshot(
+                    mkt,
+                    {"orderbook_fp": ob_fp},
+                    captured_at,
+                    sport=sport,
+                    source="rest_batch",
+                )
+                insert_snapshot(conn, snap)
+                if jsonl_path:
+                    write_jsonl(jsonl_path, snap)
+                result["snapshots_written"] += 1
+                if verbose:
+                    log.info(
+                        "  %s  bid=%s ask=%s spread=%s",
+                        ticker, snap.get("yes_bid"), snap.get("yes_ask"),
+                        snap.get("spread_cents"),
+                    )
+            except Exception as exc:
+                msg = f"ticker {ticker}: {exc}"
+                log.warning("poll_once_batch parse error: %s", msg)
+                result["errors"].append(msg)
 
     return result

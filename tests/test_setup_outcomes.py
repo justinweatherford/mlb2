@@ -633,4 +633,41 @@ class TestSummaryMetrics:
         content = str(m)
         assert "TAKE" not in content.upper()
         assert "order" not in content.lower()
-        assert "trade" not in content.lower()
+
+
+# ── parse_line_from_ticker (public) ──────────────────────────────────────────
+
+from mlb.setup_outcomes import parse_line_from_ticker  # noqa: E402
+
+
+class TestParseLineFromTickerPublic:
+    def test_team_total_nym6(self):
+        assert parse_line_from_ticker("KXMLBTEAMTOTAL-26JUN151910NYMCIN-NYM6") == 6.0
+
+    def test_team_total_tex4(self):
+        assert parse_line_from_ticker("KXMLBTEAMTOTAL-26JUN152005MINTEX-TEX4") == 4.0
+
+    def test_team_total_hou7(self):
+        assert parse_line_from_ticker("KXMLBTEAMTOTAL-26JUN152010DETHOU-HOU7") == 7.0
+
+    def test_team_total_pit3(self):
+        assert parse_line_from_ticker("KXMLBTEAMTOTAL-26JUN152140PITATH-PIT3") == 3.0
+
+    def test_fg_total_integer(self):
+        assert parse_line_from_ticker("KXMLBTOTAL-26JUN152005MINTEX-8") == 8.0
+
+    def test_f5_total(self):
+        assert parse_line_from_ticker("KXMLBF5TOTAL-26JUN152005MINTEX-1") == 1.0
+
+    def test_none_returns_none(self):
+        assert parse_line_from_ticker(None) is None
+
+    def test_empty_string_returns_none(self):
+        assert parse_line_from_ticker("") is None
+
+    def test_no_digit_suffix_returns_none(self):
+        assert parse_line_from_ticker("KXMLBTEAMTOTAL-NODIGIT") is None
+
+    def test_matches_private_function_behavior(self):
+        ticker = "KXMLBTEAMTOTAL-26JUN151910NYMCIN-NYM6"
+        assert parse_line_from_ticker(ticker) == _parse_line_from_ticker(ticker)

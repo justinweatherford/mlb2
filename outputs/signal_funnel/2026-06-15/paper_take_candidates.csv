@@ -1,0 +1,1 @@
+candidate_id,game,derivative_type,market_ticker,proposed_side,inning,entry_price_cents,situational_score,situational_label,market_expression_score,execution_score,conservative_net_edge_cents,funnel_stage,final_decision,settlement_result,paper_net_pnl_cents,outcome_bucket

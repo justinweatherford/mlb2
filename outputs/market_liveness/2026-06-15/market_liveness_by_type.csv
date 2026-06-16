@@ -1,0 +1,7 @@
+market_type,total_tickers,responsive_tickers,slow_but_moving_tickers,stale_tickers,insufficient_tape_tickers,semantics_unclear_tickers,avg_mid_range,avg_unique_mid_count,pct_moved_after_score_event,pct_moved_after_inning_change,median_snapshot_cadence_seconds
+f5_spread,36,14,0,22,0,0,15.1,2.4,11.1,44.4,262.6
+f5_total,63,19,5,39,0,0,19.3,2.2,11.1,44.4,262.6
+full_game_total,105,52,1,52,0,0,17.2,2.6,9.5,60.0,264.2
+moneyline,18,10,3,5,0,0,24.2,3.7,11.1,61.1,600.5
+spread_run_line,74,31,0,41,2,0,17.1,2.5,8.1,62.2,267.6
+team_total,126,72,1,53,0,0,18.3,2.8,11.1,61.1,267.6

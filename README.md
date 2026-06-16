@@ -1,8 +1,13 @@
 # Kalshi MLB Paper-Trading Scanner
 
-Listens to a Discord feed of live MLB game-state and Kalshi price updates,
-classifies over/under price behaviour (overreactions, lags, stable mispricings),
-and paper-trades with realistic Kalshi fee math.
+**Safety status: paper/research only. No real orders. No auto-trading.**
+
+Ingests live MLB game state (Discord), polls Kalshi prediction market prices
+via REST and WebSocket, classifies pricing behavior (overreactions, lags,
+stable mispricings), and paper-trades with realistic Kalshi fee math.
+
+For current project state, next actions, and strategic direction see
+[`docs/ATLAS_HANDOFF.md`](docs/ATLAS_HANDOFF.md).
 
 ---
 
@@ -51,7 +56,61 @@ target channel.
 
 ---
 
-## Running modes
+## Live data stack
+
+The live data stack has three independent processes. Run them in separate
+terminals before any game slate.
+
+### Terminal 1 — WebSocket live feed (sub-second price updates)
+
+```bash
+python kalshi_ws.py
+```
+
+Subscribes to all open MLB markets via Kalshi WebSocket and writes price
+updates to `kalshi_orderbook_snapshots` (source=`ws_ticker`).
+
+### Terminal 2 — REST batch heartbeat (stale market detection)
+
+```bash
+python kalshi_orderbook_recorder.py --sport mlb --batch --interval-seconds 30
+```
+
+Polls all 422 open markets every 30 seconds using the batch orderbook endpoint
+(5 REST calls per sweep, vs 422 sequential). Writes to `kalshi_orderbook_snapshots`
+(source=`rest_batch`).
+
+### Terminal 3 — Focused tape watcher (candidate deep-dive)
+
+```bash
+python focused_tape_watcher.py
+```
+
+Polls active candidate tickers at 7-second depth resolution.
+
+### Verify fast data ingestion
+
+After the first game starts, run:
+
+```sql
+-- In any SQLite browser, or:
+-- python -c "import sqlite3; c=sqlite3.connect('kalshi_mlb.db'); print(c.execute('SELECT source, COUNT(*) FROM kalshi_orderbook_snapshots GROUP BY source').fetchall())"
+SELECT source, COUNT(*) FROM kalshi_orderbook_snapshots GROUP BY source;
+```
+
+Expected output: `ws_ticker` rows appearing alongside `rest_poll`/`rest_batch`.
+
+### Market liveness report
+
+```bash
+python market_liveness_validator.py --date 2026-06-16
+```
+
+Output written to `outputs/market_liveness/<date>/`.
+
+---
+
+## Running modes (Discord-based ingestion)
 
 ### Transcript mode (no Discord needed)
 
@@ -297,3 +356,31 @@ pytest tests/test_listener.py  # listener smoke tests only
 ```
 
 All tests run without a Discord connection or live credentials.
+
+```bash
+# Full suite (expected: 3476+ passed, 0 failed)
+python -m pytest tests/ -q
+```
+
+---
+
+## Where reports are written
+
+| Report | Path |
+|--------|------|
+| Market liveness by type | `outputs/market_liveness/<date>/market_liveness_by_type.csv` |
+| Liveness recommended priority | `outputs/market_liveness/<date>/recommended_market_priority.md` |
+| Spread audit | `outputs/market_liveness/<date>/spread_audit.csv` |
+| Kalshi API audit | `outputs/kalshi_api_audit/` |
+| Fast data fix summary | `outputs/kalshi_api_audit/fast_data_fix_summary.md` |
+| Post-slate P/L report | `outputs/post_slate_reports/` |
+
+---
+
+## Safety
+
+**No real orders are placed.** The system holds read-only Kalshi API credentials.
+No order placement code exists in any form. All position tracking is paper-only.
+
+See [`docs/ATLAS_HANDOFF.md`](docs/ATLAS_HANDOFF.md) for a full safety rule list
+and project state summary intended for session continuity.

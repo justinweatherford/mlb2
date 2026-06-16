@@ -1,0 +1,14 @@
+paper_setup_id,game_id,market_ticker,side,entry_price,stop_loss_price,close_cost_cents,hedge_alternative_cost_cents,close_vs_hedge_delta_cents,note
+15,NYM@CIN,KXMLBTEAMTOTAL-26JUN151910NYMCIN-NYM6,YES,29,27,2,73,-71,research only — hedge not used for live decisions
+17,MIN@TEX,KXMLBTEAMTOTAL-26JUN152005MINTEX-TEX4,YES,58,57,1,42,-41,research only — hedge not used for live decisions
+18,MIN@TEX,KXMLBTEAMTOTAL-26JUN152005MINTEX-TEX6,YES,34,31,3,68,-65,research only — hedge not used for live decisions
+19,MIA@PHI,KXMLBTEAMTOTAL-26JUN151840MIAPHI-MIA3,YES,57,56,1,43,-42,research only — hedge not used for live decisions
+22,DET@HOU,KXMLBTEAMTOTAL-26JUN152010DETHOU-HOU7,YES,24,23,1,76,-75,research only — hedge not used for live decisions
+23,MIN@TEX,KXMLBF5TOTAL-26JUN152005MINTEX-1,NO,9,5,4,95,-91,research only — hedge not used for live decisions
+24,MIN@TEX,KXMLBTOTAL-26JUN152005MINTEX-8,NO,45,44,1,56,-55,research only — hedge not used for live decisions
+26,DET@HOU,KXMLBTEAMTOTAL-26JUN152010DETHOU-HOU2,YES,87,86,1,13,-12,research only — hedge not used for live decisions
+28,DET@HOU,KXMLBTOTAL-26JUN152010DETHOU-7,NO,28,27,1,73,-72,research only — hedge not used for live decisions
+29,DET@HOU,KXMLBF5TOTAL-26JUN152010DETHOU-1,NO,6,2,4,98,-94,research only — hedge not used for live decisions
+30,MIN@TEX,KXMLBTEAMTOTAL-26JUN152005MINTEX-TEX2,YES,88,85,3,14,-11,research only — hedge not used for live decisions
+31,TB@LAD,KXMLBTEAMTOTAL-26JUN152210TBLAD-LAD6,YES,42,41,1,58,-57,research only — hedge not used for live decisions
+32,PIT@ATH,KXMLBTEAMTOTAL-26JUN152140PITATH-PIT3,YES,79,77,2,23,-21,research only — hedge not used for live decisions

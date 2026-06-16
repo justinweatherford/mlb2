@@ -394,6 +394,41 @@ def _generate_lessons(
     return lessons
 
 
+# ── Setup-level summary ───────────────────────────────────────────────────────
+
+def _build_setup_level_summary(setups: list[dict]) -> dict:
+    """Primary performance view: one record per paper setup with entry price.
+
+    Counts only setups that had actual entry prices (paper_open or paper_closed).
+    hit_rate excludes pushes and unknowns (win / (win + loss) decided rate).
+    """
+    trackable = [s for s in setups if s.get("entry_price_cents") is not None]
+    total = len(trackable)
+    wins    = sum(1 for s in trackable if s.get("outcome") == "won")
+    losses  = sum(1 for s in trackable if s.get("outcome") == "lost")
+    pushes  = sum(1 for s in trackable if s.get("outcome") == "pushed")
+    unknowns = sum(
+        1 for s in trackable
+        if s.get("outcome") not in ("won", "lost", "pushed")
+    )
+    net_pnl = sum(
+        s["net_pnl_cents"] for s in trackable
+        if s.get("net_pnl_cents") is not None
+    )
+    decided = wins + losses
+    hit_rate = round(wins / decided, 4) if decided > 0 else None
+    return {
+        "tracked_setups": total,
+        "wins": wins,
+        "losses": losses,
+        "pushes": pushes,
+        "unknowns_need_reconciliation": unknowns,
+        "decided": decided,
+        "hit_rate": hit_rate,
+        "net_pnl_cents": net_pnl,
+    }
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def build_post_slate_report(conn: sqlite3.Connection, date_str: str) -> dict:
@@ -412,11 +447,13 @@ def build_post_slate_report(conn: sqlite3.Connection, date_str: str) -> dict:
     by_tape = _build_by_tape(setups)
     by_weather = _build_by_weather(setups, weather_map)
     by_hist = _build_by_historical_confidence(setups)
+    setup_level = _build_setup_level_summary(setups)
     lessons = _generate_lessons(overview, by_derivative, by_gel, by_tape, by_weather)
 
     return {
         "date": date_str,
         "overview": overview,
+        "setup_level_summary": setup_level,
         "by_derivative": by_derivative,
         "by_read_type": by_read_type,
         "by_good_entry_label": by_gel,

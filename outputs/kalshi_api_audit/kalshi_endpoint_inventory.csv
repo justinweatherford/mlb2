@@ -1,0 +1,20 @@
+endpoint_group,method,path,auth_required,token_cost,notes,current_usage,correct_usage
+orderbook_single,GET,/trade-api/v2/markets/{ticker}/orderbook,YES,10 (default),depth param (0=all levels),YES — poll_once() calls this per ticker,Replace with batch endpoint
+orderbook_batch,GET,/trade-api/v2/markets/orderbooks,YES,10 (one call for up to 100 tickers),tickers as repeated query params; returns orderbook_fp with yes_dollars/no_dollars,NOT USED,Use for broad polling; 5 calls covers 500 tickers
+markets_list,GET,/trade-api/v2/markets,YES,10,status/series_ticker/event_ticker filters; cursor pagination; limit 1-1000,YES — discovery; iter_series_markets(),Keep as-is for discovery
+market_single,GET,/trade-api/v2/markets/{ticker},YES,10,Full market metadata,YES — get_market(),Keep as-is
+events_list,GET,/trade-api/v2/events,YES,10,series_ticker/status filters; cursor pagination,YES — iter_events(),Keep as-is
+event_single,GET,/trade-api/v2/events/{event_ticker},YES,10,Returns event + embedded markets,YES — get_event(),Keep as-is
+series_list,GET,/trade-api/v2/series,YES,10,category filter; cursor pagination,YES — iter_series(),Keep as-is
+trades_WRONG,GET,/trade-api/v2/markets/{ticker}/trades,N/A,N/A,DOES NOT EXIST — always returns 404,YES — client.py:get_market_trades() uses this,REMOVE
+trades_CORRECT,GET,/trade-api/v2/markets/trades,NO (public),10,ticker/min_ts/max_ts/limit/cursor/is_block_trade params; returns trade_id/ticker/count_fp/yes_price_dollars/taker_outcome_side/created_time,NOT USED,Fix client.py to use this path
+account_limits,GET,/trade-api/v2/account/limits,YES,10,Returns usage_tier + read/write token buckets + tier grants; grants shows temporary upgrades from volume,NOT USED,Call on startup to confirm tier and available rate
+endpoint_costs,GET,/trade-api/v2/account/endpoint_costs,YES,10,Returns default_cost=10 + any non-default endpoint costs; batch orderbook cost needs verification here,NOT USED,Call once to verify batch orderbook cost before assuming 10
+portfolio_fills,GET,/trade-api/v2/portfolio/fills,YES,10,Own fills only; not useful for market research,NOT USED,Skip for now
+portfolio_positions,GET,/trade-api/v2/portfolio/positions,YES,10,Own current positions,NOT USED,Skip for now
+ws_connect,WS,wss://external-api-ws.kalshi.com/trade-api/ws/v2,YES (headers),N/A — separate token bucket for WS,RSA-PSS auth in HTTP upgrade headers; server heartbeat every 10s,WRONG URL in ws_client.py (_PROD_WS uses api.elections.kalshi.com),Fix URL to external-api-ws.kalshi.com
+ws_channel_ticker,WS channel,ticker,YES,N/A,market_tickers array; omit for ALL markets; fires on any price change (bid/ask/last/volume),YES — kalshi_ws.py subscribes,Keep; also bridge to orderbook_snapshots
+ws_channel_orderbook_delta,WS channel,orderbook_delta,YES,N/A,Full snapshot first then incremental deltas; market_tickers array; supports update_subscription with add_markets/delete_markets dynamically,YES — kalshi_ws.py subscribes,Keep; also bridge to orderbook_snapshots
+ws_channel_trade,WS channel,trade,YES,N/A,Public executed trades; omit market filter for all trades,YES — kalshi_ws.py subscribes,Keep; log to market_trades table
+ws_channel_market_lifecycle_v2,WS channel,market_lifecycle_v2,YES,N/A,Market open/close/settle/deactivate events,NOT SUBSCRIBED,Add for market status monitoring
+ws_channel_fill,WS channel,fill,YES,N/A,User's own fills (private),NOT SUBSCRIBED,Add when live trading enabled — not needed now

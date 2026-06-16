@@ -25,12 +25,12 @@ from websockets.exceptions import ConnectionClosed, WebSocketException
 
 log = logging.getLogger(__name__)
 
-_PROD_WS  = "wss://api.elections.kalshi.com/trade-api/ws/v2"
+_PROD_WS  = "wss://external-api-ws.kalshi.com/trade-api/ws/v2"
 _DEMO_WS  = "wss://demo-api.kalshi.co/trade-api/ws/v2"
 _WS_PATH  = "/trade-api/ws/v2"
 
 _SUBSCRIBE_CHANNELS   = ["ticker", "orderbook_delta", "trade"]
-_MAX_TICKERS_PER_BATCH = 200      # subscribe at most 200 tickers per sub command
+_MAX_TICKERS_PER_BATCH = 100      # Kalshi docs limit: error code 26 above 100
 _RECONNECT_BASE        = 1.0      # seconds
 _RECONNECT_MAX         = 60.0     # seconds
 _PING_INTERVAL         = 20       # keepalive ping every N seconds

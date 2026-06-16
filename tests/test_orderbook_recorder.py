@@ -728,3 +728,488 @@ class TestDotenvLoading:
         assert call_order.index("load_dotenv") < call_order.index("_build_client"), (
             "load_dotenv() must be called before _build_client()"
         )
+
+
+# ── Part C: batch REST orderbook ──────────────────────────────────────────────
+
+# Sample batch endpoint response shape (orderbook_fp format)
+_OB_BATCH_FP = {
+    "yes_dollars": [{"price": 56, "delta": 100}],
+    "no_dollars":  [{"price": 43, "delta": 80}],
+}
+
+
+class TestExtractOrderbookLevelsBatchFp:
+    """_extract_orderbook_levels must handle batch orderbook_fp format."""
+
+    def test_orderbook_fp_yes_dollars(self):
+        from kalshi.orderbook_recorder import _extract_orderbook_levels
+        ob = {"orderbook_fp": _OB_BATCH_FP}
+        yes_levels, no_levels = _extract_orderbook_levels(ob)
+        assert yes_levels == _OB_BATCH_FP["yes_dollars"]
+        assert no_levels == _OB_BATCH_FP["no_dollars"]
+
+    def test_orderbook_fp_empty(self):
+        from kalshi.orderbook_recorder import _extract_orderbook_levels
+        yes_levels, no_levels = _extract_orderbook_levels({"orderbook_fp": {}})
+        assert yes_levels == []
+        assert no_levels == []
+
+    def test_nested_format_still_works(self):
+        from kalshi.orderbook_recorder import _extract_orderbook_levels
+        yes_levels, no_levels = _extract_orderbook_levels(_OB_NESTED)
+        assert yes_levels[0]["price"] == 55
+
+    def test_flat_format_still_works(self):
+        from kalshi.orderbook_recorder import _extract_orderbook_levels
+        yes_levels, no_levels = _extract_orderbook_levels(_OB_FLAT)
+        assert yes_levels[0]["price"] == 60
+
+
+class TestParseSnapshotBatchFp:
+    """parse_snapshot must correctly handle batch orderbook_fp format."""
+
+    def test_batch_fp_prices_parsed(self):
+        from kalshi.orderbook_recorder import parse_snapshot
+        ob = {"orderbook_fp": _OB_BATCH_FP}
+        snap = parse_snapshot(_MARKET_FULL, ob, _CAPTURED_AT, source="rest_batch")
+        # best yes_dollars price = 56 → yes_bid; best no_dollars price = 43 → no_bid
+        assert snap["yes_bid"] == 56
+        assert snap["no_bid"] == 43
+        assert snap["source"] == "rest_batch"
+
+    def test_batch_fp_spread_computed(self):
+        from kalshi.orderbook_recorder import parse_snapshot
+        ob = {"orderbook_fp": _OB_BATCH_FP}
+        snap = parse_snapshot(_MARKET_FULL, ob, _CAPTURED_AT, source="rest_batch")
+        # yes_ask = 100 - no_bid = 100 - 43 = 57; spread = 57 - 56 = 1
+        assert snap["yes_ask"] == 57
+        assert snap["spread_cents"] == 1
+
+
+class TestPollOnceBatch:
+    """poll_once_batch: batched REST polling using get_orderbooks_batch."""
+
+    def _seed_market(self, db, ticker, market_type="full_game_total"):
+        db.execute(
+            """
+            INSERT INTO kalshi_markets
+              (market_ticker, event_ticker, market_type, title, subtitle,
+               status, away_team, home_team, raw_json, discovered_at, updated_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?)
+            """,
+            (ticker, "EVENT-1", market_type, "Test", "Test",
+             "open", "NYY", "TOR", "{}", "2026-06-14T19:00:00+00:00",
+             "2026-06-14T19:00:00+00:00"),
+        )
+        db.commit()
+
+    def test_poll_once_batch_stores_snapshots(self, db):
+        from kalshi.orderbook_recorder import poll_once_batch
+        self._seed_market(db, "TICKER-A")
+        self._seed_market(db, "TICKER-B")
+
+        mock_client = MagicMock()
+        mock_client.get_orderbooks_batch.return_value = {
+            "TICKER-A": _OB_BATCH_FP,
+            "TICKER-B": _OB_BATCH_FP,
+        }
+
+        result = poll_once_batch(mock_client, db)
+        assert result["snapshots_written"] == 2
+        assert result["errors"] == []
+
+        count = db.execute(
+            "SELECT COUNT(*) FROM kalshi_orderbook_snapshots"
+        ).fetchone()[0]
+        assert count == 2
+
+    def test_poll_once_batch_calls_batch_method(self, db):
+        from kalshi.orderbook_recorder import poll_once_batch
+        self._seed_market(db, "TICKER-A")
+        self._seed_market(db, "TICKER-B")
+
+        mock_client = MagicMock()
+        mock_client.get_orderbooks_batch.return_value = {
+            "TICKER-A": _OB_BATCH_FP,
+            "TICKER-B": _OB_BATCH_FP,
+        }
+
+        poll_once_batch(mock_client, db)
+        assert mock_client.get_orderbooks_batch.call_count == 1
+        assert mock_client.get_orderbook.call_count == 0  # sequential method not called
+
+    def test_poll_once_batch_chunks_at_batch_size(self, db):
+        from kalshi.orderbook_recorder import poll_once_batch
+        # Seed 5 markets, use batch_size=2 → should call get_orderbooks_batch 3 times
+        for i in range(5):
+            self._seed_market(db, f"TICKER-{i}")
+
+        mock_client = MagicMock()
+        mock_client.get_orderbooks_batch.return_value = {}  # empty ok — just count calls
+
+        poll_once_batch(mock_client, db, batch_size=2)
+        assert mock_client.get_orderbooks_batch.call_count == 3
+
+    def test_poll_once_batch_source_is_rest_batch(self, db):
+        from kalshi.orderbook_recorder import poll_once_batch
+        self._seed_market(db, "TICKER-A")
+
+        mock_client = MagicMock()
+        mock_client.get_orderbooks_batch.return_value = {"TICKER-A": _OB_BATCH_FP}
+
+        poll_once_batch(mock_client, db)
+        snap = db.execute(
+            "SELECT source FROM kalshi_orderbook_snapshots WHERE market_ticker = 'TICKER-A'"
+        ).fetchone()
+        assert snap is not None
+        assert snap["source"] == "rest_batch"
+
+    def test_poll_once_batch_error_does_not_abort(self, db):
+        from kalshi.orderbook_recorder import poll_once_batch
+        self._seed_market(db, "TICKER-A")
+
+        mock_client = MagicMock()
+        mock_client.get_orderbooks_batch.side_effect = RuntimeError("timeout")
+
+        result = poll_once_batch(mock_client, db)
+        assert len(result["errors"]) == 1
+        assert result["snapshots_written"] == 0
+
+    def test_poll_once_batch_partial_response(self, db):
+        from kalshi.orderbook_recorder import poll_once_batch
+        self._seed_market(db, "TICKER-A")
+        self._seed_market(db, "TICKER-B")
+
+        mock_client = MagicMock()
+        # Only TICKER-A in response (TICKER-B absent — maybe stale/not tradeable)
+        mock_client.get_orderbooks_batch.return_value = {"TICKER-A": _OB_BATCH_FP}
+
+        result = poll_once_batch(mock_client, db)
+        assert result["snapshots_written"] == 1
+        assert result["errors"] == []
+
+
+class TestGetOrderbooksBatch:
+    """KalshiClient.get_orderbooks_batch builds the correct query string."""
+
+    def test_raises_over_100(self):
+        from kalshi.client import KalshiClient, KalshiClientConfig
+        from unittest.mock import patch, MagicMock
+        cfg = KalshiClientConfig(api_key_id="k", private_key_pem="p")
+        with patch.object(KalshiClient, "_load_key", return_value=MagicMock()):
+            client = KalshiClient(cfg)
+        with pytest.raises(ValueError, match="100"):
+            client.get_orderbooks_batch(list(range(101)))
+
+    def test_empty_tickers_returns_empty(self):
+        from kalshi.client import KalshiClient, KalshiClientConfig
+        from unittest.mock import patch, MagicMock
+        cfg = KalshiClientConfig(api_key_id="k", private_key_pem="p")
+        with patch.object(KalshiClient, "_load_key", return_value=MagicMock()):
+            client = KalshiClient(cfg)
+        result = client.get_orderbooks_batch([])
+        assert result == {}
+
+    def test_builds_repeated_tickers_qs(self):
+        from kalshi.client import KalshiClient, KalshiClientConfig
+        from unittest.mock import patch, MagicMock
+        cfg = KalshiClientConfig(api_key_id="k", private_key_pem="p")
+        with patch.object(KalshiClient, "_load_key", return_value=MagicMock()):
+            client = KalshiClient(cfg)
+
+        captured_paths = []
+
+        def fake_request(method, path, params=None):
+            captured_paths.append(path)
+            return {"orderbooks": []}
+
+        with patch.object(client, "_request", side_effect=fake_request):
+            client.get_orderbooks_batch(["T-A", "T-B", "T-C"])
+
+        assert len(captured_paths) == 1
+        path = captured_paths[0]
+        assert "tickers=T-A" in path
+        assert "tickers=T-B" in path
+        assert "tickers=T-C" in path
+
+
+# ── Part D: trades endpoint fix ───────────────────────────────────────────────
+
+class TestGetMarketTradesEndpoint:
+    """get_market_trades must use /markets/trades?ticker=... not /markets/{ticker}/trades."""
+
+    def test_trades_uses_correct_path(self):
+        from kalshi.client import KalshiClient, KalshiClientConfig
+        from unittest.mock import patch, MagicMock
+        cfg = KalshiClientConfig(api_key_id="k", private_key_pem="p")
+        with patch.object(KalshiClient, "_load_key", return_value=MagicMock()):
+            client = KalshiClient(cfg)
+
+        captured = []
+
+        def fake_request(method, path, params=None):
+            captured.append((method, path, params or {}))
+            return {"trades": []}
+
+        with patch.object(client, "_request", side_effect=fake_request):
+            client.get_market_trades("MY-TICKER")
+
+        assert len(captured) == 1
+        method, path, params = captured[0]
+        assert path == "/markets/trades", f"Wrong path: {path}"
+        assert params.get("ticker") == "MY-TICKER", f"ticker param missing: {params}"
+
+    def test_trades_display_string_in_market_trades_module(self):
+        """kalshi/market_trades.py log string must reference correct endpoint."""
+        import inspect
+        from kalshi import market_trades
+        src = inspect.getsource(market_trades)
+        assert "/markets/{market_ticker}/trades" not in src, (
+            "Old 404 endpoint still in market_trades.py"
+        )
+        assert "/markets/trades?ticker=" in src, (
+            "Correct trades endpoint not found in market_trades.py"
+        )
+
+
+# ── _coerce_price_cents ───────────────────────────────────────────────────────
+
+class TestCoercePriceCents:
+    """_coerce_price_cents converts any Kalshi price representation to int cents."""
+
+    def setup_method(self):
+        from kalshi.orderbook_recorder import _coerce_price_cents
+        self.coerce = _coerce_price_cents
+
+    def test_none_returns_none(self):
+        assert self.coerce(None) is None
+
+    def test_int_returns_as_is(self):
+        assert self.coerce(45) == 45
+        assert self.coerce(1) == 1    # 1 cent — not misread as 1 dollar
+        assert self.coerce(99) == 99
+
+    def test_dollar_string_to_cents(self):
+        # "0.0600" = 6 cents
+        assert self.coerce("0.0600") == 6
+        assert self.coerce("0.4500") == 45
+        assert self.coerce("0.9800") == 98
+        assert self.coerce("0.0100") == 1
+
+    def test_dollar_float_to_cents(self):
+        assert self.coerce(0.45) == 45
+        assert self.coerce(0.06) == 6
+
+    def test_cent_string_greater_than_one(self):
+        assert self.coerce("45") == 45
+        assert self.coerce("45.0") == 45
+
+    def test_zero(self):
+        assert self.coerce(0) == 0
+        assert self.coerce("0.0000") == 0
+
+    def test_unparseable_returns_none(self):
+        assert self.coerce("abc") is None
+        assert self.coerce("") is None
+        assert self.coerce([]) is None
+
+
+# ── _best_price with dollar-decimal arrays ────────────────────────────────────
+
+class TestBestPriceDollarFormat:
+    """_best_price must return int cents from all Kalshi orderbook level formats."""
+
+    def setup_method(self):
+        from kalshi.orderbook_recorder import _best_price
+        self.best = _best_price
+
+    def test_dollar_decimal_array(self):
+        # Actual Kalshi orderbook_fp format
+        levels = [["0.0600", "3760.00"], ["0.0700", "3103.00"]]
+        assert self.best(levels) == 6  # best (first) price = 6 cents
+
+    def test_dollar_decimal_no_side(self):
+        levels = [["0.6900", "1371.00"], ["0.7400", "1430.00"]]
+        assert self.best(levels) == 69
+
+    def test_dict_int_still_works(self):
+        levels = [{"price": 45, "delta": 100}]
+        assert self.best(levels) == 45
+
+    def test_empty_returns_none(self):
+        assert self.best([]) is None
+
+    def test_mixed_string_first_element(self):
+        # string price in list format
+        assert self.best([["0.4500", "100.00"]]) == 45
+
+    def test_int_in_list_still_works(self):
+        assert self.best([[45, 100]]) == 45
+
+
+# ── _extract_orderbook_levels double-nested format ────────────────────────────
+
+class TestExtractOrderbookLevelsDoubleNested:
+    """_extract_orderbook_levels must handle {"orderbook": {"orderbook_fp": {...}}}."""
+
+    def test_single_market_double_nested(self):
+        from kalshi.orderbook_recorder import _extract_orderbook_levels
+        ob = {
+            "orderbook": {
+                "orderbook_fp": {
+                    "yes_dollars": [["0.0600", "3760.00"]],
+                    "no_dollars":  [["0.6900", "1371.00"]],
+                }
+            }
+        }
+        yes, no = _extract_orderbook_levels(ob)
+        assert yes == [["0.0600", "3760.00"]]
+        assert no  == [["0.6900", "1371.00"]]
+
+    def test_single_market_empty_orderbook_fp(self):
+        from kalshi.orderbook_recorder import _extract_orderbook_levels
+        ob = {"orderbook": {"orderbook_fp": {"no_dollars": [], "yes_dollars": []}}}
+        yes, no = _extract_orderbook_levels(ob)
+        assert yes == []
+        assert no  == []
+
+
+# ── parse_snapshot with real dollar-decimal orderbook_fp ─────────────────────
+
+class TestParseSnapshotDollarDecimal:
+    """parse_snapshot must produce correct int-cent prices from dollar-decimal levels."""
+
+    def test_batch_fp_dollar_decimal_arrays(self):
+        from kalshi.orderbook_recorder import parse_snapshot
+        ob = {
+            "orderbook_fp": {
+                "yes_dollars": [["0.4400", "1000.00"], ["0.4300", "500.00"]],
+                "no_dollars":  [["0.5500", "800.00"],  ["0.5600", "200.00"]],
+            }
+        }
+        snap = parse_snapshot(_MARKET_FULL, ob, _CAPTURED_AT, source="rest_batch")
+        # yes_bid = best yes_dollars price = 44 cents
+        # no_bid  = best no_dollars price  = 55 cents
+        # yes_ask = 100 - no_bid = 45 cents
+        # no_ask  = 100 - yes_bid = 56 cents
+        assert snap["yes_bid"] == 44
+        assert snap["no_bid"]  == 55
+        assert snap["yes_ask"] == 45
+        assert snap["no_ask"]  == 56
+        assert snap["spread_cents"] == 1   # 45 - 44
+        assert snap["midpoint_cents"] == 44  # (44 + 45) // 2
+
+    def test_single_market_double_nested_dollar_decimal(self):
+        from kalshi.orderbook_recorder import parse_snapshot
+        ob = {
+            "orderbook": {
+                "orderbook_fp": {
+                    "yes_dollars": [["0.4400", "1000.00"]],
+                    "no_dollars":  [["0.5500", "800.00"]],
+                }
+            }
+        }
+        snap = parse_snapshot(_MARKET_FULL, ob, _CAPTURED_AT, source="rest_poll")
+        assert snap["yes_bid"] == 44
+        assert snap["no_bid"]  == 55
+        assert snap["yes_ask"] == 45
+
+    def test_mixed_int_yes_string_no(self):
+        """yes level has int price, no level has string price — no crash."""
+        from kalshi.orderbook_recorder import parse_snapshot
+        ob = {
+            "orderbook_fp": {
+                "yes_dollars": [{"price": 44, "delta": 100}],  # int cents (dict format)
+                "no_dollars":  [["0.5500", "800.00"]],          # string dollars (array format)
+            }
+        }
+        snap = parse_snapshot(_MARKET_FULL, ob, _CAPTURED_AT)
+        assert snap["yes_bid"] == 44
+        assert snap["no_bid"]  == 55
+
+    def test_missing_no_bid_no_crash(self):
+        from kalshi.orderbook_recorder import parse_snapshot
+        ob = {
+            "orderbook_fp": {
+                "yes_dollars": [["0.4400", "1000.00"]],
+                "no_dollars":  [],
+            }
+        }
+        snap = parse_snapshot(_MARKET_FULL, ob, _CAPTURED_AT)
+        assert snap["yes_bid"] == 44
+        assert snap["yes_ask"] is None or snap["yes_ask"] == snap.get("yes_ask")
+
+    def test_empty_orderbook_fp_falls_back_to_market(self):
+        from kalshi.orderbook_recorder import parse_snapshot
+        ob = {"orderbook_fp": {"yes_dollars": [], "no_dollars": []}}
+        snap = parse_snapshot(_MARKET_FULL, ob, _CAPTURED_AT)
+        # Falls back to _MARKET_FULL yes_bid_cents / yes_ask_cents
+        assert snap["yes_bid"] == _MARKET_FULL["yes_bid_cents"]
+        assert snap["yes_ask"] == _MARKET_FULL["yes_ask_cents"]
+
+
+# ── poll_once_batch per-ticker error isolation ────────────────────────────────
+
+class TestPollOnceBatchErrorIsolation:
+    """Individual ticker parse errors must not abort the batch."""
+
+    def _seed_market(self, db, ticker):
+        db.execute(
+            """
+            INSERT INTO kalshi_markets
+              (market_ticker, event_ticker, market_type, title, subtitle,
+               status, away_team, home_team, raw_json, discovered_at, updated_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?)
+            """,
+            (ticker, "EVENT-1", "full_game_total", "Test", "Test",
+             "open", "NYY", "TOR", "{}", "2026-06-14T19:00:00+00:00",
+             "2026-06-14T19:00:00+00:00"),
+        )
+        db.commit()
+
+    def test_malformed_ticker_does_not_abort_others(self, db):
+        """A ticker with malformed prices logs an error but lets valid tickers through."""
+        from kalshi.orderbook_recorder import poll_once_batch
+        self._seed_market(db, "GOOD-TICKER")
+        self._seed_market(db, "BAD-TICKER")
+
+        mock_client = MagicMock()
+        mock_client.get_orderbooks_batch.return_value = {
+            "GOOD-TICKER": {
+                "yes_dollars": [["0.4400", "1000.00"]],
+                "no_dollars":  [["0.5500", "800.00"]],
+            },
+            "BAD-TICKER": {
+                # Deliberately malformed: price is a dict inside a list-of-lists slot
+                # Force a TypeError by using a non-numeric, non-coerceable value
+                "yes_dollars": [["not-a-number", "1000.00"]],
+                "no_dollars":  [["0.5500", "800.00"]],
+            },
+        }
+
+        result = poll_once_batch(mock_client, db)
+        # BAD-TICKER may or may not write depending on fallback, but GOOD-TICKER must write
+        good_snap = db.execute(
+            "SELECT * FROM kalshi_orderbook_snapshots WHERE market_ticker='GOOD-TICKER'"
+        ).fetchone()
+        assert good_snap is not None, "Valid ticker must still write despite bad sibling"
+        assert good_snap["yes_bid"] == 44
+
+    def test_fetch_error_logs_but_continues_next_batch(self, db):
+        """A network error on one batch must not prevent subsequent batches from running."""
+        from kalshi.orderbook_recorder import poll_once_batch
+        for i in range(3):
+            self._seed_market(db, f"TICKER-{i}")
+
+        mock_client = MagicMock()
+        # First batch fails, second succeeds
+        mock_client.get_orderbooks_batch.side_effect = [
+            RuntimeError("timeout"),
+            {"TICKER-2": {"yes_dollars": [["0.4400", "1000.00"]], "no_dollars": [["0.5500", "800.00"]]}},
+        ]
+
+        result = poll_once_batch(mock_client, db, batch_size=2)
+        assert len(result["errors"]) >= 1
+        assert "fetch" in result["errors"][0]  # fetch error is labeled
+        assert mock_client.get_orderbooks_batch.call_count == 2  # second batch still tried

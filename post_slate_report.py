@@ -14,6 +14,21 @@ from datetime import date
 
 from db.schema import init_db
 from mlb.post_slate_report import build_post_slate_report
+from mlb.paper_lifecycle import reconcile_open_positions
+
+
+def _print_setup_level(sl: dict) -> None:
+    hr = f"{sl['hit_rate']:.0%}" if sl.get("hit_rate") is not None else "n/a"
+    pnl = sl.get("net_pnl_cents", 0) or 0
+    unk = sl.get("unknowns_need_reconciliation", 0)
+    print("-- Setup-Level Outcomes (primary view, no double-counting) ---")
+    print(f"  Tracked setups        {sl['tracked_setups']}")
+    print(f"  Won/Lost/Pushed       {sl['wins']}/{sl['losses']}/{sl['pushes']}")
+    print(f"  Hit rate (W/decided)  {hr}")
+    print(f"  Net P/L               {pnl}c")
+    if unk > 0:
+        print(f"  Needs reconciliation  {unk} (run again after games finalize)")
+    print()
 
 
 def _print_report(report: dict) -> None:
@@ -21,6 +36,10 @@ def _print_report(report: dict) -> None:
     ov = report["overview"]
     print(f"=== Post-Slate Learning Report  {d} ===")
     print()
+
+    if "setup_level_summary" in report:
+        _print_setup_level(report["setup_level_summary"])
+
     print("-- Overview --------------------------------------------------")
     print(f"  Candidates            {ov['total_candidates']}")
     print(f"  Paper setups          {ov['total_paper_setups']}")
@@ -126,6 +145,10 @@ def main() -> None:
     day = args.date or date.today().isoformat()
     db_path = os.environ.get("MLB_DB_PATH", "kalshi_mlb.db")
     conn = init_db(db_path)
+
+    rec = reconcile_open_positions(conn, day)
+    if rec.get("settled", 0) > 0:
+        print(f"[reconcile] Settled {rec['settled']} open position(s) for {day}")
 
     report = build_post_slate_report(conn, day)
     conn.close()

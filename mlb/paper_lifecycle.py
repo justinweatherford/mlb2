@@ -357,6 +357,16 @@ def settle_paper_setups_for_date(
     return {"date": date_str, "checked": len(open_setups), "settled": settled}
 
 
+def reconcile_open_positions(conn: sqlite3.Connection, date_str: str) -> dict:
+    """Reconcile paper_open positions using final game scores.
+
+    Safe alias for settle_paper_setups_for_date(). Call from reporting CLI
+    or paper_sync after games end to close positions left open mid-session.
+    Does not create new setups or modify candidate_events.
+    """
+    return settle_paper_setups_for_date(conn, date_str)
+
+
 # ── Performance query ─────────────────────────────────────────────────────────
 
 def query_paper_performance(

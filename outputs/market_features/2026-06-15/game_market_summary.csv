@@ -1,0 +1,11 @@
+game_pk,game_id,away_abbr,home_abbr,is_final,final_away_score,final_home_score,total_candidates,team_total_candidates,fg_total_candidates,f5_total_candidates,paper_wins,paper_losses,paper_pushes,paper_open
+822724,KC@WSN,KC,WSN,1,3,7,0,0,0,0,0,0,0,0
+822887,MIN@TEX,MIN,TEX,1,4,2,28,11,13,4,1,3,1,0
+823046,SD@STL,SD,STL,1,0,3,11,11,0,0,0,0,0,0
+823452,MIA@PHI,MIA,PHI,1,0,7,21,15,6,0,0,1,0,0
+823938,TB@LAD,TB,LAD,0,,,8,8,0,0,0,0,0,1
+824181,DET@HOU,DET,HOU,1,9,3,53,24,25,4,0,0,0,4
+824505,NYM@CIN,NYM,CIN,1,0,12,18,18,0,0,0,1,0,0
+824666,COL@CHC,COL,CHC,1,4,5,0,0,0,0,0,0,0,0
+824993,PIT@ATH,PIT,ATH,1,2,11,20,20,0,0,0,0,0,1
+825071,LAA@AZ,LAA,AZ,1,3,4,0,0,0,0,0,0,0,0

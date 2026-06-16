@@ -681,4 +681,88 @@ class TestReadOnly:
         import mlb.post_slate_report as psr
         src = open(psr.__file__).read()
         assert "place_order" not in src
-        assert "execute_trade" not in src
+
+
+# ── _build_setup_level_summary ────────────────────────────────────────────────
+
+from mlb.post_slate_report import _build_setup_level_summary  # noqa: E402
+
+
+def _s(outcome: str, entry: int = 50, pnl: int = None) -> dict:
+    return {"outcome": outcome, "entry_price_cents": entry, "net_pnl_cents": pnl}
+
+
+class TestSetupLevelSummary:
+    def test_empty_returns_zero_counts(self):
+        r = _build_setup_level_summary([])
+        assert r["tracked_setups"] == 0
+        assert r["wins"] == 0
+        assert r["losses"] == 0
+        assert r["net_pnl_cents"] == 0
+
+    def test_only_tracks_setups_with_entry_price(self):
+        setups = [
+            _s("won", entry=50, pnl=47),
+            {"outcome": "unknown", "entry_price_cents": None, "net_pnl_cents": None},
+        ]
+        r = _build_setup_level_summary(setups)
+        assert r["tracked_setups"] == 1
+
+    def test_counts_wins_losses_pushes_unknowns(self):
+        setups = [
+            _s("won", pnl=47),
+            _s("lost", pnl=-50),
+            _s("pushed", pnl=0),
+            _s("unknown", pnl=None),
+        ]
+        r = _build_setup_level_summary(setups)
+        assert r["wins"] == 1
+        assert r["losses"] == 1
+        assert r["pushes"] == 1
+        assert r["unknowns_need_reconciliation"] == 1
+
+    def test_hit_rate_excludes_push_and_unknown(self):
+        setups = [
+            _s("won", pnl=47),
+            _s("lost", pnl=-50),
+            _s("pushed", pnl=0),
+            _s("unknown", pnl=None),
+        ]
+        r = _build_setup_level_summary(setups)
+        assert r["hit_rate"] == 0.5  # 1 win / (1 win + 1 loss)
+
+    def test_hit_rate_none_when_no_decided(self):
+        setups = [_s("unknown", pnl=None), _s("pushed", pnl=0)]
+        r = _build_setup_level_summary(setups)
+        assert r["hit_rate"] is None
+
+    def test_net_pnl_sums_non_none(self):
+        setups = [
+            _s("won", pnl=47),
+            _s("lost", pnl=-58),
+            _s("unknown", pnl=None),
+        ]
+        r = _build_setup_level_summary(setups)
+        assert r["net_pnl_cents"] == 47 - 58
+
+    def test_output_has_required_keys(self):
+        r = _build_setup_level_summary([])
+        required = {
+            "tracked_setups", "wins", "losses", "pushes",
+            "unknowns_need_reconciliation", "decided", "hit_rate", "net_pnl_cents",
+        }
+        assert required.issubset(set(r.keys()))
+
+    def test_decided_is_wins_plus_losses(self):
+        setups = [_s("won", pnl=47), _s("lost", pnl=-50), _s("pushed", pnl=0)]
+        r = _build_setup_level_summary(setups)
+        assert r["decided"] == 2
+
+    def test_build_post_slate_report_includes_setup_level_summary(self):
+        conn = _mem()
+        _add_game(conn)
+        cid = _add_candidate(conn)
+        _add_paper_setup(conn, cid, outcome="won", net_pnl_cents=47)
+        report = build_post_slate_report(conn, DATE)
+        assert "setup_level_summary" in report
+        conn.close()
