@@ -86,6 +86,7 @@ def fetch_and_store_trades(
     fetched_at = datetime.now(timezone.utc).isoformat()
     inserted = skipped = errors = 0
 
+    endpoint = f"/markets/{market_ticker}/trades"
     try:
         page = client.get_market_trades(
             market_ticker=market_ticker,
@@ -93,7 +94,13 @@ def fetch_and_store_trades(
             cursor=cursor,
         )
     except Exception as exc:
-        return {"inserted": 0, "skipped": 0, "errors": 1, "error": str(exc)}
+        return {
+            "inserted": 0,
+            "skipped": 0,
+            "errors": 1,
+            "error": f"{type(exc).__name__}: {exc}",
+            "endpoint": endpoint,
+        }
 
     trades = page.get("trades") or []
     for trade in trades:
@@ -119,6 +126,7 @@ def fetch_trades_for_markets(
     sport: str = "mlb",
     limit: int = 100,
     verbose: bool = False,
+    max_error_details: int = 5,
 ) -> dict:
     """
     Fetch and store trades for a list of market dicts.
@@ -127,6 +135,7 @@ def fetch_trades_for_markets(
     Returns aggregate counts.
     """
     total_inserted = total_skipped = total_errors = 0
+    error_details_printed = 0
 
     for market in markets:
         ticker = market.get("ticker") or market.get("market_ticker")
@@ -142,10 +151,24 @@ def fetch_trades_for_markets(
         total_errors   += result.get("errors", 0)
 
         if verbose:
-            print(
-                f"  {ticker}: +{result['inserted']} new "
+            status_str = (
+                f"+{result['inserted']} new "
                 f"({result['skipped']} dup, {result['errors']} err)"
             )
+            if result.get("errors") and error_details_printed < max_error_details:
+                endpoint = result.get("endpoint", f"/markets/{ticker}/trades")
+                err_msg  = result.get("error", "unknown error")
+                print(f"  {ticker}: {status_str}")
+                print(f"    endpoint : GET {endpoint}")
+                print(f"    error    : {err_msg}")
+                error_details_printed += 1
+                if error_details_printed == max_error_details:
+                    print(
+                        f"  [further error details suppressed — "
+                        f"showing first {max_error_details} only]"
+                    )
+            else:
+                print(f"  {ticker}: {status_str}")
 
     return {
         "inserted": total_inserted,

@@ -54,7 +54,7 @@ def _build_client() -> KalshiClient:
 def load_open_markets(conn: sqlite3.Connection) -> list[dict]:
     """Return all open markets from kalshi_markets as list of dicts."""
     rows = conn.execute(
-        "SELECT ticker, event_ticker FROM kalshi_markets WHERE status = 'open'"
+        "SELECT market_ticker, event_ticker FROM kalshi_markets WHERE status = 'open'"
     ).fetchall()
     return [{"ticker": r[0], "event_ticker": r[1]} for r in rows]
 
@@ -126,12 +126,24 @@ def _print_summary(summary: dict, db_path: str, started_at: str) -> None:
     else:
         print("  Latest trade at : (none yet)")
     print("=" * 54)
+    checked  = summary["markets_checked"]
+    n_errors = summary["errors"]
+
     if summary["open_markets"] == 0:
         print("  Re-run after 'python kalshi_discover.py --sport mlb'")
-    elif summary["inserted"] == 0 and summary["errors"] == 0:
+    elif summary["inserted"] == 0 and n_errors == 0:
         print("  No new trades (all already captured or no activity yet).")
-    elif summary["errors"] > 0:
-        print(f"  WARNING: {summary['errors']} market(s) had fetch errors.")
+    elif checked > 0 and n_errors == checked:
+        # Every single market errored — almost certainly stale DB rows.
+        print(f"  WARNING: ALL {n_errors} markets returned errors.")
+        print(f"  The DB has {checked} rows with status='open' that may have")
+        print("  settled/expired on Kalshi since last discovery (stale data).")
+        print("  Check the error details printed above (run with --verbose).")
+        print("  If you see HTTP 404, refresh market status via:")
+        print("      python kalshi_discover.py --sport mlb")
+        print("  Then re-run fetch_trades_once.py.")
+    elif n_errors > 0:
+        print(f"  WARNING: {n_errors}/{checked} market(s) had fetch errors.")
     else:
         print(f"  OK. {summary['inserted']} new trade(s) captured.")
     print()
@@ -168,8 +180,7 @@ def main() -> int:
         print(f"ERROR: Kalshi auth failed — {exc}", file=sys.stderr)
         return 1
 
-    conn = sqlite3.connect(db_path)
-    init_db(conn)
+    conn = init_db(db_path)
 
     try:
         summary = run(client, conn, limit=args.limit, verbose=args.verbose)

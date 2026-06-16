@@ -470,9 +470,9 @@ def refresh_team_context(
 
 
 def get_all_team_contexts(season: str, conn: sqlite3.Connection) -> list[dict]:
-    """Fetch all rows for a season, sorted by overall_context_score DESC."""
+    """Fetch all rows for a season, sorted by team_strength_rating DESC (falls back to overall_context_score for old rows without it)."""
     rows = conn.execute(
-        "SELECT * FROM mlb_team_context WHERE season = ? ORDER BY overall_context_score DESC",
+        "SELECT * FROM mlb_team_context WHERE season = ? ORDER BY COALESCE(team_strength_rating, overall_context_score) DESC",
         (season,),
     ).fetchall()
     return [dict(r) for r in rows]

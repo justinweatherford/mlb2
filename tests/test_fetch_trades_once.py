@@ -33,7 +33,7 @@ import fetch_trades_once as fto
 _DDL_MARKETS = """
 CREATE TABLE IF NOT EXISTS kalshi_markets (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
-    ticker         TEXT NOT NULL UNIQUE,
+    market_ticker  TEXT NOT NULL UNIQUE,
     event_ticker   TEXT,
     status         TEXT NOT NULL DEFAULT 'open'
 )
@@ -65,7 +65,7 @@ def _make_db(open_markets: Optional[list[dict]] = None) -> sqlite3.Connection:
     if open_markets:
         for m in open_markets:
             conn.execute(
-                "INSERT INTO kalshi_markets (ticker, event_ticker, status) VALUES (?,?,?)",
+                "INSERT INTO kalshi_markets (market_ticker, event_ticker, status) VALUES (?,?,?)",
                 (m["ticker"], m.get("event_ticker"), m.get("status", "open")),
             )
         conn.commit()

@@ -149,7 +149,8 @@ function TeamDebugPanel({ abbr, season }: { abbr: string; season: string }) {
         <FormulaCard name="f5_offense"       d={ratings.f5_offense} />
         <FormulaCard name="f5_pitching_risk" d={ratings.f5_pitching_risk} />
         <FormulaCard name="bullpen_risk"     d={ratings.bullpen_risk} />
-        <FormulaCard name="comeback"         d={ratings.comeback} />
+        <FormulaCard name="comeback"          d={ratings.comeback} />
+        <FormulaCard name="team_strength"    d={ratings.team_strength} />
         <FormulaCard name="overall"          d={ratings.overall} />
       </div>
 
@@ -371,7 +372,7 @@ function CalibrationSection({ season }: { season: string }) {
         <table className="w-full text-[12px]">
           <thead>
             <tr className="border-b border-[#0f1a2e]">
-              {['Team', 'Source', 'As of', 'Metric', 'Ext Value', 'Our Off', 'Our Def', 'Our Overall'].map(h => (
+              {['Team', 'Source', 'As of', 'Metric', 'Ext Value', 'Our Off', 'Our Def', 'Our Form Ctx'].map(h => (
                 <th key={h} className="text-left pb-2 pr-3 text-[10px] font-medium text-slate-500 uppercase tracking-wider">{h}</th>
               ))}
             </tr>
@@ -724,7 +725,8 @@ export function MLBTeamContext() {
                 <TH right>Late-</TH>
                 <TH right>BP Risk†</TH>
                 <TH right>Cmbk</TH>
-                <TH right>Overall</TH>
+                <TH right>Strength</TH>
+                <TH right>Form Ctx</TH>
                 <TH right>F5n</TH>
               </tr>
             </thead>
@@ -761,12 +763,13 @@ export function MLBTeamContext() {
                       <td className="py-2 pr-3 text-right"><Num value={t.late_runs_allowed_per_game} /></td>
                       <td className="py-2 pr-3 text-right"><RatingCell value={t.bullpen_risk_rating} inverted /></td>
                       <td className="py-2 pr-3 text-right"><RatingCell value={t.comeback_scoring_rating} /></td>
-                      <td className="py-2 pr-3 text-right font-medium"><RatingCell value={t.overall_context_score} /></td>
+                      <td className="py-2 pr-3 text-right font-medium"><RatingCell value={t.team_strength_rating} /></td>
+                      <td className="py-2 pr-3 text-right"><RatingCell value={t.overall_context_score} /></td>
                       <td className="py-2 text-right text-[11px] text-slate-600">{t.f5_sample_size}</td>
                     </tr>
                     {isExpanded && (
                       <tr key={`${t.team_abbr}-debug`}>
-                        <td colSpan={17} className="p-0">
+                        <td colSpan={18} className="p-0">
                           <TeamDebugPanel abbr={t.team_abbr} season={season} />
                         </td>
                       </tr>

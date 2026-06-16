@@ -1,0 +1,69 @@
+candidate_id,candidate_type,derivative_type,game,guardrail_name,blocked_reason,guardrail_verdict,runners_state,outs,inning,half_inning,settlement_horizon,seconds_since_last_play,seconds_since_last_score
+,trailing_team_total_lag_watch,team_total,MIA@PHI,rally_still_active,rally_still_active,validated,1-3,2,3,bottom,full_game,38,
+,trailing_team_total_lag_watch,team_total,NYM@CIN,rally_still_active,rally_still_active,validated,1--,0,2,bottom,full_game,63,
+,trailing_team_total_lag_watch,team_total,MIA@PHI,rally_still_active,rally_still_active,validated,1--,0,4,top,full_game,210,
+,trailing_team_total_lag_watch,team_total,NYM@CIN,rally_still_active,rally_still_active,validated,123,1,2,bottom,full_game,39,
+,trailing_team_total_lag_watch,team_total,NYM@CIN,rally_still_active,rally_still_active,validated,123,1,2,bottom,full_game,18,
+,trailing_team_total_lag_watch,team_total,MIA@PHI,rally_still_active,rally_still_active,validated,-2-,1,5,top,full_game,5,
+,trailing_team_total_lag_watch,team_total,NYM@CIN,rally_still_active,rally_still_active,validated,1--,0,3,bottom,full_game,52,
+,trailing_team_total_lag_watch,team_total,MIA@PHI,rally_still_active,rally_still_active,validated,1--,1,5,bottom,full_game,77,
+,trailing_team_total_lag_watch,team_total,MIA@PHI,rally_still_active,rally_still_active,validated,1--,2,5,bottom,full_game,48,177
+,trailing_team_total_lag_watch,team_total,NYM@CIN,rally_still_active,rally_still_active,validated,-2-,0,4,top,full_game,39,
+,trailing_team_total_lag_watch,team_total,MIN@TEX,rally_still_active,rally_still_active,validated,1--,0,1,bottom,full_game,27,
+,trailing_team_total_lag_watch,team_total,NYM@CIN,wide_spread_hard_block,wide_spread_hard_block: spread=56c > 12c,validated,123,1,4,top,full_game,118,
+,trailing_team_total_lag_watch,team_total,MIA@PHI,rally_still_active,rally_still_active,validated,1--,1,6,bottom,full_game,6,1079
+,trailing_team_total_lag_watch,team_total,NYM@CIN,wide_spread_hard_block,wide_spread_hard_block: spread=56c > 12c,validated,,0,4,bottom,full_game,36,
+,trailing_team_total_lag_watch,team_total,SD@STL,rally_still_active,rally_still_active,validated,-2-,2,4,bottom,full_game,30,
+,trailing_team_total_lag_watch,team_total,NYM@CIN,wide_spread_hard_block,wide_spread_hard_block: spread=56c > 12c,validated,,0,5,top,full_game,72,
+,trailing_team_total_lag_watch,team_total,MIN@TEX,rally_still_active,rally_still_active,validated,1--,1,3,bottom,full_game,20,20
+,trailing_team_total_lag_watch,team_total,SD@STL,rally_still_active,rally_still_active,validated,1--,0,5,bottom,full_game,50,
+,trailing_team_total_lag_watch,team_total,DET@HOU,rally_still_active,rally_still_active,validated,-2-,1,2,bottom,full_game,70,
+,trailing_team_total_lag_watch,team_total,NYM@CIN,wide_spread_hard_block,wide_spread_hard_block: spread=56c > 12c,validated,,0,5,bottom,full_game,78,
+,trailing_team_total_lag_watch,team_total,SD@STL,rally_still_active,rally_still_active,validated,-2-,2,5,bottom,full_game,62,
+,trailing_team_total_lag_watch,team_total,NYM@CIN,wide_spread_hard_block,wide_spread_hard_block: spread=56c > 12c,validated,,0,6,top,full_game,50,
+,trailing_team_total_lag_watch,team_total,DET@HOU,rally_still_active,rally_still_active,validated,1--,1,3,top,full_game,10,
+,f5_total_overreaction_fade_watch,f5_total,MIN@TEX,market_nearly_settled,market_nearly_settled,validated,,0,4,bottom,first_5,51,920
+,f5_total_overreaction_fade_watch,f5_total,MIN@TEX,rally_still_active,rally_still_active,validated,1--,1,4,bottom,first_5,37,1100
+,trailing_team_total_lag_watch,team_total,NYM@CIN,wide_spread_hard_block,wide_spread_hard_block: spread=56c > 12c,validated,,0,6,bottom,full_game,70,
+,full_game_total_extreme_reprice_watch,fg_total,MIA@PHI,rally_still_active,rally_still_active,validated,1--,0,8,bottom,full_game,41,3660
+,trailing_team_total_lag_watch,team_total,NYM@CIN,wide_spread_hard_block,wide_spread_hard_block: spread=54c > 12c,validated,,0,6,bottom,full_game,58,
+,full_game_total_extreme_reprice_watch,fg_total,MIN@TEX,rally_still_active,rally_still_active,validated,1--,1,5,top,full_game,6,1460
+,trailing_team_total_lag_watch,team_total,SD@STL,rally_still_active,rally_still_active,validated,1--,0,6,bottom,full_game,6,
+,full_game_total_extreme_reprice_watch,fg_total,MIA@PHI,rally_still_active,rally_still_active,validated,1-3,1,8,bottom,full_game,28,3900
+,full_game_total_extreme_reprice_watch,fg_total,MIA@PHI,rally_still_active,rally_still_active,validated,1--,2,8,bottom,full_game,27,3961
+,trailing_team_total_lag_watch,team_total,DET@HOU,rally_still_active,rally_still_active,validated,1--,2,3,bottom,full_game,57,
+,full_game_total_extreme_reprice_watch,fg_total,MIA@PHI,market_nearly_settled,market_nearly_settled,validated,,3,8,bottom,full_game,147,4081
+,full_game_total_extreme_reprice_watch,fg_total,MIA@PHI,market_nearly_settled,market_nearly_settled,validated,,0,9,top,full_game,40,4201
+,full_game_total_extreme_reprice_watch,fg_total,MIN@TEX,rally_still_active,rally_still_active,validated,1--,1,5,bottom,full_game,1,2001
+,full_game_total_extreme_reprice_watch,fg_total,MIA@PHI,rally_still_active,rally_still_active,validated,1--,0,9,top,full_game,32,4321
+,full_game_total_extreme_reprice_watch,fg_total,DET@HOU,rally_still_active,rally_still_active,validated,1--,1,4,top,full_game,21,374
+,f5_total_overreaction_fade_watch,f5_total,DET@HOU,rally_still_active,rally_still_active,validated,1--,1,4,top,first_5,21,374
+,trailing_team_total_lag_watch,team_total,DET@HOU,rally_still_active,rally_still_active,validated,1--,1,4,top,full_game,21,374
+,f5_total_overreaction_fade_watch,f5_total,DET@HOU,market_nearly_settled,market_nearly_settled,validated,,0,4,bottom,first_5,65,914
+,full_game_total_extreme_reprice_watch,fg_total,DET@HOU,rally_still_active,rally_still_active,validated,--3,0,5,top,full_game,0,1335
+,trailing_team_total_lag_watch,team_total,DET@HOU,rally_still_active,rally_still_active,validated,--3,0,5,top,full_game,0,1335
+,full_game_total_extreme_reprice_watch,fg_total,DET@HOU,rally_still_active,rally_still_active,validated,-2-,1,5,top,full_game,125,1575
+,trailing_team_total_lag_watch,team_total,DET@HOU,rally_still_active,rally_still_active,validated,-2-,1,5,top,full_game,125,1575
+,full_game_total_extreme_reprice_watch,fg_total,MIN@TEX,market_nearly_settled,market_nearly_settled,validated,,0,8,top,full_game,58,4043
+,full_game_total_extreme_reprice_watch,fg_total,DET@HOU,rally_still_active,rally_still_active,validated,-2-,1,5,bottom,full_game,35,2237
+,trailing_team_total_lag_watch,team_total,DET@HOU,rally_still_active,rally_still_active,validated,-2-,1,5,bottom,full_game,35,2237
+,full_game_total_extreme_reprice_watch,fg_total,MIN@TEX,market_nearly_settled,market_nearly_settled,validated,,1,8,bottom,full_game,17,4464
+,full_game_total_extreme_reprice_watch,fg_total,MIN@TEX,rally_still_active,rally_still_active,validated,1--,2,8,bottom,full_game,23,4585
+,full_game_total_extreme_reprice_watch,fg_total,DET@HOU,rally_still_active,rally_still_active,validated,1--,0,6,top,full_game,43,2778
+,trailing_team_total_lag_watch,team_total,DET@HOU,rally_still_active,rally_still_active,validated,1--,0,6,top,full_game,43,2778
+,full_game_total_extreme_reprice_watch,fg_total,MIN@TEX,market_nearly_settled,market_nearly_settled,validated,,0,9,top,full_game,61,4946
+,full_game_total_extreme_reprice_watch,fg_total,MIN@TEX,market_nearly_settled,market_nearly_settled,validated,,0,9,bottom,full_game,40,5246
+,full_game_total_extreme_reprice_watch,fg_total,DET@HOU,rally_still_active,rally_still_active,validated,1--,0,7,top,full_game,7,3560
+,trailing_team_total_lag_watch,team_total,PIT@ATH,rally_still_active,rally_still_active,validated,1--,2,3,top,full_game,66,
+,trailing_team_total_lag_watch,team_total,TB@LAD,rally_still_active,rally_still_active,validated,1--,0,2,top,full_game,33,
+,full_game_total_extreme_reprice_watch,fg_total,DET@HOU,rally_still_active,rally_still_active,validated,1--,1,7,bottom,full_game,56,4341
+,trailing_team_total_lag_watch,team_total,TB@LAD,rally_still_active,rally_still_active,validated,--3,2,2,top,full_game,66,
+,trailing_team_total_lag_watch,team_total,TB@LAD,rally_still_active,rally_still_active,validated,-2-,0,2,bottom,full_game,51,
+,full_game_total_extreme_reprice_watch,fg_total,DET@HOU,market_nearly_settled,market_nearly_settled,validated,,0,8,top,full_game,68,4701
+,full_game_total_extreme_reprice_watch,fg_total,DET@HOU,rally_still_active,rally_still_active,validated,1--,1,8,top,full_game,29,4881
+,trailing_team_total_lag_watch,team_total,PIT@ATH,rally_still_active,rally_still_active,validated,1--,0,4,top,full_game,49,
+,full_game_total_extreme_reprice_watch,fg_total,DET@HOU,market_nearly_settled,market_nearly_settled,validated,,0,8,bottom,full_game,81,5302
+,full_game_total_extreme_reprice_watch,fg_total,DET@HOU,rally_still_active,rally_still_active,validated,1--,0,8,bottom,full_game,141,5362
+,trailing_team_total_lag_watch,team_total,PIT@ATH,rally_still_active,rally_still_active,validated,1-3,1,4,top,full_game,64,
+,full_game_total_extreme_reprice_watch,fg_total,DET@HOU,market_nearly_settled,market_nearly_settled,validated,,0,9,top,full_game,73,5662
+,trailing_team_total_lag_watch,team_total,PIT@ATH,rally_still_active,rally_still_active,validated,1--,0,4,bottom,full_game,15,

@@ -290,6 +290,9 @@ export interface TeamContext {
   late_game_risk_rating: number | null
   comeback_scoring_rating: number | null
   overall_context_score: number | null
+  season_offense_rating: number | null
+  season_defense_rating: number | null
+  team_strength_rating: number | null
   sample_size: number
   f5_sample_size: number
   context_confidence: string
