@@ -17,6 +17,24 @@ until it has been observed for at least one full season.
 
 ## Commands
 
+### Grade yesterday's results (run after games end)
+
+```bat
+python opp_weak_paper_grader.py
+```
+
+Fills in `result`, `paper_pl_per_100`, `clv_close_prob`, and `clv_pp` for any
+blank rows in `paper_tracking_{year}.csv`. Reads outcomes from `kalshi_mlb.db`
+(mlb_games table); CLV from SBR HTML cache (opportunistic — blank if cache absent).
+
+```bat
+python opp_weak_paper_grader.py --date 2026-06-22   # specific date
+python opp_weak_paper_grader.py --all-ungraded       # backfill all blank rows
+python opp_weak_paper_grader.py --dry-run            # preview without writing
+```
+
+---
+
 ### Normal daily run (called automatically from dev.bat)
 
 ```bat
