@@ -15,7 +15,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routers import candidate_history, candidates, health, historical_patterns, ingest, kalshi_markets, live_capture_monitor, live_state_snapshot, manual_trades, market_tape, mlb, overview, paper_lifecycle, performance, positions, post_slate_report, signals, slate, slate_health, summary, setup_outcomes, weather_reference
+from api.routers import candidate_history, candidates, health, historical_patterns, ingest, kalshi_markets, live_capture_monitor, live_state_snapshot, manual_trades, market_tape, mlb, overview, paper_lifecycle, performance, positions, post_slate_report, signals, slate, slate_health, slate_monitor, slate_refresh, summary, setup_outcomes, weather_reference
 from api.deps import DB_PATH
 from db.schema import init_db
 
@@ -81,6 +81,8 @@ app.include_router(live_capture_monitor.router,   prefix=PREFIX, tags=["live-cap
 app.include_router(weather_reference.router,      prefix=PREFIX, tags=["weather-reference"])
 app.include_router(post_slate_report.router,      prefix=PREFIX, tags=["post-slate-report"])
 app.include_router(live_state_snapshot.router,    prefix=PREFIX, tags=["live-state"])
+app.include_router(slate_monitor.router,          prefix=PREFIX, tags=["slate-monitor"])
+app.include_router(slate_refresh.router,          prefix=PREFIX, tags=["slate-monitor"])
 
 
 @app.get("/", include_in_schema=False)

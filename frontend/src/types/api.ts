@@ -1223,3 +1223,12 @@ export interface SlateMonitorResponse {
   opp_weak: OppWeakSection
   errors: Record<string, string>
 }
+
+export interface SlateRefreshResponse {
+  ok: boolean
+  task: string
+  label: string
+  output: string
+  duration_ms: number
+  error?: string | null
+}

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useState, useEffect, useRef } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
 import type { SlateMonitorResponse, SlateMonitorHealthSummary, OppWeakSection, OppWeakRow, OppWeakSummary } from '../types/api'
 import { Badge } from '../components/Badge'
@@ -33,11 +33,64 @@ function fmtAge(iso: string | null | undefined): string {
   } catch { return '—' }
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
+// ── refresh hook ─────────────────────────────────────────────────────────────
+
+const AUTO_REFRESH_MS = 20 * 60 * 1000  // 20 minutes
+
+function useSlateRefresh(task: string, date: string) {
+  const qc = useQueryClient()
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null)
+  const mut = useMutation({
+    mutationFn: () => api.slateRefresh(task, date),
+    onSuccess: () => {
+      setLastRefreshed(new Date())
+      void qc.invalidateQueries({ queryKey: ['slate-monitor', date] })
+    },
+  })
+  return {
+    refresh: () => mut.mutate(),
+    isRefreshing: mut.isPending,
+    lastRefreshed,
+    refreshError: mut.error ? (mut.error as Error).message : null,
+  }
+}
+
+// ── section title with optional refresh button ────────────────────────────────
+
+function SectionTitle({ children, onRefresh, isRefreshing, lastRefreshed, refreshError }: {
+  children: React.ReactNode
+  onRefresh?: () => void
+  isRefreshing?: boolean
+  lastRefreshed?: Date | null
+  refreshError?: string | null
+}) {
+  const timeStr = lastRefreshed
+    ? lastRefreshed.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    : null
   return (
-    <h2 className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
-      {children}
-    </h2>
+    <div className="flex items-center justify-between mb-2">
+      <h2 className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+        {children}
+      </h2>
+      {onRefresh && (
+        <div className="flex items-center gap-2">
+          {timeStr && (
+            <span className="text-[10px] text-slate-600">refreshed {timeStr}</span>
+          )}
+          {refreshError && (
+            <span className="text-[10px] text-red-500" title={refreshError}>⚠ error</span>
+          )}
+          <button
+            onClick={onRefresh}
+            disabled={isRefreshing}
+            className="text-[10px] px-1.5 py-0.5 rounded border border-[#1a2540] text-slate-500 hover:text-slate-200 hover:border-blue-700/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            title="Regenerate"
+          >
+            {isRefreshing ? '…' : '↻'}
+          </button>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -88,6 +141,7 @@ function HealthPanel({ health, sourceDate, requestedDate }: {
   sourceDate: string | null
   requestedDate: string
 }) {
+  const healthRefresh = useSlateRefresh('health', requestedDate)
   const pctColor =
     health.fresh_pct >= 80 ? 'text-emerald-400'
     : health.fresh_pct >= 50 ? 'text-amber-400'
@@ -97,7 +151,12 @@ function HealthPanel({ health, sourceDate, requestedDate }: {
 
   return (
     <div className="card px-4 py-3 space-y-3">
-      <SectionTitle>Collector Health</SectionTitle>
+      <SectionTitle
+        onRefresh={healthRefresh.refresh}
+        isRefreshing={healthRefresh.isRefreshing}
+        lastRefreshed={healthRefresh.lastRefreshed}
+        refreshError={healthRefresh.refreshError}
+      >Collector Health</SectionTitle>
 
       {dateMismatch && (
         <WrongDateBox
@@ -318,6 +377,7 @@ function BrainPanel({ brain, errors, search, brainTotalRows, date }: {
 }) {
   const [activeTab, setActiveTab] = useState<BrainKey>('side_leans')
   const tab = BRAIN_TABS.find((t) => t.key === activeTab)!
+  const brainRefresh = useSlateRefresh('brain', date)
 
   const currentRows = brain[activeTab] ?? []
   const currentTotal = brainTotalRows[activeTab] ?? 0
@@ -326,7 +386,12 @@ function BrainPanel({ brain, errors, search, brainTotalRows, date }: {
 
   return (
     <div className="card px-4 py-3 space-y-3">
-      <SectionTitle>Pregame Brain Candidates</SectionTitle>
+      <SectionTitle
+        onRefresh={brainRefresh.refresh}
+        isRefreshing={brainRefresh.isRefreshing}
+        lastRefreshed={brainRefresh.lastRefreshed}
+        refreshError={brainRefresh.refreshError}
+      >Pregame Brain Candidates</SectionTitle>
 
       <div className="flex gap-1 flex-wrap">
         {BRAIN_TABS.map(({ key, label }) => {
@@ -472,6 +537,15 @@ function EVPanel({ rows, sourceDate, date, error, search }: {
   search: string
 }) {
   const [statusFilter, setStatusFilter] = useState('all')
+  const [autoRefresh, setAutoRefresh] = useState(false)
+  const evRefresh = useSlateRefresh('ev_overlay', date)
+  const refreshRef = useRef(evRefresh.refresh)
+  useEffect(() => { refreshRef.current = evRefresh.refresh })
+  useEffect(() => {
+    if (!autoRefresh) return
+    const id = setInterval(() => refreshRef.current(), AUTO_REFRESH_MS)
+    return () => clearInterval(id)
+  }, [autoRefresh])
 
   const filtered = rows
     .filter((r) => statusFilter === 'all' || r.tradeability_label === statusFilter)
@@ -483,7 +557,25 @@ function EVPanel({ rows, sourceDate, date, error, search }: {
 
   return (
     <div className="card px-4 py-3 space-y-3">
-      <SectionTitle>EV Overlay / Market Match</SectionTitle>
+      <SectionTitle
+        onRefresh={evRefresh.refresh}
+        isRefreshing={evRefresh.isRefreshing}
+        lastRefreshed={evRefresh.lastRefreshed}
+        refreshError={evRefresh.refreshError}
+      >EV Overlay / Market Match</SectionTitle>
+      <div className="flex items-center gap-2 -mt-1 mb-1">
+        <button
+          onClick={() => setAutoRefresh((v) => !v)}
+          className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors ${
+            autoRefresh
+              ? 'border-blue-700/60 text-blue-400 bg-blue-900/20'
+              : 'border-[#1a2540] text-slate-600 hover:text-slate-400'
+          }`}
+          title="Auto-refresh EV overlay every 20 minutes"
+        >
+          Auto ↻ 20m {autoRefresh ? 'on' : 'off'}
+        </button>
+      </div>
 
       {error && (
         <p className="text-[11px] text-amber-400">
@@ -638,6 +730,8 @@ function OppWeakPanel({ section, search, date }: {
   const hasSummary = summary && typeof (summary as OppWeakSummary).total_qualifying === 'number'
   const rows = section.rows ?? []
   const reportExists = section.report_exists ?? false
+  const oppWeakRefresh = useSlateRefresh('opp_weak', date)
+  const paperGrade = useSlateRefresh('paper_grade', date)
 
   const filtered: OppWeakRow[] = search
     ? rows.filter(r =>
@@ -649,7 +743,12 @@ function OppWeakPanel({ section, search, date }: {
 
   return (
     <div className="card px-4 py-3">
-      <SectionTitle>Opp Weak Pregame Lane — core_home_opp_weak</SectionTitle>
+      <SectionTitle
+        onRefresh={oppWeakRefresh.refresh}
+        isRefreshing={oppWeakRefresh.isRefreshing}
+        lastRefreshed={oppWeakRefresh.lastRefreshed}
+        refreshError={oppWeakRefresh.refreshError}
+      >Opp Weak Pregame Lane — core_home_opp_weak</SectionTitle>
 
       {/* summary stats bar */}
       {hasSummary ? (
@@ -791,6 +890,26 @@ function OppWeakPanel({ section, search, date }: {
           </div>
         </>
       )}
+
+      {/* post-slate paper grader */}
+      <div className="mt-3 pt-2 border-t border-[#1a2540] flex items-center gap-3">
+        <button
+          onClick={paperGrade.refresh}
+          disabled={paperGrade.isRefreshing}
+          className="text-[10px] px-2 py-1 rounded border border-[#1a2540] text-slate-500 hover:text-slate-200 hover:border-blue-700/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          title="Grade yesterday's paper log entries using mlb_games results"
+        >
+          {paperGrade.isRefreshing ? '…' : "↻ Grade yesterday's results"}
+        </button>
+        {paperGrade.lastRefreshed && (
+          <span className="text-[10px] text-slate-600">
+            graded at {paperGrade.lastRefreshed.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })}
+          </span>
+        )}
+        {paperGrade.refreshError && (
+          <span className="text-[10px] text-red-500" title={paperGrade.refreshError}>⚠ grade failed</span>
+        )}
+      </div>
     </div>
   )
 }

@@ -29,6 +29,8 @@ import type {
   MarketTapeContextResponse,
   PaperSetupsResponse,
   LiveStateSnapshot,
+  SlateMonitorResponse,
+  SlateRefreshResponse,
 } from '../types/api'
 
 type Params = Record<string, string | number | boolean | undefined | null>
@@ -343,4 +345,10 @@ export const api = {
 
   liveStateSnapshot: (date?: string) =>
     apiFetch<LiveStateSnapshot>('/api/mlb/live-state-snapshot', { date }),
+
+  slateMonitor: (date?: string) =>
+    apiFetch<SlateMonitorResponse>('/api/mlb/slate-monitor', { date }),
+
+  slateRefresh: (task: string, date: string) =>
+    apiPost<SlateRefreshResponse>('/api/mlb/slate-monitor/refresh', { task, date }),
 }
