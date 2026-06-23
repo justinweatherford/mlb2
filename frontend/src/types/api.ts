@@ -681,6 +681,16 @@ export interface OverviewMlbGame {
   home_abbr: string | null
   away_score: number | null
   home_score: number | null
+
+  inning: number | null
+  inning_half: string | null
+  outs: number | null
+  balls: number | null
+  strikes: number | null
+  runner_state: string | null
+  current_batter: string | null
+  current_pitcher: string | null
+  state_checked_at: string | null
 }
 
 export interface OverviewCandidate {
@@ -1109,4 +1119,107 @@ export interface LiveStateSnapshot {
     }>
     lessons_count?: number
   }
+}
+
+// ---------------------------------------------------------------------------
+// Opp Weak Pregame Lane
+// ---------------------------------------------------------------------------
+
+export interface OppWeakRow {
+  game_date: string
+  away_team: string
+  home_team: string
+  away_pitcher: string
+  home_pitcher: string
+  opening_ml: string
+  opening_no_vig_prob: string
+  current_kalshi_mid: string
+  brain_calib_prob: string
+  brain_edge_vs_open_pp: string
+  opp_weakness_bucket: string
+  opp_weakness_reason: string
+  side_score: string
+  status: string
+  status_reason: string
+  max_entry_prob: string
+  max_entry_ml: string
+  /** POST-HOC only — never used for eligibility. Display with label. */
+  clv_close_prob: string
+  clv_pp: string
+  result: string
+  paper_pl_per_100: string
+}
+
+export interface OppWeakSummary {
+  total_qualifying: number
+  paper_eligible: number
+  observe_only: number
+  blocked_by_price: number
+  blocked_missing_data: number
+  avg_opening_prob: number | null
+  avg_current_kalshi: number | null
+  max_entry_prob: string
+  max_entry_ml: string
+  lane_hit_rate: string
+  conservative_prob: string
+  source_date: string | null
+}
+
+export interface OppWeakSection {
+  summary: OppWeakSummary | Record<string, never>
+  rows: OppWeakRow[]
+  source_date: string | null
+  /** True when the pre-generated CSV exists for the requested date (even if 0 qualifying games). */
+  report_exists: boolean
+}
+
+// ---------------------------------------------------------------------------
+// Slate Monitor — read-only pregame slate review
+// ---------------------------------------------------------------------------
+
+export interface SlateMonitorHealthByType {
+  total: number
+  fresh: number
+  fresh_pct: number
+  stale: number
+  empty: number
+  missing: number
+}
+
+export interface SlateMonitorHealthSummary {
+  total_markets: number
+  fresh: number
+  recent: number
+  stale: number
+  stale_empty_book: number
+  no_snapshots: number
+  priority_total: number
+  priority_fresh: number
+  fresh_pct: number
+  latest_snap_at: string | null
+  overall_status: 'HEALTHY' | 'DEGRADED' | 'WARNING'
+  by_type: Record<string, SlateMonitorHealthByType>
+}
+
+export interface SlateMonitorResponse {
+  date: string
+  snapshot_health: SlateMonitorHealthSummary | Record<string, never>
+  snapshot_health_rows: Record<string, string>[]
+  health_source_date: string | null
+  /** False when health data is for a different date than the requested slate date. */
+  health_date_matches: boolean
+  brain_candidates: {
+    side_leans: Record<string, string>[]
+    side_fades: Record<string, string>[]
+    team_scoring_watchlist: Record<string, string>[]
+    team_5plus_avoid: Record<string, string>[]
+    team_f5_scoring_watchlist: Record<string, string>[]
+    live_watchlist: Record<string, string>[]
+    full_avoid_list: Record<string, string>[]
+  }
+  brain_total_rows: Record<string, number>
+  ev_overlay: Record<string, string>[]
+  ev_source_date: string | null
+  opp_weak: OppWeakSection
+  errors: Record<string, string>
 }
