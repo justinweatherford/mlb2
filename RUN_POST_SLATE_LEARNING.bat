@@ -26,7 +26,8 @@ if errorlevel 1 (echo FAILED: pregame_daily_learning_report.py & pause & exit /b
 
 echo.
 echo [5/5] Reconciling fill prices and outcomes...
-python ev_fill_reconciler.py
+for /f "tokens=*" %%i in ('python -c "import datetime; print(datetime.date.today() - datetime.timedelta(days=1))"') do set SLATE_DATE=%%i
+python ev_fill_reconciler.py --date %SLATE_DATE%
 if errorlevel 1 (echo WARNING: ev_fill_reconciler.py failed - check shadow log & continue)
 
 echo.
