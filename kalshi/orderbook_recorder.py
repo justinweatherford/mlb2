@@ -13,6 +13,7 @@ Responsibilities:
 No trading logic.  No candidate generation.  Append-only.
 """
 import json
+import re
 import time
 import sqlite3
 import logging
@@ -78,7 +79,11 @@ def _coerce_price_cents(value) -> Optional[int]:
 
 
 def _best_price(levels) -> Optional[int]:
-    """Extract the best (first) price from a Kalshi orderbook level list.
+    """Extract the best (highest) price from a Kalshi orderbook level list.
+
+    Kalshi's orderbook_fp yes_dollars/no_dollars are sorted ascending (lowest
+    price first).  The best bid is the maximum price across all levels, not the
+    first element.  Using max() is also correct for descending-sorted formats.
 
     Handles:
       - [{"price": 45, "delta": 100}, ...]        dict with int cents
@@ -90,16 +95,20 @@ def _best_price(levels) -> Optional[int]:
     """
     if not levels:
         return None
-    first = levels[0]
-    if isinstance(first, dict):
-        raw = first.get("price")
-    elif isinstance(first, (list, tuple)):
-        raw = first[0] if first else None
-    elif isinstance(first, int):
-        raw = first
-    else:
-        raw = first  # let _coerce_price_cents decide
-    return _coerce_price_cents(raw)
+    best: Optional[int] = None
+    for level in levels:
+        if isinstance(level, dict):
+            raw = level.get("price")
+        elif isinstance(level, (list, tuple)):
+            raw = level[0] if level else None
+        elif isinstance(level, int):
+            raw = level
+        else:
+            raw = level
+        p = _coerce_price_cents(raw)
+        if p is not None and (best is None or p > best):
+            best = p
+    return best
 
 
 def _extract_orderbook_levels(ob_data: dict) -> tuple[list, list]:
@@ -304,6 +313,24 @@ def fetch_latest_per_market(conn: sqlite3.Connection) -> list[dict]:
 
 # ── Poll cycle ────────────────────────────────────────────────────────────────
 
+_TICKER_DATE_RE = re.compile(r"-(\d{2})([A-Z]{3})(\d{2})\d{4}")
+_TICKER_MONTH_MAP = {
+    "JAN": "01", "FEB": "02", "MAR": "03", "APR": "04",
+    "MAY": "05", "JUN": "06", "JUL": "07", "AUG": "08",
+    "SEP": "09", "OCT": "10", "NOV": "11", "DEC": "12",
+}
+
+
+def _ticker_game_date(ticker: str) -> Optional[str]:
+    """Extract game date encoded in ticker. Returns 'YYYY-MM-DD' or None."""
+    m = _TICKER_DATE_RE.search(ticker)
+    if not m:
+        return None
+    yy, mon, dd = m.group(1), m.group(2), m.group(3)
+    month = _TICKER_MONTH_MAP.get(mon)
+    return f"20{yy}-{month}-{dd}" if month else None
+
+
 def _get_markets_to_poll(conn: sqlite3.Connection, market_types=None) -> list[dict]:
     """Return open markets from kalshi_markets that match the poll type list."""
     types = list(market_types or _POLL_MARKET_TYPES)
@@ -324,12 +351,29 @@ def _get_markets_to_poll(conn: sqlite3.Connection, market_types=None) -> list[di
     return [dict(r) for r in rows]
 
 
+def _get_markets_for_slate_date(
+    conn: sqlite3.Connection,
+    slate_date: str,
+    market_types=None,
+) -> list[dict]:
+    """
+    Return open markets for a specific game date (extracted from ticker).
+
+    Filters in Python after the DB fetch because the game date is encoded in
+    the ticker string rather than stored as an indexed column. For a typical
+    slate (~300-500 open markets) this is fast enough.
+    """
+    all_markets = _get_markets_to_poll(conn, market_types)
+    return [m for m in all_markets if _ticker_game_date(m["market_ticker"]) == slate_date]
+
+
 def poll_once(
     client,
     conn: sqlite3.Connection,
     *,
     sport: str = "mlb",
     market_types=None,
+    slate_date: Optional[str] = None,
     jsonl_path: Optional[str] = None,
     verbose: bool = False,
     sleep_between: float = 0.0,
@@ -337,10 +381,16 @@ def poll_once(
     """
     One complete poll cycle: fetch open markets from DB, get orderbooks, store snapshots.
 
+    If slate_date (YYYY-MM-DD) is provided, only polls markets for that game date
+    (as encoded in the market ticker). Otherwise polls all open markets.
+
     Per-market errors are caught and logged; they do not abort the cycle.
     Returns a summary dict with markets_polled, snapshots_written, errors.
     """
-    markets = _get_markets_to_poll(conn, market_types)
+    if slate_date:
+        markets = _get_markets_for_slate_date(conn, slate_date, market_types)
+    else:
+        markets = _get_markets_to_poll(conn, market_types)
     captured_at = datetime.now(timezone.utc).isoformat()
 
     result: dict[str, Any] = {
@@ -383,6 +433,7 @@ def poll_once_batch(
     *,
     sport: str = "mlb",
     market_types=None,
+    slate_date: Optional[str] = None,
     jsonl_path: Optional[str] = None,
     verbose: bool = False,
     batch_size: int = 100,
@@ -391,8 +442,13 @@ def poll_once_batch(
     One poll cycle using the batch orderbook endpoint.
     Calls GET /markets/orderbooks with up to batch_size tickers per request.
     Uses source='rest_batch' in kalshi_orderbook_snapshots.
+
+    If slate_date is provided, only polls markets for that game date.
     """
-    markets = _get_markets_to_poll(conn, market_types)
+    if slate_date:
+        markets = _get_markets_for_slate_date(conn, slate_date, market_types)
+    else:
+        markets = _get_markets_to_poll(conn, market_types)
     captured_at = datetime.now(timezone.utc).isoformat()
     market_map = {m["market_ticker"]: m for m in markets}
     tickers = list(market_map.keys())

@@ -1,0 +1,16 @@
+prediction_type,confidence_label,count,correct,success_rate,avg_model_edge,predicted_yes_count,predicted_no_count,predicted_yes_success_rate,predicted_no_success_rate,actual_yes_rate,baseline_type,baseline_success_rate,lift_vs_baseline
+f5_total_4_plus,high,199,131,0.6583,1.66,197,2,0.6599,0.5,0.6583,majority_actual_outcome,0.6284,0.0299
+f5_total_4_plus,low,3970,2400,0.6045,0.522,3861,109,0.6131,0.3028,0.6154,majority_actual_outcome,0.6284,-0.0239
+f5_total_4_plus,medium,1808,1187,0.6565,1.015,1797,11,0.6561,0.7273,0.6538,majority_actual_outcome,0.6284,0.0281
+full_total_9_plus,high,216,119,0.5509,2.238,182,34,0.5714,0.4412,0.5694,majority_actual_outcome,0.5071,0.0438
+full_total_9_plus,low,3365,1763,0.5239,0.634,1872,1493,0.5187,0.5305,0.4969,majority_actual_outcome,0.5071,0.0168
+full_total_9_plus,medium,1156,623,0.5389,1.263,808,348,0.5458,0.523,0.5251,majority_actual_outcome,0.5071,0.0318
+team_runs_4_plus,high,515,313,0.6078,1.776,460,55,0.6283,0.4364,0.6214,majority_actual_outcome,0.5622,0.0456
+team_runs_4_plus,low,7159,3848,0.5375,0.483,4431,2728,0.5721,0.4813,0.5518,majority_actual_outcome,0.5622,-0.0247
+team_runs_4_plus,medium,2335,1374,0.5884,1.026,1858,477,0.6066,0.5178,0.5812,majority_actual_outcome,0.5622,0.0262
+team_runs_5_plus,high,847,528,0.6234,1.686,60,787,0.4667,0.6353,0.3719,majority_actual_outcome,0.578,0.0454
+team_runs_5_plus,low,6931,3859,0.5568,0.516,1265,5666,0.4806,0.5738,0.4362,majority_actual_outcome,0.578,-0.0212
+team_runs_5_plus,medium,4098,2427,0.5922,1.045,295,3803,0.5051,0.599,0.4085,majority_actual_outcome,0.578,0.0142
+winner,high,4331,2474,0.5712,15.617,4331,0,0.5712,,0.5712,always_pick_home_team,0.527,0.0442
+winner,low,436,224,0.5138,3.52,436,0,0.5138,,0.5138,always_pick_home_team,0.527,-0.0132
+winner,medium,1253,650,0.5188,5.447,1253,0,0.5188,,0.5188,always_pick_home_team,0.527,-0.0082

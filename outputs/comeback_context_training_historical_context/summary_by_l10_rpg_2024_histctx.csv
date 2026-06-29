@@ -1,0 +1,6 @@
+l10_rpg_bucket,count,eventually_won_rate,tied_or_led_later_rate,took_lead_later_rate,scored_next_1_inning_rate,scored_next_2_innings_rate,reduced_deficit_next_2_rate,within_1_next_2_rate,avg_final_margin,avg_min_deficit_next_2
+mid_3_5_4_5,16229,0.1544,0.2595,0.1988,0.3618,0.4745,0.377,0.4396,-3.131,2.219
+high_4_5_5_5,14001,0.174,0.2805,0.2179,0.3645,0.481,0.3841,0.4318,-3.124,2.176
+low_lt_3_5,8711,0.1806,0.2972,0.2188,0.3691,0.4816,0.3915,0.4669,-2.941,2.039
+very_high_5_5_plus,7413,0.1978,0.3149,0.2384,0.4135,0.5322,0.4282,0.4612,-2.914,2.025
+missing,299,0.1873,0.291,0.2308,0.4515,0.5786,0.4381,0.3679,-4.047,2.997

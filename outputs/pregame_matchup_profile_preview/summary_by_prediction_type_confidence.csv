@@ -1,0 +1,16 @@
+prediction_type,confidence_label,count,correct,success_rate,avg_model_edge
+f5_total_4_plus,low,3970,2400,0.6045,0.522
+f5_total_4_plus,medium,1808,1187,0.6565,1.015
+f5_total_4_plus,high,199,131,0.6583,1.66
+full_total_9_plus,low,3365,1763,0.5239,0.634
+full_total_9_plus,medium,1156,623,0.5389,1.263
+full_total_9_plus,high,216,119,0.5509,2.238
+team_runs_4_plus,low,7159,3848,0.5375,0.483
+team_runs_4_plus,medium,2335,1374,0.5884,1.026
+team_runs_4_plus,high,515,313,0.6078,1.776
+team_runs_5_plus,low,6931,3859,0.5568,0.516
+team_runs_5_plus,medium,4098,2427,0.5922,1.045
+team_runs_5_plus,high,847,528,0.6234,1.686
+winner,high,4331,2474,0.5712,15.617
+winner,medium,1253,650,0.5188,5.447
+winner,low,436,224,0.5138,3.52

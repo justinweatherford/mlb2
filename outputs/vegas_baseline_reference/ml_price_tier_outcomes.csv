@@ -1,0 +1,10 @@
+ml_tier,n,wins,actual_win_rate,actual_win_rate_pct,mean_no_vig_prob,mean_no_vig_prob_pct,calibration_error
+heavy_favorite,3059,2149,0.7025,70.3%,0.6818,68.2%,0.0207
+moderate_favorite,5953,3582,0.6017,60.2%,0.614,61.4%,-0.0122
+slight_favorite,7959,4495,0.5648,56.5%,0.5586,55.9%,0.0062
+lean_favorite,8309,4212,0.5069,50.7%,0.509,50.9%,-0.0021
+pickem,477,232,0.4864,48.6%,0.4856,48.6%,0.0008
+lean_underdog,7230,3319,0.4591,45.9%,0.4623,46.2%,-0.0032
+slight_underdog,6342,2635,0.4155,41.5%,0.4149,41.5%,0.0005
+moderate_underdog,4826,1762,0.3651,36.5%,0.3616,36.2%,0.0036
+long_underdog,1373,378,0.2753,27.5%,0.2898,29.0%,-0.0145

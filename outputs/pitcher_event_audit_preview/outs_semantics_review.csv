@@ -1,0 +1,52 @@
+event_type,rows,stored_outs_sum,estimated_outs_sum,stored_minus_estimated
+Strikeout,43303,86691,43303,43388
+Groundout,33567,67192,33567,33625
+Single,28203,27606,0,27606
+Flyout,25729,51084,25729,25355
+Walk,16645,16709,0,16709
+Lineout,11411,22650,11411,11239
+Pop Out,9475,18753,9475,9278
+Double,8355,8127,0,8127
+Home Run,5861,5427,0,5427
+Forceout,3619,7438,3619,3819
+Grounded Into DP,3391,8804,6782,2022
+NULL,3160,3288,0,3288
+Hit By Pitch,2162,2110,0,2110
+Sac Fly,1413,2431,1413,1018
+Field Error,1093,1116,0,1116
+Triple,700,681,0,681
+Sac Bunt,653,673,653,20
+Intent Walk,610,895,0,895
+Fielders Choice,448,311,0,311
+Double Play,389,1036,778,258
+Fielders Choice Out,356,646,356,290
+Caught Stealing 2B,303,908,0,908
+Mound Visit,214,286,0,286
+Pitching Substitution,206,15,0,15
+Bunt Groundout,193,344,193,151
+Strikeout Double Play,132,342,264,78
+Bunt Pop Out,104,141,104,37
+Catcher Interference,100,117,0,117
+Game Advisory,84,27,0,27
+Batter Timeout,76,88,0,88
+Pickoff 1B,72,214,0,214
+Pickoff Caught Stealing 2B,71,213,0,213
+Offensive Substitution,38,37,0,37
+Defensive Switch,25,0,0,0
+Caught Stealing 3B,18,54,0,54
+Runner Out,16,48,0,48
+Caught Stealing Home,16,48,0,48
+Sac Fly Double Play,14,35,28,7
+Pickoff 2B,12,36,0,36
+Wild Pitch,9,19,0,19
+Bunt Lineout,7,10,0,10
+Defensive Sub,5,0,0,0
+Stolen Base 2B,5,8,0,8
+Pickoff Caught Stealing 3B,4,12,0,12
+Pickoff 3B,3,9,0,9
+Triple Play,2,6,0,6
+Pickoff Error 1B,2,6,0,6
+Ejection,1,1,0,1
+Pitcher Switch,1,1,0,1
+Field Out,1,3,0,3
+Other Advance,1,0,0,0

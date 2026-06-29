@@ -1,0 +1,5 @@
+team_context_confidence,count,eventually_won_rate,tied_or_led_later_rate,took_lead_later_rate,scored_next_1_inning_rate,scored_next_2_innings_rate,reduced_deficit_next_2_rate,within_1_next_2_rate,avg_final_margin,avg_min_deficit_next_2
+high,38301,0.1731,0.279,0.2139,0.3729,0.4879,0.3903,0.4449,-3.069,2.138
+medium,5503,0.1697,0.2804,0.2117,0.3562,0.4717,0.3785,0.4454,-2.969,2.167
+low,2550,0.1627,0.3263,0.2325,0.3973,0.5071,0.4114,0.4608,-3.102,2.137
+none,299,0.1873,0.291,0.2308,0.4515,0.5786,0.4381,0.3679,-4.047,2.997

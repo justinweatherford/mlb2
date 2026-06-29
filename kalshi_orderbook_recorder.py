@@ -42,6 +42,8 @@ _DEFAULT_MARKET_TYPES = [
     "spread_run_line",
     "f5_spread",
     "moneyline",
+    "f5_winner",
+    "player_hr",
 ]
 
 
@@ -111,6 +113,14 @@ def main() -> None:
             "Faster than sequential mode (~5 calls per sweep vs 422)."
         ),
     )
+    parser.add_argument(
+        "--slate-date", default=None, metavar="YYYY-MM-DD",
+        help=(
+            "Filter to markets for a specific game date (encoded in market ticker). "
+            "Recommended for full-slate collection to avoid polling stale historical markets. "
+            "Default: poll all open markets regardless of date."
+        ),
+    )
 
     args = parser.parse_args()
 
@@ -130,10 +140,14 @@ def main() -> None:
 
     log.info(
         "Kalshi orderbook recorder starting — sport=%s, interval=%.1fs, "
-        "once=%s, duration=%s min, market_types=%s, jsonl=%s, db=%s",
+        "once=%s, duration=%s min, market_types=%s, slate_date=%s, jsonl=%s, db=%s",
         args.sport, args.interval_seconds, args.once,
-        args.duration_minutes, market_types, args.jsonl, args.db,
+        args.duration_minutes, market_types, args.slate_date, args.jsonl, args.db,
     )
+    if args.slate_date:
+        log.info("Slate-date filter active: only polling markets for %s", args.slate_date)
+    else:
+        log.info("No slate-date filter: polling ALL open markets (may include historical dates)")
 
     # ── Graceful shutdown ──────────────────────────────────────────────────────
     _stop = [False]
@@ -171,6 +185,7 @@ def main() -> None:
                         conn,
                         sport=args.sport,
                         market_types=market_types,
+                        slate_date=args.slate_date,
                         jsonl_path=args.jsonl,
                         verbose=args.verbose,
                     )
@@ -180,6 +195,7 @@ def main() -> None:
                         conn,
                         sport=args.sport,
                         market_types=market_types,
+                        slate_date=args.slate_date,
                         jsonl_path=args.jsonl,
                         verbose=args.verbose,
                     )

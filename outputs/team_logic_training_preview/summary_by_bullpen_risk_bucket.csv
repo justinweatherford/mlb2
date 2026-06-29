@@ -1,0 +1,5 @@
+bullpen_risk_bucket,count,settled_count,wins,losses,win_rate,avg_pnl_cents,total_pnl_cents,total_risk_cents,roi_on_risk,avg_entry_price,avg_spread_cents
+slightly_low_40_50,458,458,66,392,0.1441,-31.419,-14390.0,20990.0,-0.6856,45.83,19.028
+elevated_50_60,83,83,57,26,0.6867,25.458,2113.0,3587.0,0.5891,43.217,8.88
+missing,66,66,29,37,0.4394,8.045,531.0,2369.0,0.2241,35.894,1.576
+low_risk_lt_40,33,33,0,33,0.0,-25.121,-829.0,829.0,-1.0,25.121,10.091

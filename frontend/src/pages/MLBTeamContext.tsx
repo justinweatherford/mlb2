@@ -150,7 +150,7 @@ function TeamDebugPanel({ abbr, season }: { abbr: string; season: string }) {
         <FormulaCard name="f5_pitching_risk" d={ratings.f5_pitching_risk} />
         <FormulaCard name="bullpen_risk"     d={ratings.bullpen_risk} />
         <FormulaCard name="comeback"          d={ratings.comeback} />
-        <FormulaCard name="team_strength"    d={ratings.team_strength} />
+        <FormulaCard name="overall" d={ratings.overall} />
         <FormulaCard name="overall"          d={ratings.overall} />
       </div>
 

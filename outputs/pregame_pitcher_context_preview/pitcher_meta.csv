@@ -1,0 +1,4 @@
+season,pitcher_id_col,pitcher_name_col,event_type_col,description_col,league_hr_per_fb,league_era_proxy,xfip_constant,pitching_lines,starter_lines,starters_found
+2023,,pitcher_name,event_type,description,0.11,4.5,4.5,0,0,0
+2024,,pitcher_name,event_type,description,0.11,4.5,4.5,0,0,0
+2025,,pitcher_name,event_type,description,0.11,4.5,4.5,0,0,0

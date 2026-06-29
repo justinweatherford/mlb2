@@ -1,0 +1,98 @@
+======================================================================
+  PREGAME BRAIN - DAILY LEARNING REPORT - 2026-06-22
+======================================================================
+  10 games  ·  20 card rows with results  ·  6 still pending
+  2026 total with actuals: 20 rows
+
+TODAY'S GAME LOG - 2026-06-22
+----------------------------------------------------------------------
+  Game         Team  HA     Side    4+   5no    F5  W/L   Runs   Opp   Tot
+  ------------------------------------------------------------------
+  AZ@STL       AZ    away   0.00  0.00  0.00  0.00  loss     2     3     5
+  AZ@STL       STL   home   0.10  0.00  0.00  0.00  WIN      3     2     5
+  BOS@COL      BOS   away   0.14  0.12  0.00  0.16  loss     2     3     5
+  BOS@COL      COL   home   0.00  0.00  0.00  0.00  WIN      3     2     5
+  CLE@CWS      CLE   away   0.00  0.00  0.00  0.00  loss     5     6    11
+  CLE@CWS      CWS   home   0.04  0.00  0.00  0.00  WIN      6     5    11
+  HOU@TOR      HOU   away   0.00  0.00  0.00  0.00  loss     2     4     6
+  HOU@TOR      TOR   home   0.00  0.00  0.00  0.00  WIN      4     2     6
+  KC@TB        KC    away   0.00  0.00  0.00  0.00  WIN      2     1     3
+  KC@TB        TB    home   0.29  0.24  0.00  0.20  loss     1     2     3
+  LAD@MIN      LAD   away   0.15  0.18  0.00  0.07  WIN      2     1     3
+  LAD@MIN      MIN   home   0.05  0.00  0.00  0.00  loss     1     2     3
+  MIL@CIN      MIL   away   0.39  0.14  0.00  0.12  WIN      2     1     3
+  MIL@CIN      CIN   home   0.00  0.00  0.00  0.00  loss     1     2     3
+  NYY@DET      NYY   away   0.19  0.08  0.00  0.07  loss     3     5     8
+  NYY@DET      DET   home   0.00  0.00  0.00  0.00  WIN      5     3     8
+  PHI@WSN      PHI   away   0.00  0.00  0.00  0.00  loss     1     4     5
+  PHI@WSN      WSN   home   0.10  0.00  0.00  0.00  WIN      4     1     5
+  TEX@MIA      TEX   away   0.00  0.00  0.00  0.00  WIN      4     3     7
+  TEX@MIA      MIA   home   0.04  0.00  0.00  0.00  loss     3     4     7
+
+LANE PERFORMANCE - 2026-06-22
+----------------------------------------------------------------------
+  Lane                    Above thresh   Hit rate   Baseline    Delta
+  -----------------------------------------------------------------
+  side                             1/2   50.0%   49.9%   +0.1% *
+  side_fade                        1/1  100.0%   50.1%  +49.9% *
+  team_runs_4plus                  0/2    0.0%   55.6%  -55.6% *
+  team_runs_5plus_no              none    -     57.2%     -  
+  team_f5_runs_2plus               0/1    0.0%   58.1%  -58.1% *
+  * small sample (<5 cards)
+
+2026 CUMULATIVE PERFORMANCE (20 rows with actuals)
+----------------------------------------------------------------------
+  Lane                   Bin                n   2026 Rate   Hist Prob    Delta  Note
+  ------------------------------------------------------------------------
+  side                   0.00-0.10         13   46.2%   47.2%   -1.0%  need 17 more
+                         0.10-0.20          5   60.0%   50.4%   +9.6%  need 25 more
+                         0.20-0.30          1    0.0%   52.9%  -52.9%  need 29 more
+                         0.30-0.40          1  100.0%   54.9%  +45.1%  need 29 more
+  side_fade              0.00-0.10         16   50.0%   46.9%   +3.1%  need 14 more
+                         0.10-0.20          3   33.3%   52.9%  -19.5%  need 27 more
+                         0.20-0.30          1  100.0%   54.9%  +45.1%  need 29 more
+  team_runs_4plus        0.00-0.10         16   37.5%   53.1%  -15.6%  need 14 more
+                         0.10-0.20          3    0.0%   58.9%  -58.9%  need 27 more
+                         0.20-0.30          1    0.0%   56.7%  -56.7%  need 29 more
+  team_runs_5plus_no     0.00-0.10         20   85.0%   55.5%  +29.5%  need 10 more
+  team_f5_runs_2plus     0.00-0.10         17   41.2%   56.5%  -15.3%  need 13 more
+                         0.10-0.20          2    0.0%   59.8%  -59.8%  need 28 more
+                         0.20-0.30          1    0.0%   61.9%  -61.9%  need 29 more
+
+CALIBRATION MOVERS (vs previous snapshot)
+----------------------------------------------------------------------
+  No bin moved more than 0.5% since last snapshot.
+
+SAMPLE SIZE TRACKER - target 30 per bin for usable calibration
+----------------------------------------------------------------------
+  side                   0.00-0.10        13/30  [#########...........]  need 17 more
+  side                   0.10-0.20         5/30  [###.................]  need 25 more
+  side                   0.20-0.30         1/30  [#...................]  need 29 more
+  side                   0.30-0.40         1/30  [#...................]  need 29 more
+  side                   0.40+             0/30  [....................]  need 30 more
+  side_fade              0.00-0.10        16/30  [###########.........]  need 14 more
+  side_fade              0.10-0.20         3/30  [##..................]  need 27 more
+  side_fade              0.20-0.30         1/30  [#...................]  need 29 more
+  side_fade              0.30-0.40         0/30  [....................]  need 30 more
+  side_fade              0.40+             0/30  [....................]  need 30 more
+  team_runs_4plus        0.00-0.10        16/30  [###########.........]  need 14 more
+  team_runs_4plus        0.10-0.20         3/30  [##..................]  need 27 more
+  team_runs_4plus        0.20-0.30         1/30  [#...................]  need 29 more
+  team_runs_4plus        0.30-0.40         0/30  [....................]  need 30 more
+  team_runs_4plus        0.40+             0/30  [....................]  need 30 more
+  team_runs_5plus_no     0.00-0.10        20/30  [#############.......]  need 10 more
+  team_runs_5plus_no     0.10-0.20         0/30  [....................]  need 30 more
+  team_runs_5plus_no     0.20-0.30         0/30  [....................]  need 30 more
+  team_runs_5plus_no     0.30-0.40         0/30  [....................]  need 30 more
+  team_runs_5plus_no     0.40+             0/30  [....................]  need 30 more
+  team_f5_runs_2plus     0.00-0.10        17/30  [###########.........]  need 13 more
+  team_f5_runs_2plus     0.10-0.20         2/30  [#...................]  need 28 more
+  team_f5_runs_2plus     0.20-0.30         1/30  [#...................]  need 29 more
+  team_f5_runs_2plus     0.30-0.40         0/30  [....................]  need 30 more
+  team_f5_runs_2plus     0.40+             0/30  [....................]  need 30 more
+
+MONEYLINE CORE NEAR-MISS GRADING
+----------------------------------------------------------------------
+  Observe-only diagnostics. Not candidates. Do not act on near misses.
+
+  EV overlay ran but no near misses found (side_score >= 0.30) for any date.

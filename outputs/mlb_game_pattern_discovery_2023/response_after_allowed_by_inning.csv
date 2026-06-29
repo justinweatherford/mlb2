@@ -1,0 +1,5 @@
+inning_bucket,count,scored_next_1_inning_rate,scored_next_2_innings_rate,eventually_won_rate,avg_final_margin,avg_next_2_innings_team_runs,avg_next_2_innings_opp_runs,avg_post5_runs,avg_f5_total,avg_full_total
+early_1_3,5928,0.3974,0.5633,0.3311,,,,,,
+late_7_plus,5617,0.3025,0.3714,0.3231,,,,,,
+f5_1_5,3987,0.3742,0.549,0.3203,,,,,,
+middle_6,2003,0.365,0.5417,0.3285,,,,,,

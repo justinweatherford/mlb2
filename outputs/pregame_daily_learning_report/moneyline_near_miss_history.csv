@@ -1,0 +1,4 @@
+game_date,game_id,team,home_away,side_score,failed_reasons,near_miss_bucket,top_positive_reasons,kalshi_ask_cents,bid_ask_spread_cents,snap_age_hours,status,actual_team_won,moneyline_hit
+2026-06-22,KC@TB,TB,home,0.293,below_0.40_threshold,below_threshold_home_0.30_to_0.40,[team_won] tag_live_rebound_watch=yes(+0.084),63,1,0.0,near_miss_observe_only,0,0
+2026-06-22,MIL@CIN,MIL,away,0.392,away_team,away_score_0.40_plus,[team_won] team_strength_gap_bucket=plus_10_plus(+0.100),58,1,0.0,near_miss_observe_only,1,1
+2026-06-23,KC@TB,TB,home,0.3393,below_0.40_threshold,below_threshold_home_0.30_to_0.40,[team_won] team_strength_gap_bucket=plus_10_plus(+0.100) | [team_won] tag_live_rebound_watch=yes(+0.084) | [team_runs_4plus] team_strength_gap_bucket=plus_10_plus(+0.085) | [team_runs_4plus] home_away,64,1,,near_miss_observe_only,0,0

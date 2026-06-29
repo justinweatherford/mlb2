@@ -136,7 +136,13 @@ if not exist "%ROOT%frontend\package.json" (
 start "MLB2 Frontend"           cmd /k "cd /d "%ROOT%frontend" && npm run dev || pause"
 :slate_after_frontend
 
-start "MLB2 Orderbook Recorder" cmd /k "cd /d "%ROOT%" && python kalshi_orderbook_recorder.py --sport mlb --batch --slate-date %DATE% --interval-seconds 30 --duration-minutes 915 --jsonl data/kalshi_orderbook_%DATE%.jsonl --verbose || pause"
+tasklist /V /FI "IMAGENAME eq cmd.exe" 2>nul | findstr /i "Orderbook Recorder" >nul 2>&1
+if not errorlevel 1 (
+    echo [SKIP] Orderbook Recorder is already running -- leave it open for overnight coverage.
+    echo        Close and restart it manually only if it has crashed or stopped.
+) else (
+    start "MLB2 Orderbook Recorder" cmd /k "cd /d "%ROOT%" && run_recorder_forever.bat"
+)
 start "MLB2 Kalshi WebSocket"   cmd /k "cd /d "%ROOT%" && python kalshi_ws.py || pause"
 start "MLB2 MLB Poller"         cmd /k "cd /d "%ROOT%" && python mlb_poller.py --sport mlb --date %DATE% --interval 30 || pause"
 start "MLB2 Focused Tape"       cmd /k "cd /d "%ROOT%" && python focused_tape_watcher.py || pause"
@@ -167,7 +173,7 @@ echo.
 echo  Windows open:
 echo    MLB2 API
 echo    MLB2 Frontend
-echo    MLB2 Orderbook Recorder  ^(slate-date=%DATE%, batch, 30s heartbeat, 915 min^)
+echo    MLB2 Orderbook Recorder  ^(slate-date=%DATE%, batch, 30s, runs until closed^)
 echo    MLB2 Kalshi WebSocket    ^(live ticker/orderbook updates^)
 echo    MLB2 MLB Poller          ^(date=%DATE%, interval=30s^)
 echo    MLB2 Focused Tape
@@ -177,8 +183,9 @@ echo    MLB2 Health Check        ^(auto-refresh every 5 min^)
 echo    MLB2 EV Overlay          ^(first run after 60 min, then every 30 min^)
 echo    MLB2 Slate Health
 echo.
-echo  REMINDER: Orderbook Recorder runs for 915 minutes (12:00-03:00 UTC window).
-echo  Start before first pitch; covers pregame + full slate.
+echo  REMINDER: Orderbook Recorder runs until the window is closed (no timeout).
+echo  Leave it open overnight -- it will still collect next-day pregame data.
+echo  If you rerun dev.bat slate, a duplicate will NOT be launched (guard active).
 echo.
 echo  REMINDER: Re-run paper sync in MLB2 Paper Sync window
 echo  periodically during games and again after games end.

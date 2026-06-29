@@ -1,0 +1,1 @@
+game_date,game_id,game_pk,away_team,home_team,away_pitcher,home_pitcher,opening_ml,opening_no_vig_prob,current_kalshi_mid,brain_calib_prob,brain_edge_vs_open_pp,opp_weakness_bucket,opp_weakness_reason,side_score,status,status_reason,max_entry_prob,max_entry_ml,clv_close_prob,clv_pp,result,paper_pl_per_100

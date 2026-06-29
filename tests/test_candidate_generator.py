@@ -895,8 +895,8 @@ def test_live_watcher_no_games_scans_zero():
 
 def test_live_watcher_one_active_game_scanned():
     conn = _mem()
-    _insert_game(conn, is_final=0)   # active game
-    result = run_one_cycle(conn)
+    _insert_game(conn, is_final=0)   # active game (date="2026-06-12")
+    result = run_one_cycle(conn, slate_date="2026-06-12")
     assert result["games_scanned"] == 1
     conn.close()
 
@@ -904,7 +904,7 @@ def test_live_watcher_one_active_game_scanned():
 def test_live_watcher_generates_candidate_for_active_game():
     conn = _mem()
     _setup_full_game_scenario(conn)   # inserts active game + market + play
-    result = run_one_cycle(conn)
+    result = run_one_cycle(conn, slate_date="2026-06-12")
     assert result["games_scanned"] == 1
     assert result["candidates_generated"] >= 1
     assert result["errors"] == []
@@ -915,7 +915,7 @@ def test_live_watcher_final_game_recently_checked_is_scanned():
     """Final game with last_checked_at within 4h window should be scanned."""
     conn = _mem()
     _insert_game(conn, is_final=1)   # is_final but recently checked
-    result = run_one_cycle(conn)
+    result = run_one_cycle(conn, slate_date="2026-06-12")
     assert result["games_scanned"] == 1
     conn.close()
 
@@ -964,7 +964,7 @@ def test_final_game_watcher_scanned_no_candidates():
         contract_direction="over_yes",
         settlement_horizon="full_game",
     )
-    result = run_one_cycle(conn)
+    result = run_one_cycle(conn, slate_date="2026-06-12")
     assert result["games_scanned"] == 1, "Final game still counted in scan window"
     assert result["candidates_generated"] == 0, "No candidates for final game"
     conn.close()

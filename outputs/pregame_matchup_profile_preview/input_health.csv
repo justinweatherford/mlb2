@@ -1,0 +1,4 @@
+season,regular_start,context_path,final_games_loaded,games_with_events,games_used_with_context,prediction_rows
+2023,2023-03-30,outputs\historical_team_context_preview_v2\historical_team_context_2023_clean.csv,2471,2471,2471,12751
+2024,2024-03-20,outputs\historical_team_context_preview_v2\historical_team_context_2024_clean.csv,2560,2560,2560,13012
+2025,2025-03-27,outputs\historical_team_context_preview_v2\historical_team_context_2025_clean.csv,2475,2475,2475,12856

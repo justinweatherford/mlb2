@@ -1,0 +1,6 @@
+prediction_type,count,success_rate,baseline_success_rate,lift_vs_baseline,recommendation
+f5_total_4_plus,5977,0.6221,0.6284,-0.0063,not_beating_baseline
+full_total_9_plus,4737,0.5288,0.5071,0.0217,hold
+team_runs_4_plus,10009,0.553,0.5622,-0.0092,not_beating_baseline
+team_runs_5_plus,11876,0.5738,0.578,-0.0042,not_beating_baseline
+winner,6020,0.5561,0.527,0.0291,hold

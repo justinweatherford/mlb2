@@ -31,6 +31,20 @@ def _open_conn() -> sqlite3.Connection:
     return init_db(os.environ.get("DB_PATH", "kalshi_mlb.db"))
 
 
+def _ensure_probable_pitcher_cols(conn: sqlite3.Connection) -> None:
+    for col, typ in [
+        ("home_probable_pitcher_id", "INTEGER"),
+        ("home_probable_pitcher_name", "TEXT"),
+        ("away_probable_pitcher_id", "INTEGER"),
+        ("away_probable_pitcher_name", "TEXT"),
+    ]:
+        try:
+            conn.execute(f"ALTER TABLE mlb_games ADD COLUMN {col} {typ}")
+        except sqlite3.OperationalError:
+            pass
+    conn.commit()
+
+
 # ── DB helpers ────────────────────────────────────────────────────────────────
 
 def _upsert_game(conn: sqlite3.Connection, g: dict) -> None:
@@ -39,8 +53,11 @@ def _upsert_game(conn: sqlite3.Connection, g: dict) -> None:
         INSERT INTO mlb_games
           (game_pk, game_date, away_team, home_team, away_abbr, home_abbr,
            game_id, status, is_final, final_away_score, final_home_score,
-           final_total, game_start_time_utc, last_checked_at, created_at)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+           final_total, game_start_time_utc,
+           home_probable_pitcher_id, home_probable_pitcher_name,
+           away_probable_pitcher_id, away_probable_pitcher_name,
+           last_checked_at, created_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(game_pk) DO UPDATE SET
           status              = excluded.status,
           game_id             = excluded.game_id,
@@ -49,6 +66,10 @@ def _upsert_game(conn: sqlite3.Connection, g: dict) -> None:
           final_home_score    = COALESCE(excluded.final_home_score, final_home_score),
           final_total         = COALESCE(excluded.final_total, final_total),
           game_start_time_utc = COALESCE(excluded.game_start_time_utc, game_start_time_utc),
+          home_probable_pitcher_id   = COALESCE(excluded.home_probable_pitcher_id, home_probable_pitcher_id),
+          home_probable_pitcher_name = COALESCE(excluded.home_probable_pitcher_name, home_probable_pitcher_name),
+          away_probable_pitcher_id   = COALESCE(excluded.away_probable_pitcher_id, away_probable_pitcher_id),
+          away_probable_pitcher_name = COALESCE(excluded.away_probable_pitcher_name, away_probable_pitcher_name),
           last_checked_at     = excluded.last_checked_at
         """,
         (
@@ -59,6 +80,10 @@ def _upsert_game(conn: sqlite3.Connection, g: dict) -> None:
             g.get("final_home_score"),
             g.get("final_total"),
             g.get("game_start_time_utc"),
+            g.get("home_probable_pitcher_id"),
+            g.get("home_probable_pitcher_name"),
+            g.get("away_probable_pitcher_id"),
+            g.get("away_probable_pitcher_name"),
             _now(), _now(),
         ),
     )
@@ -207,6 +232,8 @@ def fetch_and_store_schedule(
     if _own:
         conn = _open_conn()
 
+    _ensure_probable_pitcher_cols(conn)
+
     summary: dict = {
         "fetched": False,
         "date": date_str,
@@ -253,6 +280,9 @@ def fetch_and_store_schedule(
                     raw_game_date = raw_game.get("gameDate") or ""
                     game_start_time_utc = raw_game_date[:16] if len(raw_game_date) >= 16 else None
 
+                    away_pp = (teams.get("away") or {}).get("probablePitcher") or {}
+                    home_pp = (teams.get("home") or {}).get("probablePitcher") or {}
+
                     _upsert_game(conn, {
                         "game_pk":              raw_game["gamePk"],
                         "game_date":            game_date,
@@ -267,6 +297,10 @@ def fetch_and_store_schedule(
                         "final_home_score":     home_score,
                         "final_total":          final_total,
                         "game_start_time_utc":  game_start_time_utc,
+                        "away_probable_pitcher_id":   away_pp.get("id"),
+                        "away_probable_pitcher_name": away_pp.get("fullName"),
+                        "home_probable_pitcher_id":   home_pp.get("id"),
+                        "home_probable_pitcher_name": home_pp.get("fullName"),
                     })
                     summary["games_seen"] += 1
                     summary["games_inserted_or_updated"] += 1

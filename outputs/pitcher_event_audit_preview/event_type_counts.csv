@@ -1,0 +1,52 @@
+event_type,count
+Strikeout,43303
+Groundout,33567
+Single,28203
+Flyout,25729
+Walk,16645
+Lineout,11411
+Pop Out,9475
+Double,8355
+Home Run,5861
+Forceout,3619
+Grounded Into DP,3391
+NULL,3160
+Hit By Pitch,2162
+Sac Fly,1413
+Field Error,1093
+Triple,700
+Sac Bunt,653
+Intent Walk,610
+Fielders Choice,448
+Double Play,389
+Fielders Choice Out,356
+Caught Stealing 2B,303
+Mound Visit,214
+Pitching Substitution,206
+Bunt Groundout,193
+Strikeout Double Play,132
+Bunt Pop Out,104
+Catcher Interference,100
+Game Advisory,84
+Batter Timeout,76
+Pickoff 1B,72
+Pickoff Caught Stealing 2B,71
+Offensive Substitution,38
+Defensive Switch,25
+Caught Stealing 3B,18
+Runner Out,16
+Caught Stealing Home,16
+Sac Fly Double Play,14
+Pickoff 2B,12
+Wild Pitch,9
+Bunt Lineout,7
+Defensive Sub,5
+Stolen Base 2B,5
+Pickoff Caught Stealing 3B,4
+Pickoff 3B,3
+Triple Play,2
+Pickoff Error 1B,2
+Ejection,1
+Pitcher Switch,1
+Field Out,1
+Other Advance,1

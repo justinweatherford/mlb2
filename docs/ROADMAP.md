@@ -34,7 +34,30 @@ Goal: reduce Kalshi snapshot cadence from 4.4 minutes to <5 seconds.
   - WS batch size: 200 → 100
   - Batch REST: `get_orderbooks_batch()` + `poll_once_batch()` + `--batch` flag
   - Trades endpoint: `/markets/trades?ticker=...`
-- [ ] **Run on live game day** — validate `ws_ticker` rows appear in snapshots
+- [x] **Full Slate Orderbook Collection v1** (2026-06-21)
+  - Coverage audit (`kalshi_snapshot_coverage_audit.py`) confirmed Jun 15 only
+    usable date; Jun 16-17 had 12-13h daily collection gap (04:xx-16:xx UTC)
+  - Root cause: collector not running during morning/afternoon pregame windows
+  - **`kalshi/orderbook_recorder.py`**: added `_ticker_game_date()`,
+    `_get_markets_for_slate_date()`, `slate_date` param on both poll functions
+  - **`kalshi_orderbook_recorder.py`**: added `--slate-date YYYY-MM-DD` arg;
+    old behavior (all open markets) preserved when omitted
+  - **`dev.bat` slate mode**: duration 600 → 915 min; now passes `--slate-date`
+  - **`kalshi_snapshot_collection_health.py`** (new): read-only live health check;
+    per-market labels (`fresh/recent/stale/stale_empty_book/no_snapshots`);
+    priority-type breakdown; writes
+    `outputs/kalshi_snapshot_collection_health/latest_collection_health.{csv,md}`
+  - **`RUN_FULL_SLATE_ORDERBOOK.bat`** (new): dedicated collector-only launcher;
+    pre-flight discovery check; opens health window (auto-refresh every 5 min)
+  - Collector window target: 12:00 UTC (08:00 ET) through 03:00 UTC (23:00 ET)
+- [x] **Slate Monitor UI v1** (2026-06-21)
+  - New read-only page at `/slate-monitor` in the React frontend
+  - Pulls from pre-generated output CSVs via `GET /api/mlb/slate-monitor?date=`
+  - Shows: collector health panel (fresh%, by-type), brain candidates (7 tabs),
+    EV overlay table with tradeability badges, search + status filters
+  - No writes, no paper entries, no order actions
+- [ ] **Run on next live slate** — confirm `fresh` coverage ≥ 80% for priority
+    types before first pitch; validate EV overlay with real pregame prices
 - [ ] **Rerun `market_liveness_validator.py`** — confirm cadence improvement
 - [ ] **Rerun liveness per market type** — decide foundation signal lane
 

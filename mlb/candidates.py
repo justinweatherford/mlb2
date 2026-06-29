@@ -120,6 +120,7 @@ def insert_candidate_event(
     selected_derivative_type: Optional[str] = None,
     derivative_rationale: Optional[str] = None,
     rejected_derivatives_json: Optional[str] = None,
+    trigger_game_date: Optional[str] = None,
     dedupe_key: Optional[str] = None,
     first_seen_at: Optional[str] = None,
     last_seen_at: Optional[str] = None,
@@ -150,6 +151,7 @@ def insert_candidate_event(
             baseline_explanation, baseline_source, baseline_quality,
             derivative_type, read_type, selected_derivative_type,
             derivative_rationale, rejected_derivatives_json,
+            trigger_game_date,
             dedupe_key, first_seen_at, last_seen_at, seen_count,
             created_at, updated_at
         ) VALUES (
@@ -160,6 +162,7 @@ def insert_candidate_event(
             ?,?,  ?,?,
             ?,?,?,  ?,?,?,  ?,?,?,  ?,?,?,
             ?,?,?,?,?,
+            ?,
             ?,?,?,?,  ?,?
         )
         """,
@@ -183,6 +186,7 @@ def insert_candidate_event(
             baseline_explanation, baseline_source, baseline_quality,
             derivative_type, read_type, selected_derivative_type,
             derivative_rationale, rejected_derivatives_json,
+            trigger_game_date,
             dedupe_key, ts, last_seen_at or ts, seen_count,
             now, now,
         ),
@@ -247,6 +251,7 @@ def upsert_candidate_event(
     selected_derivative_type: Optional[str] = None,
     derivative_rationale: Optional[str] = None,
     rejected_derivatives_json: Optional[str] = None,
+    trigger_game_date: Optional[str] = None,
 ) -> tuple[int, bool]:
     """
     Insert or deduplicate a candidate_event.
@@ -340,6 +345,7 @@ def upsert_candidate_event(
         selected_derivative_type=selected_derivative_type,
         derivative_rationale=derivative_rationale,
         rejected_derivatives_json=rejected_derivatives_json,
+        trigger_game_date=trigger_game_date,
         dedupe_key=key,
         first_seen_at=now,
         last_seen_at=now,
@@ -441,13 +447,17 @@ def list_candidate_events(
             filter_params,
         ).fetchall()
 
-        # First pass: sum seen_count per broad key across all rows.
+        # First pass: aggregate seen_count and earliest first_seen_at per broad key.
         seen_counts: dict[str, int] = {}
+        min_first_seen: dict[str, str] = {}
         for row in all_rows:
             key = _broad_setup_key(row)
             seen_counts[key] = seen_counts.get(key, 0) + (row["seen_count"] or 1)
+            fsa = row["first_seen_at"] or row["created_at"] or ""
+            if fsa and (key not in min_first_seen or fsa < min_first_seen[key]):
+                min_first_seen[key] = fsa
 
-        # Second pass: keep the first (latest) row per broad key; inject aggregated count.
+        # Second pass: keep the latest row per broad key; inject aggregated count + earliest first_seen_at.
         seen_keys: set[str] = set()
         result: list[dict] = []
         for row in all_rows:
@@ -456,6 +466,7 @@ def list_candidate_events(
                 seen_keys.add(key)
                 d = dict(row)
                 d["seen_count"] = seen_counts[key]
+                d["first_seen_at"] = min_first_seen.get(key, d.get("first_seen_at"))
                 result.append(d)
             if len(result) >= limit:
                 break

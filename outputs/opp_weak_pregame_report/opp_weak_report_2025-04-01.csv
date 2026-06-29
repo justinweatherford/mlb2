@@ -1,0 +1,2 @@
+game_date,away_team,home_team,away_pitcher,home_pitcher,opening_ml,opening_no_vig_prob,current_kalshi_mid,brain_calib_prob,brain_edge_vs_open_pp,opp_weakness_bucket,opp_weakness_reason,side_score,status,status_reason,max_entry_prob,max_entry_ml,clv_close_prob,clv_pp,result,paper_pl_per_100
+2025-04-01,PIT,TB,T. Harrington,S. Baz,-140,0.5828,,0.6039,2.11,lt_40,[team_won] home_away+opponent_strength_bucket=home__lt_40(+0.144),0.5262,paper_eligible,"Opening price 58.3% ≤ 68.0% threshold, ≥2.5pp buffer below max entry",0.705,-239,0.599,1.62,WIN,41.72

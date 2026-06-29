@@ -1025,13 +1025,13 @@ class TestBestPriceDollarFormat:
         self.best = _best_price
 
     def test_dollar_decimal_array(self):
-        # Actual Kalshi orderbook_fp format
+        # Kalshi orderbook_fp format: ascending order, best bid is the last/max
         levels = [["0.0600", "3760.00"], ["0.0700", "3103.00"]]
-        assert self.best(levels) == 6  # best (first) price = 6 cents
+        assert self.best(levels) == 7  # best (max) price = 7 cents
 
     def test_dollar_decimal_no_side(self):
         levels = [["0.6900", "1371.00"], ["0.7400", "1430.00"]]
-        assert self.best(levels) == 69
+        assert self.best(levels) == 74
 
     def test_dict_int_still_works(self):
         levels = [{"price": 45, "delta": 100}]
@@ -1082,15 +1082,16 @@ class TestParseSnapshotDollarDecimal:
 
     def test_batch_fp_dollar_decimal_arrays(self):
         from kalshi.orderbook_recorder import parse_snapshot
+        # Ascending order matches real Kalshi orderbook_fp format (lowest price first)
         ob = {
             "orderbook_fp": {
-                "yes_dollars": [["0.4400", "1000.00"], ["0.4300", "500.00"]],
-                "no_dollars":  [["0.5500", "800.00"],  ["0.5600", "200.00"]],
+                "yes_dollars": [["0.4300", "500.00"], ["0.4400", "1000.00"]],
+                "no_dollars":  [["0.5400", "200.00"], ["0.5500", "800.00"]],
             }
         }
         snap = parse_snapshot(_MARKET_FULL, ob, _CAPTURED_AT, source="rest_batch")
-        # yes_bid = best yes_dollars price = 44 cents
-        # no_bid  = best no_dollars price  = 55 cents
+        # yes_bid = max yes_dollars price = 44 cents
+        # no_bid  = max no_dollars price  = 55 cents
         # yes_ask = 100 - no_bid = 45 cents
         # no_ask  = 100 - yes_bid = 56 cents
         assert snap["yes_bid"] == 44

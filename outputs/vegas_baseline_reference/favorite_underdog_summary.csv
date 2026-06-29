@@ -1,0 +1,10 @@
+category,n,wins,win_rate,win_rate_pct,note
+all_favorite,25280,14438,0.5711,57.1%,ML < 0; all home/away
+all_underdog,20248,8326,0.4112,41.1%,ML > 0; all home/away
+pickem,477,232,0.4864,48.6%,ML = +100 exactly (dog side of 570 pickem games)
+home_all,22759,12172,0.5348,53.5%,All home teams (dh_assignment_reliable=1 only)
+away_all,22758,10586,0.4652,46.5%,All away teams (dh_assignment_reliable=1 only)
+home_favorite,16040,9323,0.5812,58.1%,Home team AND ML < 0
+home_underdog,6719,2849,0.424,42.4%,Home team AND ML > 0
+away_favorite,9235,5112,0.5535,55.4%,Away team AND ML < 0
+away_underdog,13523,5474,0.4048,40.5%,Away team AND ML > 0

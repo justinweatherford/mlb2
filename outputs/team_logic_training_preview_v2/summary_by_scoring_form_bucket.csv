@@ -1,0 +1,2 @@
+scoring_form_bucket,count,settled_count,wins,losses,win_rate,avg_pnl_cents,total_pnl_cents,total_risk_cents,roi_on_risk,avg_entry_price,avg_spread_cents
+missing,640,640,152,488,0.2375,-19.648,-12575.0,27775.0,-0.4527,43.398,15.452

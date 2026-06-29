@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 
 function HomeIcon({ className }: { className?: string }) {
@@ -104,21 +105,130 @@ function SignalIcon({ className }: { className?: string }) {
   )
 }
 
-const NAV = [
-  { path: '/',               label: 'Overview',       Icon: HomeIcon },
-  { path: '/ingest',         label: 'Ingest',          Icon: ArrowUpTrayIcon },
-  { path: '/signals',        label: 'Signals',         Icon: BoltIcon },
-  { path: '/positions',      label: 'Positions',       Icon: ChartBarIcon },
-  { path: '/candidates',     label: 'Candidates',      Icon: TargetIcon },
-  { path: '/journal',        label: 'Trade Journal',   Icon: ClipboardIcon },
-  { path: '/performance',    label: 'Performance',     Icon: TrendingUpIcon },
-  { path: '/slate',          label: 'Slate Review',    Icon: DocumentMagnifyingGlassIcon },
-  { path: '/live-dashboard', label: 'Live Dashboard',  Icon: SignalIcon },
-  { path: '/summary',        label: 'Daily Summary',   Icon: CalendarIcon },
-  { path: '/health',         label: 'Data Health',     Icon: ActivityIcon },
-  { path: '/kalshi',         label: 'Markets',         Icon: MagnifyingGlassIcon },
-  { path: '/mlb-context',    label: 'MLB Context',     Icon: TableCellsIcon },
+function EyeIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+    </svg>
+  )
+}
+
+// ── Nav data ───────────────────────────────────────────────────────────────────
+
+type NavItem = {
+  path: string
+  label: string
+  Icon: React.FC<{ className?: string }>
+  experimental?: boolean
+}
+
+type NavSection = {
+  label: string
+  items: NavItem[]
+  collapsible?: boolean
+}
+
+const NAV_SECTIONS: NavSection[] = [
+  {
+    label: 'Daily Workflow',
+    items: [
+      { path: '/slate-monitor', label: 'Slate Monitor', Icon: EyeIcon },
+      { path: '/candidates',    label: 'Candidates',    Icon: TargetIcon },
+      { path: '/kalshi',        label: 'Coverage',      Icon: MagnifyingGlassIcon },
+    ],
+  },
+  {
+    label: 'Review',
+    items: [
+      { path: '/mlb-context',  label: 'Pregame Brain',  Icon: TableCellsIcon },
+      { path: '/performance',  label: 'Post-Slate',     Icon: TrendingUpIcon,  experimental: true },
+      { path: '/positions',    label: 'Paper Trading',  Icon: ChartBarIcon,    experimental: true },
+    ],
+  },
+  {
+    label: 'Dev / Archive',
+    collapsible: true,
+    items: [
+      { path: '/overview',       label: 'Overview',       Icon: HomeIcon },
+      { path: '/live-dashboard', label: 'Live Dashboard', Icon: SignalIcon },
+      { path: '/slate',          label: 'Slate Review',   Icon: DocumentMagnifyingGlassIcon },
+      { path: '/signals',        label: 'Signals',        Icon: BoltIcon },
+      { path: '/summary',        label: 'Daily Summary',  Icon: CalendarIcon },
+      { path: '/health',         label: 'Data Health',    Icon: ActivityIcon },
+      { path: '/ingest',         label: 'Ingest',         Icon: ArrowUpTrayIcon },
+      { path: '/journal',        label: 'Trade Journal',  Icon: ClipboardIcon },
+    ],
+  },
 ]
+
+// ── NavSectionBlock ────────────────────────────────────────────────────────────
+
+function NavSectionBlock({
+  section,
+  pathname,
+}: {
+  section: NavSection
+  pathname: string
+}) {
+  const [open, setOpen] = useState(!section.collapsible)
+
+  return (
+    <div>
+      {section.collapsible ? (
+        <button
+          onClick={() => setOpen((o) => !o)}
+          className="w-full flex items-center justify-between px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-600 hover:text-slate-500 transition-colors"
+        >
+          <span>{section.label}</span>
+          <svg
+            className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+            aria-hidden
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
+          </svg>
+        </button>
+      ) : (
+        <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
+          {section.label}
+        </div>
+      )}
+      {open && (
+        <div className="space-y-0.5 mt-0.5">
+          {section.items.map(({ path, label, Icon, experimental }) => {
+            const active = pathname.startsWith(path)
+            return (
+              <Link
+                key={path}
+                to={path}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] font-medium transition-colors ${
+                  active
+                    ? 'bg-blue-600/15 text-blue-300 border border-blue-800/30'
+                    : 'text-slate-500 hover:text-slate-300 hover:bg-[#0f1829]'
+                }`}
+                aria-current={active ? 'page' : undefined}
+              >
+                <Icon className="w-4 h-4 flex-shrink-0" />
+                <span className="flex-1 truncate">{label}</span>
+                {experimental && (
+                  <span className="text-[9px] font-medium text-amber-600/70 border border-amber-800/40 rounded px-1 flex-shrink-0">
+                    exp
+                  </span>
+                )}
+              </Link>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Layout ─────────────────────────────────────────────────────────────────────
 
 export function Layout() {
   const { pathname } = useLocation()
@@ -139,34 +249,23 @@ export function Layout() {
             </div>
             <div>
               <div className="text-[13px] font-semibold text-slate-100 leading-none">Kalshi MLB</div>
-              <div className="text-[10px] text-slate-600 mt-0.5">Paper Trading</div>
+              <div className="text-[10px] text-slate-600 mt-0.5">Research · Observe Only</div>
             </div>
           </div>
         </div>
 
-        <nav className="flex-1 px-2 py-2 space-y-0.5" aria-label="Main">
-          {NAV.map(({ path, label, Icon }) => {
-            const active = path === '/' ? pathname === '/' : pathname.startsWith(path)
-            return (
-              <Link
-                key={path}
-                to={path}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] font-medium transition-colors ${
-                  active
-                    ? 'bg-blue-600/15 text-blue-300 border border-blue-800/30'
-                    : 'text-slate-500 hover:text-slate-300 hover:bg-[#0f1829]'
-                }`}
-                aria-current={active ? 'page' : undefined}
-              >
-                <Icon className="w-4 h-4 flex-shrink-0" />
-                {label}
-              </Link>
-            )
-          })}
+        <nav className="flex-1 px-2 py-3 space-y-3 overflow-y-auto" aria-label="Main">
+          {NAV_SECTIONS.map((section) => (
+            <NavSectionBlock
+              key={section.label}
+              section={section}
+              pathname={pathname}
+            />
+          ))}
         </nav>
 
         <div className="px-4 py-3 border-t border-[#1a2540]">
-          <div className="text-[10px] text-slate-700">FastAPI · Streamlit · SQLite</div>
+          <div className="text-[10px] text-slate-700">FastAPI · React · SQLite</div>
         </div>
       </aside>
 

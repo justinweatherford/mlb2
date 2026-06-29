@@ -1,0 +1,6 @@
+opponent_l10_allowed_bucket,count,eventually_won_rate,tied_or_led_later_rate,took_lead_later_rate,scored_next_1_inning_rate,scored_next_2_innings_rate,reduced_deficit_next_2_rate,within_1_next_2_rate,avg_final_margin,avg_min_deficit_next_2
+mid_3_5_4_5,16292,0.1637,0.2604,0.2083,0.3578,0.4691,0.3751,0.4328,-3.299,2.303
+high_4_5_5_5,13488,0.1641,0.2844,0.2056,0.3767,0.4917,0.3941,0.4528,-2.894,2.019
+low_lt_3_5,9045,0.1709,0.2797,0.204,0.3695,0.4793,0.3833,0.4256,-3.129,2.21
+very_high_5_5_plus,7484,0.2099,0.3258,0.2571,0.4007,0.5286,0.425,0.4833,-2.726,1.925
+missing,344,0.1105,0.2936,0.2413,0.407,0.532,0.3953,0.436,-4.407,2.884

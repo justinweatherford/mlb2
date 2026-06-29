@@ -1,0 +1,6 @@
+deficit_bucket,count,eventually_won_rate,tied_or_led_later_rate,took_lead_later_rate,scored_next_1_inning_rate,scored_next_2_innings_rate,reduced_deficit_next_2_rate,within_1_next_2_rate,avg_final_margin,avg_min_deficit_next_2
+down_1,14617,0.3252,0.5221,0.4117,0.3904,0.5135,0.4122,0.9674,-1.078,0.096
+down_2,10130,0.2138,0.3489,0.2683,0.3976,0.519,0.4192,0.4192,-2.006,1.063
+down_5_plus,9007,0.0207,0.0328,0.0259,0.3805,0.4917,0.3949,0.0335,-6.922,6.009
+down_3,7082,0.1392,0.2201,0.1666,0.391,0.5078,0.3996,0.2351,-2.959,2.131
+down_4,4866,0.0705,0.1081,0.082,0.3781,0.4794,0.3763,0.1219,-4.112,3.196

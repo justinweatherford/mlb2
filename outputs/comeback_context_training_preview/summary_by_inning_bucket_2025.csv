@@ -1,0 +1,4 @@
+inning_bucket,count,eventually_won_rate,tied_or_led_later_rate,took_lead_later_rate,scored_next_1_inning_rate,scored_next_2_innings_rate,reduced_deficit_next_2_rate,within_1_next_2_rate,avg_final_margin,avg_min_deficit_next_2
+late_7_plus,10715,0.0816,0.1282,0.0934,0.3254,0.3806,0.3143,0.3462,-3.65,3.016
+middle_4_6,10568,0.1868,0.3065,0.2321,0.3892,0.5316,0.4227,0.472,-3.065,1.931
+early_1_3,7179,0.2865,0.4861,0.3825,0.3916,0.5552,0.4423,0.626,-2.335,1.127

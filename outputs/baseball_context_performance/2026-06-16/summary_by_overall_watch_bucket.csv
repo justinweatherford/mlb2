@@ -1,0 +1,4 @@
+overall_watch_bucket,count,settled_count,wins,losses,hold_win_rate,avg_hold_pnl_cents,total_hold_pnl_cents,total_risk_cents,hold_roi_on_risk,avg_delta_1m,avg_delta_3m,avg_delta_5m,avg_delta_10m,favorable_1m_rate,favorable_5m_rate,avg_mfe_10m,avg_mae_10m,avg_baseball_support_score,avg_overall_watch_score,avg_runs_needed_team,avg_runs_needed_total,avg_spread_cents
+watch_26_50,334,334,57,277,0.1707,-29.976,-10012.0,15712.0,-0.6372,2.529,2.648,2.803,2.564,0.5015,0.5125,4.737,-2.854,46.362,38.709,4.27,-1.353,25.18
+watch_51_75,299,299,95,204,0.3177,-7.645,-2286.0,11786.0,-0.194,10.436,10.598,10.373,9.935,0.6305,0.6389,15.083,6.302,50.428,56.45,4.19,0.438,4.264
+watch_0_25,7,7,0,7,0.0,-39.571,-277.0,277.0,-1.0,10.429,10.429,14.5,12.4,0.5714,0.6667,12.667,12.667,25.0,22.186,6.571,3.857,29.143

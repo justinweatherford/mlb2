@@ -1,0 +1,4 @@
+market_type,count,with_1m,with_5m,avg_delta_1m,avg_delta_3m,avg_delta_5m,avg_delta_10m,favorable_rate_1m,favorable_rate_5m,avg_mfe_10m,avg_mae_10m
+team_total,574,565,548,5.403,5.547,5.548,5.141,0.5717,0.5839,9.423,0.303
+full_game_total,53,53,53,8.736,8.736,8.736,8.736,0.3585,0.3585,6.56,6.56
+f5_total,13,13,13,36.0,36.0,36.0,36.0,1.0,1.0,36.0,36.0

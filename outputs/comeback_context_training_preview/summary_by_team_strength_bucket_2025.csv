@@ -1,0 +1,5 @@
+team_strength_bucket,count,eventually_won_rate,tied_or_led_later_rate,took_lead_later_rate,scored_next_1_inning_rate,scored_next_2_innings_rate,reduced_deficit_next_2_rate,within_1_next_2_rate,avg_final_margin,avg_min_deficit_next_2
+45_50,15464,0.176,0.2836,0.2251,0.3733,0.4864,0.3894,0.4603,-3.228,2.208
+50_55,9442,0.1525,0.2642,0.1939,0.3491,0.4664,0.3713,0.4431,-3.109,2.155
+55_60,3534,0.2105,0.3401,0.2513,0.3769,0.4932,0.4165,0.532,-2.538,1.78
+missing,22,0.0,0.9545,0.0,0.4545,0.6364,0.4545,0.4091,-1.0,1.227

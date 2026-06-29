@@ -155,11 +155,34 @@ def main() -> int:
         # Verbose status line
         if msg_type in ("ticker", "trade"):
             b = body
-            bid = b.get("yes_bid", "?")
-            ask = b.get("yes_ask", "?")
-            lp  = b.get("last_price", "?")
-            print(f"[{msg_type}] {ticker}  bid={bid} ask={ask} last={lp}  "
-                  f"total_msgs={stats.messages_received}")
+
+            bid = (
+                b.get("yes_bid")
+                or b.get("yes_bid_cents")
+                or b.get("yes_bid_dollars")
+                or "?"
+            )
+
+            ask = (
+                b.get("yes_ask")
+                or b.get("yes_ask_cents")
+                or b.get("yes_ask_dollars")
+                or "?"
+            )
+
+            lp = (
+                b.get("last_price")
+                or b.get("last_price_cents")
+                or b.get("last_price_dollars")
+                or b.get("price_dollars")
+                or b.get("price")
+                or "?"
+            )
+
+            print(
+                f"[{msg_type}] {ticker}  bid={bid} ask={ask} last={lp}  "
+                f"total_msgs={stats.messages_received}"
+            )
 
     # ── Graceful shutdown ────────────────────────────────────────────────────
     stop_event = asyncio.Event()

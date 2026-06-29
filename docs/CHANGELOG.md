@@ -5,6 +5,124 @@ Entries are grouped by date and summarize what changed and why.
 
 ---
 
+## 2026-06-21 (continued)
+
+### Slate Monitor UI v1
+
+Light read-only observer page for same-day slate validation.
+
+**`api/routers/slate_monitor.py`** (new)
+- `GET /api/mlb/slate-monitor?date=` — reads 3 output directories via stdlib `csv`
+- Returns: snapshot health summary + per-type breakdown, 7 brain candidate lists
+  (filtered by `game_date`), EV overlay rows (filtered by `game_date`), error map
+- No DB writes. No candidate generation. No paper entries. No order actions.
+- `_build_health_summary()`: counts fresh/recent/stale/empty/missing, computes
+  priority fresh%, builds by-type breakdown for 5 priority market types
+- Empty/missing files return friendly error strings (not exceptions)
+
+**`api/main.py`**
+- Added `slate_monitor` router import + `include_router` call
+
+**`frontend/src/types/api.ts`**
+- Added `SlateMonitorHealthByType`, `SlateMonitorHealthSummary`, `SlateMonitorResponse`
+
+**`frontend/src/api/client.ts`**
+- Added `slateMonitor(date?)` method: `GET /api/mlb/slate-monitor`
+
+**`frontend/src/pages/SlateMonitor.tsx`** (new)
+- Route `/slate-monitor`; 60s auto-refresh; date picker + team/game search
+- **Status banner**: date, HEALTHY/DEGRADED/WARNING badge, last fetch time, stale warning
+- **Collector health panel**: fresh% display, 5-column count grid, per-priority-type table
+  with fresh%, stale, empty, missing columns; warning if fresh% < 80%
+- **Brain candidates panel**: 7 tabs (Side Leans / Side Fades / 4+ Runs / 5+ Avoid /
+  F5 Scoring / Live Watch / Full Avoid); each tab shows game_id, team, H/A, score,
+  BO bucket, BD bucket, top reasons; empty state with run-command hint
+- **EV overlay panel**: status filter pills, badge per `tradeability_label` row,
+  badge per `snapshot_recency_label`, spread color-coded (amber ≥10, red ≥20),
+  reason column; note that model scores are not calibrated probabilities
+- **Empty states**: friendly messages + run-command hints when CSVs are not generated yet
+
+**`frontend/src/components/Layout.tsx`**
+- Added `EyeIcon` SVG; added "Slate Monitor" nav entry at `/slate-monitor`
+
+**`frontend/src/App.tsx`**
+- Added `<Route path="/slate-monitor" element={<SlateMonitor />} />`
+
+**`docs/superpowers/plans/2026-06-21-slate-monitor-ui.md`** (new)
+- Implementation plan for this feature
+
+---
+
+## 2026-06-21
+
+### Full Slate Orderbook Collection v1
+
+Coverage audit (`kalshi_snapshot_coverage_audit.py`) confirmed that Jun 15 was
+the only usable date in the current DB (74% good pregame coverage). Jun 16-17
+had a 12-13 hour daily collection gap (04:xx–16:xx UTC) that destroyed pregame
+windows for most games. Root cause: collector was not running during the
+morning/afternoon window when games are priced pregame.
+
+**`kalshi/orderbook_recorder.py`**
+- Added `import re`
+- Added `_TICKER_DATE_RE`, `_TICKER_MONTH_MAP` constants for ticker date parsing
+- Added `_ticker_game_date(ticker) -> str | None`: extracts `YYYY-MM-DD` from
+  ticker format `KXMLB[TYPE]-[YY][MON][DD][HHMM][TEAMS]-[N]`
+- Added `_get_markets_for_slate_date(conn, slate_date, market_types)`: filters
+  open markets to only those for the specified game date; avoids polling 3,393
+  historical markets when only today's 400-600 are needed
+- Added `slate_date: Optional[str]` param to `poll_once()` and
+  `poll_once_batch()`; routes to `_get_markets_for_slate_date` when provided,
+  falls back to `_get_markets_to_poll` (all open markets) when None
+
+**`kalshi_orderbook_recorder.py`**
+- Added `--slate-date YYYY-MM-DD` CLI argument (optional; default None)
+- Logs filter status at startup (active or not)
+- Passes `slate_date` to both `poll_once_batch()` and `poll_once()`
+- Old behavior (no date filter) fully preserved when `--slate-date` is omitted
+
+**`dev.bat` (slate mode)**
+- Recorder duration: 600 → **915 minutes** (covers 12:00–03:00 UTC window)
+- Recorder command now passes `--slate-date %DATE%`
+
+**`kalshi_snapshot_collection_health.py`** (new)
+- Standalone read-only health check script
+- Loads all markets for the slate date (via `_ticker_game_date` regex)
+- Joins against latest snapshot per ticker from `kalshi_orderbook_snapshots`
+- Per-market coverage labels: `fresh` (<15min), `recent` (<60min), `stale`
+  (>60min), `stale_empty_book` (bid=1/ask=99), `no_snapshots`
+- Priority types flagged: `moneyline`, `full_game_total`, `team_total`,
+  `f5_total`, `f5_winner`
+- Summary: overall status (HEALTHY/DEGRADED/WARNING), by-type breakdown,
+  earliest/latest snapshot times, stale/missing detail, fresh sample
+- Outputs (overwritten on each run, always reflects live state):
+  - `outputs/kalshi_snapshot_collection_health/latest_collection_health.csv`
+  - `outputs/kalshi_snapshot_collection_health/latest_collection_health.md`
+- Console action guidance when collector is down or coverage is low
+
+**`RUN_FULL_SLATE_ORDERBOOK.bat`** (new)
+- Dedicated collector-only launcher (no API, frontend, live watcher, or paper sync)
+- Pre-flight: inline Python checks that `kalshi_markets` has open markets for
+  the slate date before starting; blocks with clear error if discovery not run
+- Launches "MLB2 Orderbook [DATE]" window: 915 min, 30s interval, batch mode,
+  `--slate-date` filter, JSONL archive to `data/kalshi_orderbook_DATE.jsonl`
+- Launches "MLB2 Health Check [DATE]" window: runs health script, auto-refreshes
+  every 5 minutes via `for /l` loop
+- Usage: `RUN_FULL_SLATE_ORDERBOOK.bat [YYYY-MM-DD]` (no arg = today)
+
+**Slate-date filter verification**
+- `_ticker_game_date` tested on 6 representative tickers including edge cases
+- Jun 15 filter: 499 markets (not 3,393 all-time); Jun 17: 658 markets
+- Filtered sets contain only the requested date; no cross-date contamination
+- Old `--slate-date`-omitted path confirmed unchanged
+
+**Next step**: run `RUN_FULL_SLATE_ORDERBOOK.bat` on the next live slate,
+starting by 12:00 UTC. Confirm `fresh_pct ≥ 80%` in health check by 14:00 UTC.
+Then run `kalshi_ev_overlay_preview.py` to validate EV estimates with real
+pregame prices.
+
+---
+
 ## 2026-06-16
 
 ### Fast Kalshi Market Data Fix v1

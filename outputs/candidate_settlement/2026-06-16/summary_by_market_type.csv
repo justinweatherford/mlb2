@@ -1,0 +1,4 @@
+market_type,count,settled_count,wins,losses,win_rate,avg_pnl_cents,total_pnl_cents,total_risk_cents,roi_on_risk
+team_total,574,574,123,451,0.2143,-22.833,-13106.0,25406.0,-0.5159
+full_game_total,53,53,29,24,0.5472,13.453,713.0,2187.0,0.326
+f5_total,13,13,0,13,0.0,-14.0,-182.0,182.0,-1.0

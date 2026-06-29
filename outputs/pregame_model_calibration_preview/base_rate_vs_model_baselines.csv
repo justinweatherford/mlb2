@@ -1,0 +1,6 @@
+prediction_type,baseline_type,actual_yes_rate,baseline_prediction,baseline_success_rate,sample_count
+f5_total_4_plus,majority_actual_outcome,0.6284,1,0.6284,5977
+full_total_9_plus,majority_actual_outcome,0.5071,1,0.5071,4737
+team_runs_4_plus,majority_actual_outcome,0.5622,1,0.5622,10009
+team_runs_5_plus,majority_actual_outcome,0.422,0,0.578,11876
+winner,always_pick_home_team,,home,0.527,7506

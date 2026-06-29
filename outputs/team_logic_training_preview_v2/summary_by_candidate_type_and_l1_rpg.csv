@@ -1,0 +1,7 @@
+candidate_type,l1_rpg_bucket,count,settled_count,wins,losses,win_rate,avg_pnl_cents,total_pnl_cents,total_risk_cents,roi_on_risk,avg_entry_price,avg_spread_cents
+trailing_team_total_lag_watch,low_lt_3_5,377,377,104,273,0.2759,-19.027,-7173.0,17573.0,-0.4082,46.613,20.103
+trailing_team_total_lag_watch,high_4_5_5_5,78,78,0,78,0.0,-42.821,-3340.0,3340.0,-1.0,42.821,9.295
+trailing_team_total_lag_watch,very_high_5_5_plus,72,72,14,58,0.1944,-25.611,-1844.0,3244.0,-0.5684,45.056,14.125
+full_game_total_extreme_reprice_watch,missing,53,53,29,24,0.5472,13.453,713.0,2187.0,0.326,41.264,1.717
+trailing_team_total_lag_watch,mid_3_5_4_5,47,47,5,42,0.1064,-15.936,-749.0,1249.0,-0.5997,26.574,9.872
+f5_total_overreaction_fade_watch,missing,13,13,0,13,0.0,-14.0,-182.0,182.0,-1.0,14.0,1.0

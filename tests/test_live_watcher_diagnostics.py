@@ -43,12 +43,12 @@ def _insert_game(
            game_id, status, is_final, last_checked_at, created_at)
         VALUES (?,?,?,?,?,?,?,?,?,?,?)
         """,
-        (pk, "2026-06-13",
+        (pk, datetime.now().strftime("%Y-%m-%d"),
          "Away Team", "Home Team",
          f"AWY{_game_counter}", f"HME{_game_counter}", gid,
          "Final" if is_final else "In Progress", is_final,
          last_checked_at or datetime.now().isoformat(),
-         "2026-06-13T18:00:00"),
+         datetime.now().strftime("%Y-%m-%dT18:00:00")),
     )
     conn.commit()
     return pk, gid

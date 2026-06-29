@@ -1,0 +1,10 @@
+prediction_type,predicted_outcome,count,correct,success_rate,actual_yes_rate_within_bucket,avg_model_edge
+f5_total_4_plus,1,5855,3676,0.6278,0.6278,0.714
+f5_total_4_plus,0,122,42,0.3443,0.6557,0.443
+full_total_9_plus,1,2862,1516,0.5297,0.5297,0.924
+full_total_9_plus,0,1875,989,0.5275,0.4725,0.764
+team_runs_4_plus,1,6749,3951,0.5854,0.5854,0.729
+team_runs_4_plus,0,3260,1584,0.4859,0.5141,0.567
+team_runs_5_plus,1,1620,785,0.4846,0.4846,0.617
+team_runs_5_plus,0,10256,6029,0.5879,0.4121,0.808
+winner,1,6020,3348,0.5561,0.5561,12.624

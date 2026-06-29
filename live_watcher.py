@@ -23,7 +23,7 @@ from mlb.derivatives import MARKET_TYPE_TO_DERIVATIVE
 log = logging.getLogger("live_watcher")
 
 
-def run_one_cycle(conn, verbose: bool = False) -> dict:
+def run_one_cycle(conn, verbose: bool = False, slate_date: str = None) -> dict:
     """
     One polling cycle: find active / recently-ended games, generate candidates.
 
@@ -44,15 +44,17 @@ def run_one_cycle(conn, verbose: bool = False) -> dict:
         spread_skip_reason         str   — canonical reason spread Watch candidates are blocked
         errors                     list[str]
     """
+    if slate_date is None:
+        slate_date = datetime.now().strftime("%Y-%m-%d")
     cutoff = (datetime.now() - timedelta(hours=4)).isoformat()
 
     games = conn.execute(
         """
         SELECT game_pk, game_id, is_final FROM mlb_games
-        WHERE is_final = 0
-           OR (is_final = 1 AND last_checked_at >= ?)
+        WHERE game_date = ?
+          AND (is_final = 0 OR (is_final = 1 AND last_checked_at >= ?))
         """,
-        (cutoff,),
+        (slate_date, cutoff),
     ).fetchall()
 
     live_games = sum(1 for g in games if not g["is_final"])
@@ -96,7 +98,7 @@ def run_one_cycle(conn, verbose: bool = False) -> dict:
 
     for game in games:
         try:
-            diag = generate_candidates_for_game(conn, game["game_pk"], game["game_id"])
+            diag = generate_candidates_for_game(conn, game["game_pk"], game["game_id"], slate_date=slate_date)
             total_rules_evaluated += diag.rules_evaluated
             total_candidates      += len(diag.ids)
             total_blocked         += diag.blocked
@@ -187,6 +189,11 @@ def main() -> None:
         help="Log per-game detail on every cycle",
     )
     parser.add_argument(
+        "--slate-date", default=None, metavar="YYYY-MM-DD",
+        help="Only process games for this date (default: today). "
+             "Prevents stale is_final=0 games from prior dates from being included.",
+    )
+    parser.add_argument(
         "--db", default=os.environ.get("DB_PATH", "kalshi_mlb.db"),
         help="Path to SQLite database",
     )
@@ -207,7 +214,7 @@ def main() -> None:
     conn = init_db(args.db)
     try:
         while True:
-            result = run_one_cycle(conn, verbose=args.verbose)
+            result = run_one_cycle(conn, verbose=args.verbose, slate_date=args.slate_date)
             for err in result["errors"]:
                 log.error("cycle error: %s", err)
             write_run_health(

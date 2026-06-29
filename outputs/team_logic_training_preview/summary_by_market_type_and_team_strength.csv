@@ -1,0 +1,5 @@
+market_type,team_strength_bucket,count,settled_count,wins,losses,win_rate,avg_pnl_cents,total_pnl_cents,total_risk_cents,roi_on_risk,avg_entry_price,avg_spread_cents
+team_total,50_55,325,325,91,234,0.28,-20.914,-6797.0,15897.0,-0.4276,48.914,18.822
+team_total,45_50,249,249,32,217,0.1285,-25.337,-6309.0,9509.0,-0.6635,38.189,14.731
+full_game_total,missing,53,53,29,24,0.5472,13.453,713.0,2187.0,0.326,41.264,1.717
+f5_total,missing,13,13,0,13,0.0,-14.0,-182.0,182.0,-1.0,14.0,1.0

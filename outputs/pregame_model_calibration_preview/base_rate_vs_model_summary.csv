@@ -1,0 +1,6 @@
+prediction_type,count,correct,success_rate,avg_model_edge,predicted_yes_count,predicted_no_count,predicted_yes_success_rate,predicted_no_success_rate,actual_yes_rate,baseline_type,baseline_success_rate,lift_vs_baseline
+f5_total_4_plus,5977,3718,0.6221,0.709,5855,122,0.6278,0.3443,0.6284,majority_actual_outcome,0.6284,-0.0063
+full_total_9_plus,4737,2505,0.5288,0.86,2862,1875,0.5297,0.5275,0.5071,majority_actual_outcome,0.5071,0.0217
+team_runs_4_plus,10009,5535,0.553,0.677,6749,3260,0.5854,0.4859,0.5622,majority_actual_outcome,0.5622,-0.0092
+team_runs_5_plus,11876,6814,0.5738,0.782,1620,10256,0.4846,0.5879,0.422,majority_actual_outcome,0.578,-0.0042
+winner,6020,3348,0.5561,12.624,6020,0,0.5561,,0.5561,always_pick_home_team,0.527,0.0291

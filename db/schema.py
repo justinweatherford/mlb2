@@ -352,6 +352,10 @@ CREATE TABLE IF NOT EXISTS mlb_games (
     final_total          INTEGER,
     is_final             INTEGER NOT NULL DEFAULT 0,
     game_start_time_utc  TEXT,
+    home_probable_pitcher_id    INTEGER,
+    home_probable_pitcher_name  TEXT,
+    away_probable_pitcher_id    INTEGER,
+    away_probable_pitcher_name  TEXT,
     last_checked_at      TEXT NOT NULL,
     created_at           TEXT NOT NULL
 );
@@ -586,6 +590,8 @@ CREATE TABLE IF NOT EXISTS candidate_events (
     selected_derivative_type    TEXT,
     derivative_rationale        TEXT,
     rejected_derivatives_json   TEXT,
+    -- Provenance: game date the candidate was generated for (from mlb_games.game_date)
+    trigger_game_date           TEXT,
     -- Deduplication columns: prevent re-inserting unchanged setups each cycle
     dedupe_key                TEXT,
     first_seen_at             TEXT,
@@ -860,6 +866,8 @@ def _apply_migrations(conn: sqlite3.Connection) -> None:
         "ALTER TABLE mlb_weather_reference ADD COLUMN wre_reasons TEXT",
         # v2.1 — actual game start time from MLB Stats API
         "ALTER TABLE mlb_games ADD COLUMN game_start_time_utc TEXT",
+        # Provenance guard v1 — game date the candidate was generated for
+        "ALTER TABLE candidate_events ADD COLUMN trigger_game_date TEXT",
         # Auto-fetch v2 columns
         "ALTER TABLE mlb_weather_reference ADD COLUMN wind_gust_mph REAL",
         "ALTER TABLE mlb_weather_reference ADD COLUMN pressure_hpa REAL",

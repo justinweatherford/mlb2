@@ -154,6 +154,7 @@ def generate_candidates_for_game(
     conn: sqlite3.Connection,
     game_pk: int,
     game_id: str,
+    slate_date: Optional[str] = None,
 ) -> GameDiag:
     """
     Scan DB state for game_pk/game_id and generate observation candidates.
@@ -161,6 +162,9 @@ def generate_candidates_for_game(
     Returns a GameDiag whose .ids lists newly-inserted candidate_event IDs.
     GameDiag is list-compatible (supports len/iter/bool/index) so existing
     callers that treat the return as list[int] work unchanged.
+
+    slate_date: if provided, skip games whose game_date != slate_date.
+                Prevents stale is_final=0 games from prior dates being processed.
     """
     _fn_derivative_type = [
         (_try_full_game_total_watch,    "fg_total"),
@@ -177,7 +181,13 @@ def generate_candidates_for_game(
     ).fetchone()
     if game_row and game_row["is_final"]:
         return diag
-    season = (game_row["game_date"][:4] if game_row and game_row["game_date"] else "2026")
+    game_date = game_row["game_date"] if game_row else None
+    # Belt-and-suspenders: skip games from other dates even if is_final=0.
+    # Primary guard is in run_one_cycle; this catches direct calls with wrong date.
+    if slate_date and game_date and game_date != slate_date:
+        diag.skip_reasons["wrong_game_date"] = diag.skip_reasons.get("wrong_game_date", 0) + 1
+        return diag
+    season = (game_date[:4] if game_date else "2026")
 
     gs            = _latest_game_state(conn, game_pk)
     scoring_plays = _recent_scoring_plays(conn, game_pk)
@@ -199,6 +209,13 @@ def generate_candidates_for_game(
                 )
                 if cid is not None:
                     if is_new:
+                        # Stamp trigger_game_date on newly inserted candidates.
+                        if game_date:
+                            conn.execute(
+                                "UPDATE candidate_events SET trigger_game_date=? WHERE id=? AND trigger_game_date IS NULL",
+                                (game_date, cid),
+                            )
+                            conn.commit()
                         diag.ids.append(cid)
                         if guardrail_blocked:
                             diag.blocked += 1

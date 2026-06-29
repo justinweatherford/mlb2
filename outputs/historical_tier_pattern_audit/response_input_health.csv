@@ -1,0 +1,4 @@
+season,response_rows,context_path
+2023,17535,outputs\historical_team_context_preview_v2\historical_team_context_2023_clean.csv
+2024,17312,outputs\historical_team_context_preview_v2\historical_team_context_2024_clean.csv
+2025,16883,outputs\historical_team_context_preview_v2\historical_team_context_2025_clean.csv

@@ -1,0 +1,176 @@
+classification,event_type,description,stored_outs,estimated_outs,pitcher_name
+line_drive,Lineout,Cole Young lines out sharply to center fielder Jacob Young.,1,1,Zack Littell
+line_drive,Lineout,Julio Rodríguez lines out to center fielder Jacob Young.,2,1,Zack Littell
+line_drive,Lineout,Josh Naylor lines out sharply to center fielder Jacob Young.,3,1,Zack Littell
+line_drive,Single,Randy Arozarena singles on a line drive to right fielder Dylan Crews.,0,0,Zack Littell
+line_drive,Single,Jhonny Pereda singles on a line drive to center fielder Jacob Young.,1,0,Zack Littell
+line_drive,Lineout,Cole Young lines out to left fielder James Wood.,2,1,Zack Littell
+line_drive,Lineout,Jorbit Vivas lines out to second baseman Cole Young.,2,1,Bryce Miller
+line_drive,Lineout,Luis García Jr. lines out sharply to center fielder Julio Rodríguez.,1,1,Bryce Miller
+line_drive,Single,Cole Young singles on a line drive to left fielder James Wood.,1,0,Riley Cornelio
+line_drive,Single,Luke Raley singles on a sharp line drive to right fielder Dylan Crews. Julio Rodríguez scores. Victor Robles scores.,2,0,Riley Cornelio
+line_drive,Single,Jorbit Vivas singles on a line drive to right fielder Victor Robles.,0,0,Bryce Miller
+line_drive,Single,Julio Rodríguez singles on a line drive to left fielder James Wood. Cole Young to 2nd.,0,0,Paxton Schultz
+line_drive,Lineout,Colt Emerson lines out to center fielder Jacob Young.,3,1,Paxton Schultz
+line_drive,Double,Alejandro Kirk doubles (2) on a line drive to left fielder Cody Bellinger. Ernie Clement scores.,2,0,Ryan Weathers
+line_drive,Single,Jazz Chisholm Jr. singles on a line drive to right fielder Nathan Lukes.,0,0,Trey Yesavage
+line_drive,Lineout,Paul Goldschmidt lines out to second baseman Ernie Clement.,2,1,Trey Yesavage
+line_drive,Single,Alejandro Kirk singles on a line drive to left fielder Cody Bellinger.,1,0,Ryan Weathers
+line_drive,Lineout,Ryan McMahon lines out sharply to center fielder Myles Straw.,3,1,Trey Yesavage
+line_drive,Double,J.C. Escarra doubles (4) on a line drive to center fielder Myles Straw.,0,0,Trey Yesavage
+line_drive,Single,Alejandro Kirk singles on a line drive to right fielder Spencer Jones. Vladimir Guerrero Jr. scores.,1,0,Jake Bird
+line_drive,Single,"Blue Jays challenged (tag play), call on the field was upheld: Trent Grisham singles on a sharp line drive to center fielder Myles Straw. Spencer Jones scores. José Caballero scores. Trent Grisham to 2nd.",2,0,Mason Fluharty
+line_drive,Lineout,Myles Straw lines out to right fielder Max Schuemann.,1,1,Jake Bird
+line_drive,Single,Andrés Giménez singles on a line drive to center fielder Spencer Jones.,2,0,Brent Headrick
+line_drive,Lineout,Ernie Clement lines out to right fielder Max Schuemann.,3,1,Brent Headrick
+line_drive,Single,Nathan Lukes singles on a line drive to left fielder Cody Bellinger. Alejandro Kirk to 2nd.,2,0,Camilo Doval
+ground_ball,Single,James Wood singles on a ground ball to right fielder Luke Raley.,0,0,Bryce Miller
+ground_ball,Grounded Into DP,"Curtis Mead grounds into a double play, second baseman Cole Young to first baseman Josh Naylor. James Wood out at 2nd. Curtis Mead out at 1st.",3,2,Bryce Miller
+ground_ball,Groundout,"Julio Rodríguez grounds out, second baseman Jorbit Vivas to first baseman Luis García Jr.",3,1,Riley Cornelio
+ground_ball,Groundout,"Randy Arozarena grounds out, third baseman Curtis Mead to first baseman Luis García Jr.",2,1,Riley Cornelio
+ground_ball,Single,"Miles Mastrobuoni singles on a ground ball to left fielder James Wood. Miles Mastrobuoni out at 2nd on the throw, left fielder James Wood to second baseman Jorbit Vivas.",2,0,Riley Cornelio
+ground_ball,Groundout,"Curtis Mead grounds out, third baseman Miles Mastrobuoni to first baseman Josh Naylor.",2,1,Bryce Miller
+ground_ball,Groundout,CJ Abrams grounds out to first baseman Josh Naylor.,3,1,Bryce Miller
+ground_ball,Groundout,"Colt Emerson grounds out, first baseman Luis García Jr. to pitcher Riley Cornelio.",1,1,Riley Cornelio
+ground_ball,Groundout,"Jhonny Pereda grounds out, second baseman Jorbit Vivas to first baseman Luis García Jr.",2,1,Riley Cornelio
+ground_ball,Groundout,"Luis García Jr. grounds out, first baseman Josh Naylor to pitcher Bryce Miller.",1,1,Bryce Miller
+ground_ball,Groundout,"Jhonny Pereda grounds out, second baseman Jorbit Vivas to first baseman Luis García Jr.",2,1,Paxton Schultz
+ground_ball,Groundout,"Jacob Young grounds out, shortstop Colt Emerson to first baseman Josh Naylor.",2,1,Bryce Miller
+ground_ball,Groundout,Jorbit Vivas grounds out to first baseman Josh Naylor.,3,1,Bryce Miller
+ground_ball,Groundout,"James Wood grounds out, third baseman Patrick Wisdom to first baseman Josh Naylor.",2,1,Michael Rucker
+ground_ball,Groundout,"Trent Grisham grounds out, shortstop Andrés Giménez to first baseman Vladimir Guerrero Jr.",1,1,Trey Yesavage
+ground_ball,Single,"Ernie Clement singles on a soft ground ball to catcher J.C. Escarra, deflected by third baseman Ryan McMahon.",1,0,Ryan Weathers
+ground_ball,Groundout,"Nathan Lukes grounds out, third baseman Ryan McMahon to first baseman Paul Goldschmidt.",3,1,Ryan Weathers
+ground_ball,Groundout,"Myles Straw grounds out, second baseman Jazz Chisholm Jr. to first baseman Paul Goldschmidt.",1,1,Ryan Weathers
+ground_ball,Groundout,"Davis Schneider grounds out, third baseman Ryan McMahon to first baseman Paul Goldschmidt.",2,1,Ryan Weathers
+ground_ball,Groundout,"Ben Rice grounds out, first baseman Vladimir Guerrero Jr. to pitcher Trey Yesavage.",1,1,Trey Yesavage
+ground_ball,Groundout,"Vladimir Guerrero Jr. grounds out, third baseman Ryan McMahon to first baseman Paul Goldschmidt.",1,1,Ryan Weathers
+ground_ball,Groundout,Trent Grisham grounds out to first baseman Vladimir Guerrero Jr. J.C. Escarra to 3rd.,1,1,Trey Yesavage
+ground_ball,Groundout,"Ernie Clement grounds out softly, catcher J.C. Escarra to first baseman Paul Goldschmidt. George Springer to 2nd.",1,1,Ryan Weathers
+ground_ball,Double,Vladimir Guerrero Jr. doubles (12) on a ground ball to left fielder Cody Bellinger. George Springer scores.,1,0,Jake Bird
+ground_ball,Double,José Caballero doubles (10) on a sharp ground ball to left fielder Davis Schneider. Spencer Jones to 3rd.,0,0,Trey Yesavage
+fly_ball,Flyout,Luis García Jr. flies out to right fielder Luke Raley.,1,1,Bryce Miller
+fly_ball,Triple,Dominic Canzone triples (1) on a sharp fly ball to center fielder Jacob Young. Randy Arozarena scores. Luke Raley scores.,0,0,Zack Littell
+fly_ball,Sac Fly,Miles Mastrobuoni out on a sacrifice fly to right fielder Dylan Crews. Dominic Canzone scores.,1,1,Zack Littell
+fly_ball,Home Run,Colt Emerson homers (5) on a fly ball to center field. Jhonny Pereda scores.,1,0,Zack Littell
+fly_ball,Flyout,Dylan Crews flies out to right fielder Luke Raley.,2,1,Bryce Miller
+fly_ball,Flyout,Luke Raley flies out to right fielder Dylan Crews.,3,1,Riley Cornelio
+fly_ball,Flyout,Keibert Ruiz flies out sharply to right fielder Victor Robles.,3,1,Bryce Miller
+fly_ball,Flyout,Dominic Canzone flies out to left fielder James Wood.,1,1,Riley Cornelio
+fly_ball,Home Run,James Wood homers (19) on a fly ball to right field.,0,0,Bryce Miller
+fly_ball,Flyout,Dominic Canzone flies out to center fielder Jacob Young.,3,1,Riley Cornelio
+fly_ball,Flyout,Dylan Crews flies out to left fielder Luke Raley.,1,1,Bryce Miller
+fly_ball,Flyout,Miles Mastrobuoni flies out to center fielder Jacob Young.,1,1,Riley Cornelio
+fly_ball,Single,Cole Young singles on a fly ball to center fielder Jacob Young.,0,0,Paxton Schultz
+fly_ball,Flyout,Josh Naylor flies out to center fielder Jacob Young.,1,1,Paxton Schultz
+fly_ball,Flyout,Victor Robles flies out to left fielder James Wood.,2,1,Paxton Schultz
+fly_ball,Flyout,Luke Raley flies out to right fielder Dylan Crews.,3,1,Paxton Schultz
+fly_ball,Home Run,Dominic Canzone homers (10) on a fly ball to right center field.,0,0,Paxton Schultz
+fly_ball,Home Run,Dylan Crews homers (3) on a fly ball to center field.,0,0,Bryce Miller
+fly_ball,Flyout,Daylen Lile flies out to right fielder Luke Raley.,1,1,Bryce Miller
+fly_ball,Flyout,Cole Young flies out to right fielder Dylan Crews.,1,1,Gus Varland
+fly_ball,Home Run,Josh Naylor homers (8) on a fly ball to right field.,2,0,Gus Varland
+fly_ball,Flyout,Victor Robles flies out to center fielder Jacob Young.,3,1,Gus Varland
+fly_ball,Flyout,Cody Bellinger flies out to right fielder Nathan Lukes.,3,1,Trey Yesavage
+fly_ball,Flyout,George Springer flies out to right fielder Spencer Jones.,1,1,Ryan Weathers
+fly_ball,Flyout,Vladimir Guerrero Jr. flies out to left fielder Cody Bellinger.,2,1,Ryan Weathers
+unclassified,Walk,Luke Raley walks.,0,0,Zack Littell
+unclassified,Strikeout,CJ Abrams strikes out swinging.,1,1,Bryce Miller
+unclassified,Strikeout,Daylen Lile called out on strikes.,3,1,Bryce Miller
+unclassified,Strikeout,Jacob Young called out on strikes.,1,1,Bryce Miller
+unclassified,Strikeout,Jhonny Pereda strikes out swinging.,3,1,Riley Cornelio
+unclassified,Walk,Julio Rodríguez walks. Cole Young to 2nd.,1,0,Riley Cornelio
+unclassified,Walk,Victor Robles walks. Cole Young to 3rd. Julio Rodríguez to 2nd.,2,0,Riley Cornelio
+unclassified,Strikeout,Jacob Young called out on strikes.,3,1,Bryce Miller
+unclassified,Strikeout,"Colt Emerson strikes out swinging, catcher Keibert Ruiz to first baseman Luis García Jr.",3,1,Riley Cornelio
+unclassified,Double Play,"Keibert Ruiz lines into a double play, second baseman Cole Young to first baseman Josh Naylor. Jorbit Vivas out at 1st.",2,2,Bryce Miller
+unclassified,Strikeout,James Wood strikes out swinging.,3,1,Bryce Miller
+unclassified,Strikeout,Curtis Mead strikes out swinging.,2,1,Bryce Miller
+unclassified,Strikeout,CJ Abrams strikes out swinging.,3,1,Bryce Miller
+unclassified,Strikeout,Miles Mastrobuoni called out on strikes.,1,1,Paxton Schultz
+unclassified,Strikeout,Patrick Wisdom strikes out swinging.,2,1,Gus Varland
+unclassified,Strikeout,Luis García Jr. strikes out swinging.,3,1,Michael Rucker
+unclassified,Walk,Ben Rice walks.,1,0,Trey Yesavage
+unclassified,Strikeout,Spencer Jones strikes out swinging.,1,1,Trey Yesavage
+unclassified,Walk,José Caballero walks.,1,0,Trey Yesavage
+unclassified,Walk,Ryan McMahon walks. Jazz Chisholm Jr. to 3rd. José Caballero to 2nd.,1,0,Trey Yesavage
+unclassified,Strikeout,J.C. Escarra strikes out swinging.,2,1,Trey Yesavage
+unclassified,Hit By Pitch,Andrés Giménez hit by pitch.,2,0,Ryan Weathers
+unclassified,Forceout,"Kazuma Okamoto grounds into a force out, third baseman Ryan McMahon to second baseman Jazz Chisholm Jr. Alejandro Kirk out at 2nd. Kazuma Okamoto to 1st.",2,1,Ryan Weathers
+unclassified,Strikeout,Nathan Lukes strikes out swinging.,3,1,Ryan Weathers
+unclassified,Walk,Spencer Jones walks.,1,0,Trey Yesavage
+popup,Pop Out,Josh Naylor pops out to third baseman Curtis Mead in foul territory.,1,1,Riley Cornelio
+popup,Pop Out,Josh Naylor pops out to shortstop CJ Abrams on the infield fly rule.,2,1,Riley Cornelio
+popup,Pop Out,Daylen Lile pops out to shortstop Colt Emerson.,2,1,Bryce Miller
+popup,Pop Out,Keibert Ruiz pops out to third baseman Patrick Wisdom.,1,1,Michael Rucker
+popup,Pop Out,Paul Goldschmidt pops out to first baseman Vladimir Guerrero Jr. in foul territory.,2,1,Trey Yesavage
+popup,Pop Out,Trent Grisham pops out to shortstop Andrés Giménez.,3,1,Trey Yesavage
+popup,Pop Out,Cody Bellinger pops out to shortstop Andrés Giménez.,3,1,Trey Yesavage
+popup,Pop Out,Spencer Horwitz pops out to third baseman Javier Sanoja in foul territory.,2,1,Sandy Alcantara
+popup,Pop Out,Joe Mack pops out to shortstop Jared Triolo.,3,1,Antwone Kelly
+popup,Pop Out,Jared Young pops out to shortstop Ha-Seong Kim.,2,1,Spencer Strider
+popup,Pop Out,Mauricio Dubón pops out to first baseman Jared Young on the infield fly rule.,2,1,Nolan McLean
+popup,Pop Out,Juan Soto pops out to third baseman Austin Riley.,3,1,Spencer Strider
+popup,Pop Out,Masyn Winn pops out to first baseman Royce Lewis.,1,1,Joe Ryan
+popup,Pop Out,Nathan Church pops out to shortstop Tristan Gray.,1,1,Joe Ryan
+popup,Pop Out,Masyn Winn pops out to third baseman Brooks Lee.,3,1,Joe Ryan
+popup,Pop Out,Masyn Winn pops out to second baseman Luke Keaschall.,1,1,Yoendrys Gómez
+popup,Pop Out,Iván Herrera pops out to second baseman Luke Keaschall on the infield fly rule.,2,1,Anthony Banda
+popup,Pop Out,Alec Bohm pops out to second baseman Brice Turang.,2,1,Jacob Misiorowski
+popup,Pop Out,Isaac Paredes pops out to second baseman Michael Massey.,1,1,Luinder Avila
+popup,Pop Out,Michael Massey pops out to third baseman Isaac Paredes.,3,1,Steven Okert
+popup,Pop Out,Jeremy Peña pops out to third baseman Maikel Garcia.,2,1,Steven Cruz
+popup,Pop Out,Vinnie Pasquantino pops out to third baseman Isaac Paredes.,1,1,AJ Blubaugh
+popup,Pop Out,Jac Caglianone pops out to shortstop Jeremy Peña.,2,1,Josh Hader
+popup,Pop Out,Chase DeLauter pops out to second baseman Gleyber Torres.,2,1,Jack Flaherty
+popup,Pop Out,Ryan Waldschmidt pops out to first baseman Sal Stewart in foul territory.,3,1,Nick Lodolo
+home_run_unclassified_contact,Home Run,Bo Bichette hits a grand slam (8) to right field. MJ Melendez scores. Luis Torrens scores. Carson Benge scores.,2,0,Spencer Strider
+home_run_unclassified_contact,Home Run,Yordan Alvarez hits a grand slam (24) to center field. Taylor Trammell scores. Christian Vázquez scores. Jeremy Peña scores.,2,0,Mason Black
+home_run_unclassified_contact,Home Run,Shea Langeliers hits a grand slam (3) to center field. Max Muncy scores. Denzel Clarke scores. Nick Kurtz scores.,1,0,Brendon Little
+home_run_unclassified_contact,Home Run,Dominic Smith hits a grand slam (1) to right center field. Eli White scores. Ozzie Albies scores. Michael Harris II scores.,1,0,Carlos Estévez
+home_run_unclassified_contact,Home Run,Colson Montgomery hits a grand slam (1) to center field. Chase Meidroth scores. Munetaka Murakami scores. Miguel Vargas scores.,0,0,Brandon Sproat
+home_run_unclassified_contact,Home Run,Miguel Vargas hits a grand slam (1) to left field. Tristan Peters scores. Everson Pereira scores. Luisangel Acuña scores.,1,0,Chris Paddack
+home_run_unclassified_contact,Home Run,Jonathan India hits a grand slam (1) to left field. Maikel Garcia scores. Vinnie Pasquantino scores. Salvador Perez scores.,2,0,Zak Kent
+home_run_unclassified_contact,Home Run,Tristan Gray hits a grand slam (1) to right field. Ryan Jeffers scores. Austin Martin scores. Royce Lewis scores.,1,0,Yoendrys Gómez
+home_run_unclassified_contact,Home Run,Jordan Walker hits a grand slam (2) to left center field. Iván Herrera scores. Alec Burleson scores. Nolan Gorman scores.,0,0,Drew Anderson
+home_run_unclassified_contact,Home Run,Angel Martínez hits a grand slam (1) to right center field. Austin Hedges scores. Brayan Rocchio scores. Steven Kwan scores.,0,0,Steven Cruz
+home_run_unclassified_contact,Home Run,Xander Bogaerts hits a grand slam (2) to left field. Jake Cronenworth scores. Jackson Merrill scores. Manny Machado scores.,1,0,Valente Bellozo
+home_run_unclassified_contact,Home Run,Jorge Soler hits a grand slam (4) to left center field. Adam Frazier scores. Zach Neto scores. Mike Trout scores.,2,0,Kyle Nicolas
+home_run_unclassified_contact,Home Run,Brandon Lowe hits a grand slam (4) to right center field. Marcell Ozuna scores. Spencer Horwitz scores. Konnor Griffin scores.,2,0,Jameson Taillon
+home_run_unclassified_contact,Home Run,Jeremiah Jackson hits a grand slam (2) to left field. Dylan Beavers scores. Leody Taveras scores. Colton Cowser scores.,1,0,Taylor Rashi
+home_run_unclassified_contact,Home Run,Dalton Rushing hits a grand slam (4) to center field. Teoscar Hernández scores. Max Muncy scores. Andy Pages scores.,0,0,Devin Williams
+home_run_unclassified_contact,Home Run,Jo Adell hits a grand slam (3) to right field. Adam Frazier scores. Zach Neto scores. Mike Trout scores.,2,0,Ryan Yarbrough
+home_run_unclassified_contact,Home Run,Daniel Schneemann hits a grand slam (2) to right field. Steven Kwan scores. Chase DeLauter scores. José Ramírez scores.,2,0,Anthony Nunez
+home_run_unclassified_contact,Home Run,Munetaka Murakami hits a grand slam (6) to center field. Chase Meidroth scores. Luisangel Acuña scores. Andrew Benintendi scores.,2,0,Elvis Alvarado
+home_run_unclassified_contact,Home Run,Corbin Carroll hits a grand slam (3) to left center field. Ildemaro Vargas scores. Alek Thomas scores. Ketel Marte scores.,0,0,Jeff Hoffman
+home_run_unclassified_contact,Home Run,Leody Taveras hits a grand slam (2) to center field. Samuel Basallo scores. Jeremiah Jackson scores. Weston Wilson scores.,0,0,Alex Lange
+home_run_unclassified_contact,Home Run,Ryan Jeffers hits a grand slam (3) to left field. Brooks Lee scores. Trevor Larnach scores. Josh Bell scores.,2,0,Huascar Brazobán
+home_run_unclassified_contact,Home Run,Andruw Monasterio hits a grand slam (1) to center field. Willson Contreras scores. Wilyer Abreu scores. Trevor Story scores.,0,0,Keegan Akin
+home_run_unclassified_contact,Home Run,Tim Tawa hits a grand slam (1) to left field. Jose Fernandez scores. Nolan Arenado scores. Alek Thomas scores.,1,0,David Morgan
+home_run_unclassified_contact,Home Run,Moisés Ballesteros hits a grand slam (5) to right field. Alex Bregman scores. Ian Happ scores. Seiya Suzuki scores.,2,0,Randy Vásquez
+home_run_unclassified_contact,Home Run,Brady House hits a grand slam (4) to left center field. Nasim Nuñez scores. James Wood scores. Curtis Mead scores.,2,0,Sean Manaea
+ignore,Game Advisory,Status Change - Warmup,0,0,Connor Prielipp
+ignore,Mound Visit,Mound Visit.,1,0,Connor Prielipp
+ignore,Game Advisory,Status Change - Warmup,0,0,Kevin Gausman
+ignore,Mound Visit,Mound Visit.,1,0,Matthew Liberatore
+ignore,Mound Visit,Mound Visit.,2,0,Cam Schlittler
+ignore,Game Advisory,Status Change - Warmup,0,0,Joey Cantillo
+ignore,Game Advisory,Status Change - Warmup,0,0,Sean Manaea
+ignore,Game Advisory,Status Change - Warmup,0,0,Ranger Suarez
+ignore,Game Advisory,Status Change - Pre-Game,0,0,Trey Gibson
+ignore,Game Advisory,Status Change - Warmup,0,0,Sean Burke
+ignore,Game Advisory,Status Change - Warmup,0,0,Rhett Lowder
+ignore,Pitching Substitution,Pitching Change: Justin Lawrence replaces Connor Prielipp.,0,0,Justin Lawrence
+ignore,Game Advisory,Status Change - Warmup,0,0,Bubba Chandler
+ignore,Offensive Substitution,Offensive Substitution: Pinch-hitter Lars Nootbaar replaces Nelson Velázquez.,2,0,Justin Lawrence
+ignore,Mound Visit,Mound Visit.,2,0,Justin Lawrence
+ignore,Game Advisory,Status Change - Warmup,0,0,Cade Cavalli
+ignore,Pitching Substitution,Pitching Change: Ryne Stanek replaces Matt Svanson.,0,0,Ryne Stanek
+ignore,Batter Timeout,Batter Timeout.,0,0,Trey Gibson
+ignore,Game Advisory,On-field Delay.,1,0,Bubba Chandler
+ignore,Offensive Substitution,Offensive Substitution: Pinch-hitter Tristan Gray replaces Ryan Kreidler.,1,0,Ryne Stanek
+ignore,Mound Visit,Mound Visit.,1,0,Trey Gibson
+ignore,Defensive Switch,Tristan Gray remains in the game as the shortstop.,0,0,Travis Adams
+ignore,Mound Visit,Mound Visit.,2,0,Trey Gibson
+ignore,Caught Stealing 2B,"Ceddanne Rafaela caught stealing 2nd base, catcher Elias Díaz to shortstop Nicky Lopez.",2,0,Jacob deGrom
+ignore,Pitching Substitution,Pitching Change: Chris Roycroft replaces Ryne Stanek.,0,0,Chris Roycroft

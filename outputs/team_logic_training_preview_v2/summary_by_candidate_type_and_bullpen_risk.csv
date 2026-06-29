@@ -1,0 +1,6 @@
+candidate_type,bullpen_risk_bucket,count,settled_count,wins,losses,win_rate,avg_pnl_cents,total_pnl_cents,total_risk_cents,roi_on_risk,avg_entry_price,avg_spread_cents
+trailing_team_total_lag_watch,slightly_low_40_50,458,458,66,392,0.1441,-31.419,-14390.0,20990.0,-0.6856,45.83,19.028
+trailing_team_total_lag_watch,elevated_50_60,83,83,57,26,0.6867,25.458,2113.0,3587.0,0.5891,43.217,8.88
+full_game_total_extreme_reprice_watch,missing,53,53,29,24,0.5472,13.453,713.0,2187.0,0.326,41.264,1.717
+trailing_team_total_lag_watch,low_risk_lt_40,33,33,0,33,0.0,-25.121,-829.0,829.0,-1.0,25.121,10.091
+f5_total_overreaction_fade_watch,missing,13,13,0,13,0.0,-14.0,-182.0,182.0,-1.0,14.0,1.0

@@ -1,0 +1,8 @@
+family,stable_positive_count,stable_negative_count,mixed_or_noisy_count,partial_count,best_positive_lift,best_negative_lift
+team_quality,29,16,255,0,0.1132,-0.1149
+offense_consistency,5,8,347,0,0.0594,-0.0543
+opponent_vulnerability,12,3,285,0,0.0773,-0.0607
+starter_quality,10,18,542,0,0.0482,-0.0714
+starter_volatility,10,7,283,0,0.0552,-0.0766
+f5_post5_identity,10,0,170,0,0.086,
+combo_tags,12,4,179,0,0.1042,-0.073

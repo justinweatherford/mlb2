@@ -1,0 +1,2 @@
+feature,feature_value,outcome,seasons_seen,season_count,total_count,min_season_count,avg_rate,avg_lift,min_lift,max_lift,stability_label
+BO_plus_weak_BD_tag,yes,team_runs_5plus,"2023,2024,2025",3,2907,942,0.4744,0.0428,0.0389,0.0487,stable_positive_lift

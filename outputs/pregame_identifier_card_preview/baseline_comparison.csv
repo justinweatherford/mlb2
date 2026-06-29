@@ -1,0 +1,6 @@
+model_version,outcome,score_side,threshold,prior_baseline,new_success_rate,new_count,improvement,beats_prior,status
+ff_only,team_won,positive_predict_yes,0.2,0.579,0.5772,1095,-0.0018,False,BELOW
+ff_only,team_runs_4plus,positive_predict_yes,0.15,0.594,0.5938,1376,-0.0002,False,BELOW
+ff_only,team_runs_5plus,negative_predict_no,0.2,0.651,0.6515,703,0.0005,True,IMPROVED
+ff_only,team_f5_runs_2plus,positive_predict_yes,0.2,0.613,0.6133,1086,0.0003,True,IMPROVED
+ff_only,game_winner_pick,positive_predict_yes,0.2,0.579,0.5785,1070,-0.0005,False,BELOW

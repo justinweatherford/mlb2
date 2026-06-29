@@ -36,11 +36,11 @@ def _get(path: str, params: Optional[dict] = None) -> Optional[dict]:
 
 
 def fetch_schedule(date_str: str) -> Optional[dict]:
-    """GET /api/v1/schedule?sportId=1&date=YYYY-MM-DD&hydrate=team"""
+    """GET /api/v1/schedule?sportId=1&date=YYYY-MM-DD&hydrate=team,probablePitcher"""
     return _get("/api/v1/schedule", {
         "sportId": "1",
         "date": date_str,
-        "hydrate": "team",
+        "hydrate": "team,probablePitcher",
     })
 
 

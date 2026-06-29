@@ -1,0 +1,55 @@
+blocked_reason,count,settled_count,wins,losses,win_rate,avg_pnl_cents,total_pnl_cents,total_risk_cents,roi_on_risk
+rally_still_active,182,182,41,141,0.2253,-14.632,-2663.0,6763.0,-0.3938
+team_lag_observe_only,172,172,36,136,0.2093,-14.983,-2577.0,6177.0,-0.4172
+(blank),38,38,18,20,0.4737,12.947,492.0,1308.0,0.3761
+team_lag_blowout,23,23,6,17,0.2609,-18.957,-436.0,1036.0,-0.4208
+team_lag_insufficient_baseball_support,12,12,0,12,0.0,-21.917,-263.0,263.0,-1.0
+wide_spread_hard_block: spread=53c > 12c,10,10,0,10,0.0,-63.0,-630.0,630.0,-1.0
+wide_spread_hard_block: spread=50c > 12c,9,9,4,5,0.4444,-27.111,-244.0,644.0,-0.3789
+wide_spread_hard_block: spread=57c > 12c,9,9,1,8,0.1111,-57.222,-515.0,615.0,-0.8374
+market_nearly_settled,9,9,3,6,0.3333,-7.444,-67.0,367.0,-0.1826
+wide_spread_hard_block: spread=48c > 12c,8,8,1,7,0.125,-52.875,-423.0,523.0,-0.8088
+wide_spread_hard_block: spread=23c > 12c,8,8,3,5,0.375,-17.5,-140.0,440.0,-0.3182
+wide_spread_hard_block: spread=40c > 12c,8,8,5,3,0.625,-2.875,-23.0,523.0,-0.044
+wide_spread_hard_block: spread=55c > 12c,8,8,0,8,0.0,-63.5,-508.0,508.0,-1.0
+wide_spread_hard_block: spread=14c > 12c,7,7,1,6,0.1429,-20.714,-145.0,245.0,-0.5918
+wide_spread_hard_block: spread=47c > 12c,7,7,1,6,0.1429,-52.857,-370.0,470.0,-0.7872
+wide_spread_hard_block: spread=18c > 12c,7,7,2,5,0.2857,-14.0,-98.0,298.0,-0.3289
+wide_spread_hard_block: spread=19c > 12c,6,6,0,6,0.0,-40.5,-243.0,243.0,-1.0
+wide_spread_hard_block: spread=29c > 12c,6,6,0,6,0.0,-47.0,-282.0,282.0,-1.0
+wide_spread_hard_block: spread=41c > 12c,6,6,1,5,0.1667,-37.667,-226.0,326.0,-0.6933
+wide_spread_hard_block: spread=37c > 12c,6,6,2,4,0.3333,-31.0,-186.0,386.0,-0.4819
+wide_spread_hard_block: spread=28c > 12c,6,6,2,4,0.3333,-31.333,-188.0,388.0,-0.4845
+wide_spread_hard_block: spread=52c > 12c,6,6,0,6,0.0,-63.667,-382.0,382.0,-1.0
+wide_spread_hard_block: spread=43c > 12c,5,5,3,2,0.6,-10.8,-54.0,354.0,-0.1525
+wide_spread_hard_block: spread=36c > 12c,5,5,3,2,0.6,-5.8,-29.0,329.0,-0.0881
+wide_spread_hard_block: spread=31c > 12c,5,5,1,4,0.2,-31.8,-159.0,259.0,-0.6139
+wide_spread_hard_block: spread=24c > 12c,4,4,2,2,0.5,-7.5,-30.0,230.0,-0.1304
+wide_spread_hard_block: spread=54c > 12c,4,4,1,3,0.25,-38.5,-154.0,254.0,-0.6063
+wide_spread_hard_block: spread=33c > 12c,4,4,2,2,0.5,-7.25,-29.0,229.0,-0.1266
+wide_spread_hard_block: spread=35c > 12c,4,4,1,3,0.25,-36.25,-145.0,245.0,-0.5918
+wide_spread_hard_block: spread=16c > 12c,4,4,0,4,0.0,-35.25,-141.0,141.0,-1.0
+wide_spread_hard_block: spread=15c > 12c,4,4,1,3,0.25,-9.75,-39.0,139.0,-0.2806
+wide_spread_hard_block: spread=17c > 12c,4,4,2,2,0.5,9.75,39.0,161.0,0.2422
+wide_spread_hard_block: spread=26c > 12c,3,3,2,1,0.6667,1.333,4.0,196.0,0.0204
+wide_spread_hard_block: spread=22c > 12c,3,3,1,2,0.3333,-20.667,-62.0,162.0,-0.3827
+wide_spread_hard_block: spread=46c > 12c,3,3,0,3,0.0,-54.333,-163.0,163.0,-1.0
+wide_spread_hard_block: spread=27c > 12c,3,3,0,3,0.0,-54.333,-163.0,163.0,-1.0
+wide_spread_hard_block: spread=39c > 12c,3,3,1,2,0.3333,-32.333,-97.0,197.0,-0.4924
+wide_spread_hard_block: spread=38c > 12c,3,3,1,2,0.3333,-24.333,-73.0,173.0,-0.422
+wide_spread_hard_block: spread=20c > 12c,3,3,0,3,0.0,-43.333,-130.0,130.0,-1.0
+wide_spread_hard_block: spread=34c > 12c,3,3,1,2,0.3333,-20.0,-60.0,160.0,-0.375
+wide_spread_hard_block: spread=44c > 12c,3,3,0,3,0.0,-60.333,-181.0,181.0,-1.0
+wide_spread_hard_block: spread=42c > 12c,2,2,1,1,0.5,-24.5,-49.0,149.0,-0.3289
+wide_spread_hard_block: spread=60c > 12c,2,2,0,2,0.0,-66.5,-133.0,133.0,-1.0
+wide_spread_hard_block: spread=45c > 12c,2,2,0,2,0.0,-54.0,-108.0,108.0,-1.0
+wide_spread_hard_block: spread=13c > 12c,2,2,0,2,0.0,-44.0,-88.0,88.0,-1.0
+wide_spread_hard_block: spread=49c > 12c,1,1,1,0,1.0,14.0,14.0,86.0,0.1628
+wide_spread_hard_block: spread=56c > 12c,1,1,0,1,0.0,-66.0,-66.0,66.0,-1.0
+wide_spread_hard_block: spread=84c > 12c,1,1,0,1,0.0,-96.0,-96.0,96.0,-1.0
+wide_spread_hard_block: spread=30c > 12c,1,1,0,1,0.0,-37.0,-37.0,37.0,-1.0
+wide_spread_hard_block: spread=79c > 12c,1,1,0,1,0.0,-95.0,-95.0,95.0,-1.0
+wide_spread_hard_block: spread=32c > 12c,1,1,0,1,0.0,-43.0,-43.0,43.0,-1.0
+wide_spread_hard_block: spread=63c > 12c,1,1,0,1,0.0,-64.0,-64.0,64.0,-1.0
+wide_spread_hard_block: spread=51c > 12c,1,1,0,1,0.0,-63.0,-63.0,63.0,-1.0
+wide_spread_hard_block: spread=21c > 12c,1,1,1,0,1.0,36.0,36.0,64.0,0.5625

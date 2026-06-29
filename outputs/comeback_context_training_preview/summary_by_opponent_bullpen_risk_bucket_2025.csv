@@ -1,0 +1,5 @@
+opponent_bullpen_risk_bucket,count,eventually_won_rate,tied_or_led_later_rate,took_lead_later_rate,scored_next_1_inning_rate,scored_next_2_innings_rate,reduced_deficit_next_2_rate,within_1_next_2_rate,avg_final_margin,avg_min_deficit_next_2
+slightly_low_40_50,21462,0.1621,0.2728,0.2072,0.3579,0.4713,0.3785,0.4588,-3.218,2.2
+elevated_50_60,5036,0.2115,0.338,0.2635,0.387,0.5054,0.4239,0.5079,-2.538,1.787
+low_risk_lt_40,1942,0.1864,0.2703,0.2194,0.3965,0.5196,0.3816,0.4001,-3.29,2.356
+missing,22,0.0,0.9545,0.0,0.4545,0.6364,0.4545,0.4091,-1.0,1.227

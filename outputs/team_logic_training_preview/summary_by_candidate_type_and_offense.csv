@@ -1,0 +1,7 @@
+candidate_type,offense_bucket,count,settled_count,wins,losses,win_rate,avg_pnl_cents,total_pnl_cents,total_risk_cents,roi_on_risk,avg_entry_price,avg_spread_cents
+trailing_team_total_lag_watch,40_45,240,240,32,208,0.1333,-32.55,-7812.0,11012.0,-0.7094,45.883,18.675
+trailing_team_total_lag_watch,45_50,173,173,55,118,0.3179,-7.491,-1296.0,6796.0,-0.1907,39.283,8.636
+trailing_team_total_lag_watch,50_55,147,147,31,116,0.2109,-27.741,-4078.0,7178.0,-0.5681,48.83,25.02
+full_game_total_extreme_reprice_watch,missing,53,53,29,24,0.5472,13.453,713.0,2187.0,0.326,41.264,1.717
+trailing_team_total_lag_watch,60_plus,14,14,5,9,0.3571,5.714,80.0,420.0,0.1905,30.0,9.357
+f5_total_overreaction_fade_watch,missing,13,13,0,13,0.0,-14.0,-182.0,182.0,-1.0,14.0,1.0

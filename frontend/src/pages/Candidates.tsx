@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
 import type { PaceFadeCandidate, SignalEvent, LiveCandidate, ManualTradeCreate } from '../types/api'
+import type { BadgeVariant } from '../lib/format'
 import { Badge } from '../components/Badge'
 import { DetailPanel, DetailRow, DetailSection, ConfidenceBar } from '../components/DetailPanel'
 import { LoadingState } from '../components/LoadingState'
@@ -402,6 +403,16 @@ function BaselineBadges({ c }: { c: LiveCandidate }) {
   )
 }
 
+function candidateStatus(c: LiveCandidate): { label: string; variant: BadgeVariant } {
+  if (
+    c.candidate_type === 'trailing_team_total_lag_watch' ||
+    c.blocked_reason === 'team_lag_observe_only'
+  ) return { label: 'Observe Only', variant: 'gray' }
+  if (c.blocked_reason) return { label: 'Blocked', variant: 'red' }
+  if (c.eligible_for_paper) return { label: 'Eligible', variant: 'green' }
+  return { label: 'Watch', variant: 'blue' }
+}
+
 function LiveCandidateDetail({ c, onLogTrade }: { c: LiveCandidate; onLogTrade: () => void }) {
   let guardrails: GuardrailsData | null = null
   try {
@@ -418,10 +429,7 @@ function LiveCandidateDetail({ c, onLogTrade }: { c: LiveCandidate; onLogTrade: 
       )
     : []
 
-  const statusLabel = c.blocked_reason ? 'Blocked'
-    : c.eligible_for_paper ? 'Eligible'
-    : 'Watch'
-  const statusVariant = c.blocked_reason ? 'red' : c.eligible_for_paper ? 'green' : 'blue'
+  const { label: statusLabel, variant: statusVariant } = candidateStatus(c)
 
   return (
     <>
@@ -431,10 +439,16 @@ function LiveCandidateDetail({ c, onLogTrade }: { c: LiveCandidate; onLogTrade: 
           <Badge label={candidateTypeLabel(c.candidate_type)} variant={candidateTypeVariant(c.candidate_type)} size="sm" />
           <Badge label={statusLabel} variant={statusVariant} dot size="sm" />
         </div>
-        {c.blocked_reason && (
+        {c.blocked_reason && c.blocked_reason !== 'team_lag_observe_only' && (
           <div className="mt-2 rounded-md bg-red-950/30 border border-red-800/30 px-3 py-2">
             <div className="text-xs font-semibold text-red-300 font-mono">{c.blocked_reason.replace(/_/g, ' ')}</div>
             <div className="text-[10px] text-slate-500 mt-0.5">Observation recorded. No position opened.</div>
+          </div>
+        )}
+        {c.blocked_reason === 'team_lag_observe_only' && (
+          <div className="mt-2 rounded-md bg-slate-900/60 border border-slate-700/30 px-3 py-2">
+            <div className="text-xs font-medium text-slate-400">Team Lag — observe only</div>
+            <div className="text-[10px] text-slate-600 mt-0.5">No position opened. Scores are observation signals, not calibrated EV.</div>
           </div>
         )}
       </DetailSection>
@@ -618,6 +632,9 @@ function LiveCandidateDetail({ c, onLogTrade }: { c: LiveCandidate; onLogTrade: 
                 </div>
               ))}
           </div>
+          <p className="mt-2 text-[10px] text-slate-600 leading-relaxed">
+            Observation signals only — not calibrated EV or trade recommendations. Score 0.50 = no clear signal.
+          </p>
         </DetailSection>
       )}
 
@@ -991,10 +1008,9 @@ function LiveWatchTab() {
       game_id: applied.game_id || undefined,
       candidate_type: applied.candidate_type || undefined,
       status: applied.status || undefined,
-      // setups mode requires live games — backend enforces this; no date filter needed
-      date_from: mode === 'history' ? (applied.date_from || undefined) : undefined,
+      date_from: applied.date_from || undefined,
       current_setups: mode === 'setups',
-      latest_unique: false,
+      latest_unique: mode === 'history',
       limit: mode === 'setups' ? 100 : 300,
     }),
     refetchInterval: 30_000,
@@ -1019,11 +1035,10 @@ function LiveWatchTab() {
             <button
               key={m}
               onClick={() => {
-                const newDateFrom = m === 'setups' ? today : ''
                 setMode(m)
                 setSelected(null)
-                setFilters(f => ({ ...f, date_from: newDateFrom }))
-                setApplied(a => ({ ...a, date_from: newDateFrom }))
+                setFilters(f => ({ ...f, date_from: today }))
+                setApplied(a => ({ ...a, date_from: today }))
               }}
               className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
                 mode === m
@@ -1038,17 +1053,17 @@ function LiveWatchTab() {
 
         <div className="h-4 border-l border-[#1a2540]" />
 
-        {mode === 'history' && (
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">From</label>
-            <input
-              type="date"
-              className="field-input w-36"
-              value={filters.date_from}
-              onChange={(e) => setFilters((f) => ({ ...f, date_from: e.target.value }))}
-            />
-          </div>
-        )}
+        <div className="flex flex-col gap-1">
+          <label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">
+            From{filters.date_from === today && <span className="text-slate-700 normal-case ml-1">(today)</span>}
+          </label>
+          <input
+            type="date"
+            className="field-input w-36"
+            value={filters.date_from}
+            onChange={(e) => setFilters((f) => ({ ...f, date_from: e.target.value }))}
+          />
+        </div>
         <div className="flex flex-col gap-1">
           <label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Game</label>
           <input
@@ -1115,11 +1130,11 @@ function LiveWatchTab() {
       {/* Mode description */}
       {mode === 'setups' ? (
         <p className="text-[11px] text-slate-600 mb-3 ml-1">
-          Live games only — one row per active market/read setup. Final, preview, and historical candidates are excluded. Refreshes every 30s.
+          Live games only — one row per active setup. Scores are observation signals, not calibrated EV. Refreshes every 30s.
         </p>
       ) : (
         <p className="text-[11px] text-slate-600 mb-3 ml-1">
-          Full candidate event history — every evaluation logged across all games. Use for debugging and audit.
+          Candidate history — one row per unique setup (game + market + state), collapsed by dedupe key. Use for review and audit.
         </p>
       )}
 
@@ -1189,11 +1204,7 @@ function LiveWatchTab() {
                         : <span className="text-slate-700">—</span>}
                     </td>
                     <td>
-                      {c.blocked_reason
-                        ? <Badge label="Blocked" variant="red" dot />
-                        : c.eligible_for_paper
-                          ? <Badge label="Eligible" variant="green" dot />
-                          : <Badge label="Watch" variant="blue" dot />}
+                      <Badge {...candidateStatus(c)} dot />
                     </td>
                     <td className="font-mono text-[11px] text-slate-500">
                       {mode === 'setups'

@@ -1,0 +1,2 @@
+settlement_status,count,settled_count,wins,losses,win_rate,avg_pnl_cents,total_pnl_cents,total_risk_cents,roi_on_risk
+score_derived,640,640,152,488,0.2375,-19.648,-12575.0,27775.0,-0.4527

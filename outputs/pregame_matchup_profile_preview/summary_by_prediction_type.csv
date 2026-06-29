@@ -1,0 +1,6 @@
+prediction_type,count,correct,success_rate,avg_model_edge
+f5_total_4_plus,5977,3718,0.6221,0.709
+full_total_9_plus,4737,2505,0.5288,0.86
+team_runs_4_plus,10009,5535,0.553,0.677
+team_runs_5_plus,11876,6814,0.5738,0.782
+winner,6020,3348,0.5561,12.624

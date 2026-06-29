@@ -1,0 +1,4 @@
+baseball_support_bucket,count,settled_count,wins,losses,hold_win_rate,avg_hold_pnl_cents,total_hold_pnl_cents,total_risk_cents,hold_roi_on_risk,avg_delta_1m,avg_delta_3m,avg_delta_5m,avg_delta_10m,favorable_1m_rate,favorable_5m_rate,avg_mfe_10m,avg_mae_10m,avg_baseball_support_score,avg_overall_watch_score,avg_runs_needed_team,avg_runs_needed_total,avg_spread_cents
+support_26_50,396,396,87,309,0.2197,-22.758,-9012.0,17712.0,-0.5088,4.745,5.124,5.127,4.737,0.5308,0.5435,8.421,0.733,48.422,46.451,4.269,-0.424,17.497
+support_51_75,192,192,65,127,0.3385,-13.745,-2639.0,9139.0,-0.2888,2.626,2.394,2.386,2.293,0.5263,0.5372,7.911,-2.566,53.75,49.027,4.12,-1.099,13.385
+support_0_25,52,52,0,52,0.0,-17.769,-924.0,924.0,-1.0,32.039,32.551,33.617,35.524,0.9412,0.9574,32.543,32.543,23.904,41.44,5.03,1.635,7.5

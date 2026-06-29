@@ -1,0 +1,9 @@
+candidate_type,runs_needed_team_bucket,count,settled_count,wins,losses,win_rate,avg_pnl_cents,total_pnl_cents,total_risk_cents,roi_on_risk,avg_entry_price,avg_spread_cents
+trailing_team_total_lag_watch,need_6_plus,149,149,2,147,0.0134,-26.436,-3939.0,4139.0,-0.9517,27.779,17.779
+trailing_team_total_lag_watch,need_4,117,117,13,104,0.1111,-29.932,-3502.0,4802.0,-0.7293,41.043,18.06
+trailing_team_total_lag_watch,need_5,105,105,11,94,0.1048,-23.048,-2420.0,3520.0,-0.6875,33.524,18.21
+trailing_team_total_lag_watch,need_2,80,80,46,34,0.575,-10.238,-819.0,5419.0,-0.1511,67.737,16.625
+trailing_team_total_lag_watch,need_3,78,78,22,56,0.2821,-23.179,-1808.0,4008.0,-0.4511,51.385,18.051
+full_game_total_extreme_reprice_watch,missing,53,53,29,24,0.5472,13.453,713.0,2187.0,0.326,41.264,1.717
+trailing_team_total_lag_watch,need_0_1,45,45,29,16,0.6444,-13.733,-618.0,3518.0,-0.1757,78.178,8.289
+f5_total_overreaction_fade_watch,missing,13,13,0,13,0.0,-14.0,-182.0,182.0,-1.0,14.0,1.0

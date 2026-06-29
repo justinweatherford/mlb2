@@ -1,0 +1,3 @@
+status,count,with_1m,with_5m,avg_delta_1m,avg_delta_3m,avg_delta_5m,avg_delta_10m,favorable_rate_1m,favorable_rate_5m,avg_mfe_10m,avg_mae_10m
+blocked,602,593,577,5.719,5.861,5.918,5.581,0.5649,0.5771,9.5,0.857
+observed_only,38,38,37,15.579,15.579,15.054,14.694,0.5263,0.5135,13.944,13.944

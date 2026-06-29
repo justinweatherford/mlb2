@@ -1,0 +1,13 @@
+variant,prediction_type,wrong_reason,count,correct,success_rate,avg_model_edge,predicted_yes_count,predicted_yes_success_rate,predicted_no_count,predicted_no_success_rate
+starter_basic,full_total_9_plus,thin_or_missing_starter_context,2232,0,0.0,0.854,1346,0.0,886,0.0
+starter_basic,team_runs_4_plus,thin_or_missing_starter_context,4474,0,0.0,0.656,2798,0.0,1676,0.0
+starter_basic,team_runs_5_plus,thin_or_missing_starter_context,5062,0,0.0,0.76,835,0.0,4227,0.0
+starter_basic,winner,thin_or_missing_starter_context,2672,0,0.0,12.071,2672,0.0,0,
+starter_basic_plus_xfip,full_total_9_plus,thin_or_missing_starter_context,2232,0,0.0,0.854,1346,0.0,886,0.0
+starter_basic_plus_xfip,team_runs_4_plus,thin_or_missing_starter_context,4474,0,0.0,0.656,2798,0.0,1676,0.0
+starter_basic_plus_xfip,team_runs_5_plus,thin_or_missing_starter_context,5062,0,0.0,0.76,835,0.0,4227,0.0
+starter_basic_plus_xfip,winner,thin_or_missing_starter_context,2672,0,0.0,12.071,2672,0.0,0,
+team_context_only,full_total_9_plus,thin_or_missing_starter_context,2232,0,0.0,0.854,1346,0.0,886,0.0
+team_context_only,team_runs_4_plus,thin_or_missing_starter_context,4474,0,0.0,0.656,2798,0.0,1676,0.0
+team_context_only,team_runs_5_plus,thin_or_missing_starter_context,5062,0,0.0,0.76,835,0.0,4227,0.0
+team_context_only,winner,thin_or_missing_starter_context,2672,0,0.0,12.071,2672,0.0,0,

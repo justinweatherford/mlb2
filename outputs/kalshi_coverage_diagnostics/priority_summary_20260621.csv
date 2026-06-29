@@ -1,0 +1,6 @@
+market_type,total,fresh_with_bid_ask,fresh_empty_book,recent_with_bid_ask,recent_empty_book,stale_with_bid_ask,stale_empty_book,no_snapshots,not_polled
+f5_total,105,102,3,0,0,0,0,0,0
+f5_winner,45,0,0,0,0,0,0,45,0
+full_game_total,163,153,10,0,0,0,0,0,0
+moneyline,30,28,2,0,0,0,0,0,0
+team_total,210,200,10,0,0,0,0,0,0

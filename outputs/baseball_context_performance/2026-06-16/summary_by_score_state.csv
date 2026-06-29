@@ -1,0 +1,3 @@
+score_state,count,settled_count,wins,losses,hold_win_rate,avg_hold_pnl_cents,total_hold_pnl_cents,total_risk_cents,hold_roi_on_risk,avg_delta_1m,avg_delta_3m,avg_delta_5m,avg_delta_10m,favorable_1m_rate,favorable_5m_rate,avg_mfe_10m,avg_mae_10m,avg_baseball_support_score,avg_overall_watch_score,avg_runs_needed_team,avg_runs_needed_total,avg_spread_cents
+selected_trailing,574,574,123,451,0.2143,-22.833,-13106.0,25406.0,-0.5159,5.403,5.547,5.548,5.141,0.5717,0.5839,9.423,0.303,48.782,45.539,4.263,-0.909,17.047
+no_selected_team,66,66,29,37,0.4394,8.045,531.0,2369.0,0.2241,14.106,14.106,14.106,14.106,0.4848,0.4848,12.635,12.635,41.47,57.926,,3.455,1.576

@@ -1,0 +1,5 @@
+total_score_state,count,settled_count,wins,losses,hold_win_rate,avg_hold_pnl_cents,total_hold_pnl_cents,total_risk_cents,hold_roi_on_risk,avg_delta_1m,avg_delta_3m,avg_delta_5m,avg_delta_10m,favorable_1m_rate,favorable_5m_rate,avg_mfe_10m,avg_mae_10m,avg_baseball_support_score,avg_overall_watch_score,avg_runs_needed_team,avg_runs_needed_total,avg_spread_cents
+medium_total_3_5,260,260,79,181,0.3038,-10.731,-2790.0,10690.0,-0.261,8.376,8.443,8.327,8.062,0.6279,0.6375,11.826,3.689,46.973,46.308,4.742,0.95,14.635
+high_total_6_8,144,144,27,117,0.1875,-30.278,-4360.0,7060.0,-0.6176,0.93,1.281,1.222,0.312,0.493,0.5111,5.802,-3.083,49.833,44.241,3.611,-2.493,21.069
+low_total_0_2,139,139,33,106,0.2374,-11.885,-1652.0,4952.0,-0.3336,14.359,14.466,14.477,14.368,0.6222,0.6241,16.852,11.957,47.324,53.252,5.0,3.36,7.799
+very_high_total_9_plus,97,97,13,84,0.134,-38.897,-3773.0,5073.0,-0.7437,-2.583,-2.589,-2.2,-2.353,0.4062,0.4211,1.772,-8.895,49.186,42.78,3.272,-6.691,20.268

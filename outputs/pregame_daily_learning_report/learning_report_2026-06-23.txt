@@ -1,0 +1,114 @@
+======================================================================
+  PREGAME BRAIN - DAILY LEARNING REPORT - 2026-06-23
+======================================================================
+  13 games  ·  26 card rows with results  ·  4 still pending
+  2026 total with actuals: 46 rows
+
+TODAY'S GAME LOG - 2026-06-23
+----------------------------------------------------------------------
+  Game         Team  HA     Side    4+   5no    F5  W/L   Runs   Opp   Tot
+  ------------------------------------------------------------------
+  AZ@STL       AZ    away   0.00  0.00  0.00  0.00  WIN      4     3     7
+  AZ@STL       STL   home   0.18  0.04  0.00  0.05  loss     3     4     7
+  BAL@LAA      BAL   away   0.23  0.13  0.00  0.21  loss     1     5     6
+  BAL@LAA      LAA   home   0.00  0.04  0.00  0.00  WIN      5     1     6
+  BOS@COL      BOS   away   0.14  0.12  0.00  0.16  WIN      5     2     7
+  BOS@COL      COL   home   0.04  0.05  0.00  0.05  loss     2     5     7
+  CHC@NYM      CHC   away   0.00  0.00  0.00  0.00  WIN      9     6    15
+  CHC@NYM      NYM   home   0.00  0.00  0.00  0.00  loss     6     9    15
+  CLE@CWS      CLE   away   0.00  0.00  0.00  0.00  loss     1     2     3
+  CLE@CWS      CWS   home   0.04  0.00  0.00  0.00  WIN      2     1     3
+  HOU@TOR      HOU   away   0.00  0.00  0.00  0.00  WIN      9     7    16
+  HOU@TOR      TOR   home   0.00  0.00  0.00  0.00  loss     7     9    16
+  KC@TB        KC    away   0.00  0.00  0.00  0.00  WIN     12     5    17
+  KC@TB        TB    home   0.34  0.32  0.00  0.23  loss     5    12    17
+  LAD@MIN      LAD   away   0.10  0.14  0.00  0.07  WIN     12     3    15
+  LAD@MIN      MIN   home   0.00  0.00  0.00  0.00  loss     3    12    15
+  MIL@CIN      MIL   away   0.25  0.14  0.00  0.12  WIN      2     0     2
+  MIL@CIN      CIN   home   0.00  0.00  0.00  0.00  loss     -     2     2
+  NYY@DET      NYY   away   0.19  0.08  0.00  0.07  WIN      4     3     7
+  NYY@DET      DET   home   0.00  0.00  0.00  0.00  loss     3     4     7
+  PHI@WSN      PHI   away   0.00  0.00  0.00  0.00  WIN     14     9    23
+  PHI@WSN      WSN   home   0.10  0.00  0.00  0.00  loss     9    14    23
+  SEA@PIT      SEA   away   0.01  0.32  0.00  0.18  WIN      3     2     5
+  SEA@PIT      PIT   home   0.00  0.04  0.00  0.00  loss     2     3     5
+  TEX@MIA      TEX   away   0.00  0.00  0.00  0.00  loss     4     6    10
+  TEX@MIA      MIA   home   0.00  0.00  0.00  0.00  WIN      6     4    10
+
+LANE PERFORMANCE - 2026-06-23
+----------------------------------------------------------------------
+  Lane                    Above thresh   Hit rate   Baseline    Delta
+  -----------------------------------------------------------------
+  side                             1/3   33.3%   49.9%  -16.6% *
+  side_fade                        1/2   50.0%   50.1%   -0.1% *
+  team_runs_4plus                  1/2   50.0%   55.6%   -5.6% *
+  team_runs_5plus_no              none    -     57.2%     -  
+  team_f5_runs_2plus               0/2    0.0%   58.1%  -58.1% *
+  * small sample (<5 cards)
+
+2026 CUMULATIVE PERFORMANCE (46 rows with actuals)
+----------------------------------------------------------------------
+  Lane                   Bin                n   2026 Rate   Hist Prob    Delta  Note
+  ------------------------------------------------------------------------
+  side                   0.00-0.10         32   50.0%   47.2%   +2.8%  low conf
+                         0.10-0.20          9   55.6%   50.4%   +5.2%  need 21 more
+                         0.20-0.30          3   33.3%   52.9%  -19.5%  need 27 more
+                         0.30-0.40          2   50.0%   54.9%   -4.9%  need 28 more
+  side_fade              0.00-0.10         37   48.6%   46.9%   +1.7%  low conf
+                         0.10-0.20          6   50.0%   52.9%   -2.9%  need 24 more
+                         0.20-0.30          3   66.7%   54.9%  +11.8%  need 27 more
+  team_runs_4plus        0.00-0.10         36   50.0%   53.1%   -3.1%  low conf
+                         0.10-0.20          7   28.6%   58.8%  -30.3%  need 23 more
+                         0.20-0.30          1    0.0%   56.7%  -56.7%  need 29 more
+                         0.30-0.40          2   50.0%   61.7%  -11.7%  need 28 more
+  team_runs_5plus_no     0.00-0.10         46   67.4%   55.5%  +11.9%  low conf
+  team_f5_runs_2plus     0.00-0.10         38   52.6%   56.5%   -3.8%  low conf
+                         0.10-0.20          5   20.0%   59.7%  -39.7%  need 25 more
+                         0.20-0.30          3    0.0%   61.9%  -61.9%  need 27 more
+
+CALIBRATION MOVERS (vs previous snapshot)
+----------------------------------------------------------------------
+  No bin moved more than 0.5% since last snapshot.
+
+SAMPLE SIZE TRACKER - target 30 per bin for usable calibration
+----------------------------------------------------------------------
+  side                   0.00-0.10        32/30  [####################]  LOW CONFIDENCE - usable
+  side                   0.10-0.20         9/30  [######..............]  need 21 more
+  side                   0.20-0.30         3/30  [##..................]  need 27 more
+  side                   0.30-0.40         2/30  [#...................]  need 28 more
+  side                   0.40+             0/30  [....................]  need 30 more
+  side_fade              0.00-0.10        37/30  [####################]  LOW CONFIDENCE - usable
+  side_fade              0.10-0.20         6/30  [####................]  need 24 more
+  side_fade              0.20-0.30         3/30  [##..................]  need 27 more
+  side_fade              0.30-0.40         0/30  [....................]  need 30 more
+  side_fade              0.40+             0/30  [....................]  need 30 more
+  team_runs_4plus        0.00-0.10        36/30  [####################]  LOW CONFIDENCE - usable
+  team_runs_4plus        0.10-0.20         7/30  [#####...............]  need 23 more
+  team_runs_4plus        0.20-0.30         1/30  [#...................]  need 29 more
+  team_runs_4plus        0.30-0.40         2/30  [#...................]  need 28 more
+  team_runs_4plus        0.40+             0/30  [....................]  need 30 more
+  team_runs_5plus_no     0.00-0.10        46/30  [####################]  LOW CONFIDENCE - usable
+  team_runs_5plus_no     0.10-0.20         0/30  [....................]  need 30 more
+  team_runs_5plus_no     0.20-0.30         0/30  [....................]  need 30 more
+  team_runs_5plus_no     0.30-0.40         0/30  [....................]  need 30 more
+  team_runs_5plus_no     0.40+             0/30  [....................]  need 30 more
+  team_f5_runs_2plus     0.00-0.10        38/30  [####################]  LOW CONFIDENCE - usable
+  team_f5_runs_2plus     0.10-0.20         5/30  [###.................]  need 25 more
+  team_f5_runs_2plus     0.20-0.30         3/30  [##..................]  need 27 more
+  team_f5_runs_2plus     0.30-0.40         0/30  [....................]  need 30 more
+  team_f5_runs_2plus     0.40+             0/30  [....................]  need 30 more
+
+MONEYLINE CORE NEAR-MISS GRADING
+----------------------------------------------------------------------
+  Observe-only diagnostics. Not candidates. Do not act on near misses.
+
+  2 near misses for 2026-06-23 | 1 graded | 1 pending actuals
+
+  Team   H/A    Score  Failed reasons                       Result  Note
+  --------------------------------------------------------------------------------
+  TB     home   0.339  below_0.40_threshold                 miss    below thresh miss
+
+  Pending actuals (1 rows):
+    ATH (away) score=0.4184 bucket=multiple_failures
+
+  Aggregate stats: need 10 graded near-miss rows (have 3 so far).

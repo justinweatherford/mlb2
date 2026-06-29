@@ -1,0 +1,4 @@
+f5_low_0_3,f5_high_6_plus,count,f5_low_0_3_rate,f5_high_6_plus_rate,post5_high_4_plus_rate,full_over_8_5_proxy_rate,f5_low_then_full_over_proxy_rate,f5_high_then_stall_proxy_rate,avg_final_margin,avg_next_2_innings_team_runs,avg_next_2_innings_opp_runs,avg_post5_runs,avg_f5_total,avg_full_total
+1,missing,970,1.0,0.0,0.4845,0.1928,0.1928,0.0,,,,3.966,1.894,5.86
+missing,1,965,0.0,1.0,0.4891,0.8373,0.0,0.3793,,,,3.833,8.345,12.178
+missing,missing,625,0.0,0.0,0.4592,0.4,0.0,0.0,,,,3.701,4.486,8.187

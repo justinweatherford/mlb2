@@ -1,0 +1,3 @@
+status,count,settled_count,wins,losses,win_rate,avg_pnl_cents,total_pnl_cents,total_risk_cents,roi_on_risk
+blocked,602,602,134,468,0.2226,-21.706,-13067.0,26467.0,-0.4937
+observed_only,38,38,18,20,0.4737,12.947,492.0,1308.0,0.3761

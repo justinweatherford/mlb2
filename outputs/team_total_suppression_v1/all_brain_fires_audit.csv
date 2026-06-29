@@ -1,0 +1,2 @@
+audit_id,slate_date,game_id,team,opponent,home_away,team_runs_5plus_no_score,target_market_suffix,matched_market_ticker,fill_quality,no_bid,no_ask,spread_cents_no,block_reason,hours_to_first_pitch,created_at
+adfe7ec140b9,2023-04-05,SF@CWS,CWS,SF,home,0.4082,CWS5,,no_market,,,,no_market,,2026-06-24T05:53:24.375182+00:00

@@ -1,0 +1,22 @@
+dataset,source_file_or_table,date_range,row_count,has_outcomes,has_market_prices,joinable_to,known_issues,data_type
+mlb_games,kalshi_mlb.db::mlb_games,2023-03-30 to 2026-09-22 (scheduled),8804,yes,no,pregame_identifier_cards (game_pk),2026 rows include unplayed games,historical+live
+mlb_play_events,kalshi_mlb.db::mlb_play_events,2023-2025,656149,yes,no,mlb_games (game_pk),no game_date column; join via game_pk only,historical
+mlb_inning_scores,kalshi_mlb.db::mlb_inning_scores,2023-2025,79077,yes,no,mlb_games (game_pk),no game_date column,historical
+mlb_game_states,kalshi_mlb.db::mlb_game_states,2023-2025 (partial),36387,yes,no,mlb_games,live capture; partial coverage,historical+live
+pregame_identifier_cards,outputs/pregame_identifier_card_preview/pregame_identifier_cards.csv,2023 to 2026-06-24,20048,yes (99.8% graded),no,mlb_games (game_pk) / SBR (game_date+team),2026 has 86 rows; 46 graded; 40 ungraded (future games),historical+live
+pregame_identifier_cards_2023,—,2023,4942,yes,no,—,—,historical
+pregame_identifier_cards_2024,—,2024,5120,yes,no,—,—,historical
+pregame_identifier_cards_2025,—,2025,9900,yes,no,—,—,historical
+pregame_identifier_cards_2026,—,2026-06-22 to 06-24,86,partial (54%),no,—,small sample; most ungraded,live
+kalshi_orderbook_snapshots,kalshi_mlb.db::kalshi_orderbook_snapshots,2026-06-15 to 2026-06-24,12362826,no,yes,kalshi_markets (market_ticker),12-13h daily collection gap kills afternoon pregame; June 12-14 = no data,live
+kalshi_markets,kalshi_mlb.db::kalshi_markets,2026,7969,no,no,kalshi_orderbook_snapshots (market_ticker),—,live
+kalshi_market_updates,kalshi_mlb.db::kalshi_market_updates,2026,39747814,no,yes (raw),—,Raw WS events; not directly queryable for prices,live
+sbr_moneyline_game_consensus,outputs/sbr_mlb_odds/sbr_moneyline_game_consensus.csv,2023-03-30 to 2025-11-01,7341,no,yes (moneyline only),pregame_identifier_cards (game_date+team),moneyline only — no game totals no team totals,historical
+vegas_baseline_calibration,outputs/vegas_baseline_reference/vegas_moneyline_calibration.csv,historical,9 buckets,yes (bucket rates),yes (implied prob),—,9-bucket calibration; aggregate reference only,historical
+fangraphs_team_offense,kalshi_mlb.db::fangraphs_team_offense,2026 current season,30,no,no,identifier cards (team),current-season only; refreshed manually,live
+mlb_team_context,kalshi_mlb.db::mlb_team_context,current season,60,no,no,identifier cards (team),rolling L10 context; 30 teams × 2 (home/away),live
+pregame_probability_calibration,outputs/pregame_probability_calibration/calibration_summary.md,2023-2025+,6 score types,yes,no,—,2026 calibration has only 46 graded rows; do not use,historical
+shadow_review_log,outputs/ev_shadow_review_log/shadow_review_summary.md,2026-06-23 only,3,partial,yes,fill_reconciliation,Only 3 rows total; too small for any conclusion,live
+fill_reconciliation,outputs/ev_fill_reconciler/fill_reconciliation_summary.md,2026-06-23,3 candidates,yes (1/3 hit),yes,shadow_review_log,Too small; 1/3 hit = noise,live
+team_total_suppression_shadow_log,outputs/team_total_suppression_v1/latest_daily_report.md,—,0,—,—,—,0 rows ever logged; lane fires but no Kalshi match,live
+near_miss_history,outputs/pregame_daily_learning_report/moneyline_near_miss_history.csv,2026-06-24,3,no,partial,identifier cards,3 rows; diagnostic only,live

@@ -287,7 +287,7 @@ def test_run_one_cycle_with_active_game():
     _insert_scoring_play(conn)
     _insert_game_state(conn)
 
-    result = run_one_cycle(conn)
+    result = run_one_cycle(conn, slate_date="2026-06-12")
     assert result["games_scanned"] == 1
     assert result["candidates_generated"] >= 1
     assert result["errors"] == []

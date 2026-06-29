@@ -1,0 +1,4 @@
+inning_bucket,count,settled_count,wins,losses,hold_win_rate,avg_hold_pnl_cents,total_hold_pnl_cents,total_risk_cents,hold_roi_on_risk,avg_delta_1m,avg_delta_3m,avg_delta_5m,avg_delta_10m,favorable_1m_rate,favorable_5m_rate,avg_mfe_10m,avg_mae_10m,avg_baseball_support_score,avg_overall_watch_score,avg_runs_needed_team,avg_runs_needed_total,avg_spread_cents
+middle_4_6,403,403,85,318,0.2109,-21.122,-8512.0,17012.0,-0.5004,7.716,7.824,7.863,7.526,0.593,0.6031,11.666,2.504,47.256,46.265,3.857,-1.851,14.7
+early_1_3,211,211,56,155,0.2654,-19.265,-4065.0,9665.0,-0.4206,3.432,3.697,3.698,3.412,0.5266,0.5415,6.296,-0.802,50.611,46.675,5.09,1.829,18.573
+late_7_9,26,26,11,15,0.4231,0.077,2.0,1098.0,0.0018,7.769,7.769,7.769,7.769,0.3846,0.3846,7.769,7.769,39.038,56.519,,2.538,1.769

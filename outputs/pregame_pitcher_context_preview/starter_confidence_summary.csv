@@ -1,0 +1,13 @@
+variant,prediction_type,starter_confidence,opponent_starter_confidence,count,correct,success_rate,avg_model_edge,predicted_yes_count,predicted_yes_success_rate,predicted_no_count,predicted_no_success_rate
+starter_basic,full_total_9_plus,low,low,4737,2505,0.5288,0.861,2862,0.5297,1875,0.5275
+starter_basic,team_runs_4_plus,none,none,10009,5535,0.553,0.677,6749,0.5854,3260,0.4859
+starter_basic,team_runs_5_plus,none,none,11876,6814,0.5738,0.782,1620,0.4846,10256,0.5879
+starter_basic,winner,none,none,6020,3348,0.5561,12.624,6020,0.5561,0,
+starter_basic_plus_xfip,full_total_9_plus,low,low,4737,2505,0.5288,0.861,2862,0.5297,1875,0.5275
+starter_basic_plus_xfip,team_runs_4_plus,none,none,10009,5535,0.553,0.677,6749,0.5854,3260,0.4859
+starter_basic_plus_xfip,team_runs_5_plus,none,none,11876,6814,0.5738,0.782,1620,0.4846,10256,0.5879
+starter_basic_plus_xfip,winner,none,none,6020,3348,0.5561,12.624,6020,0.5561,0,
+team_context_only,full_total_9_plus,low,low,4737,2505,0.5288,0.861,2862,0.5297,1875,0.5275
+team_context_only,team_runs_4_plus,none,none,10009,5535,0.553,0.677,6749,0.5854,3260,0.4859
+team_context_only,team_runs_5_plus,none,none,11876,6814,0.5738,0.782,1620,0.4846,10256,0.5879
+team_context_only,winner,none,none,6020,3348,0.5561,12.624,6020,0.5561,0,

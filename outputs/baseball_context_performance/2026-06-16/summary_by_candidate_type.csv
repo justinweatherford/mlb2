@@ -1,0 +1,4 @@
+candidate_type,count,settled_count,wins,losses,hold_win_rate,avg_hold_pnl_cents,total_hold_pnl_cents,total_risk_cents,hold_roi_on_risk,avg_delta_1m,avg_delta_3m,avg_delta_5m,avg_delta_10m,favorable_1m_rate,favorable_5m_rate,avg_mfe_10m,avg_mae_10m,avg_baseball_support_score,avg_overall_watch_score,avg_runs_needed_team,avg_runs_needed_total,avg_spread_cents
+trailing_team_total_lag_watch,574,574,123,451,0.2143,-22.833,-13106.0,25406.0,-0.5159,5.403,5.547,5.548,5.141,0.5717,0.5839,9.423,0.303,48.782,45.539,4.263,-0.909,17.047
+full_game_total_extreme_reprice_watch,53,53,29,24,0.5472,13.453,713.0,2187.0,0.326,8.736,8.736,8.736,8.736,0.3585,0.3585,6.56,6.56,39.868,56.951,,4.132,1.717
+f5_total_overreaction_fade_watch,13,13,0,13,0.0,-14.0,-182.0,182.0,-1.0,36.0,36.0,36.0,36.0,1.0,1.0,36.0,36.0,48.0,61.9,,0.692,1.0

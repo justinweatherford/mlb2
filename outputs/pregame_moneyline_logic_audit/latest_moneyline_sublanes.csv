@@ -1,0 +1,16 @@
+lane,display_label,condition,condition_value,score_threshold,n,hits,hit_rate,lane_baseline,pool_rate,lift_vs_pool_pp,lift_vs_baseline_pp,hit_rate_2023,hit_rate_2024,hit_rate_2025,n_2023,n_2024,n_2025,worst_season_rate,consistency,conservative_prob,not_cond_n,not_cond_hits
+side,home_game,home_away,home,0.2,2825,1681,0.595,0.499,0.5763,1.8748,9.6044,0.5741,0.5909,0.612,897,660,1268,0.5741,consistent_positive,0.5918,1841,1008
+side,away_game,home_away,away,0.2,1841,1008,0.5475,0.499,0.5763,-2.8768,4.8529,0.5482,0.5933,0.5293,560,359,922,0.5293,consistent_positive,0.545,2825,1681
+side,BO_very_high,_direct:bo_bucket,very_high_115_plus,0.2,2625,1510,0.5752,0.499,0.5763,-0.1059,7.6238,0.5594,0.5969,0.5754,808,583,1234,0.5594,consistent_positive,0.5724,2041,1179
+side,BO_very_low,_direct:bo_bucket,very_low_lt_85,0.2,476,285,0.5987,0.499,0.5763,2.2443,9.9739,0.5949,0.622,0.5932,158,82,236,0.5932,consistent_positive,0.5814,4190,2404
+side,BD_very_high,_direct:bd_bucket,very_high_115_plus,0.2,1914,1103,0.5763,0.499,0.5763,-0.0017,7.728,0.5575,0.5643,0.5935,574,420,920,0.5575,consistent_positive,0.5724,2752,1586
+side,BD_very_low,_direct:bd_bucket,very_low_lt_85,0.2,930,514,0.5527,0.499,0.5763,-2.3608,5.3688,0.5545,0.5966,0.5339,312,176,442,0.5339,consistent_positive,0.5475,3736,2175
+side,BO_plus_weak_BD,_direct:bo_plus_weak_bd_tag,yes,0.2,2026,1184,0.5844,0.499,0.5763,0.8106,8.5403,0.5703,0.6121,0.5806,612,446,968,0.5703,consistent_positive,0.5804,2640,1505
+side,opp_weak_lt40,opponent_strength_bucket,lt_40,0.2,1180,721,0.611,0.499,0.5763,3.472,11.2017,0.6152,0.6444,0.5814,421,329,430,0.5814,consistent_positive,0.6023,3486,1968
+side,strength_gap_plus10,team_strength_gap_bucket,plus_10_plus,0.2,1251,733,0.5859,0.499,0.5763,0.9635,8.6931,0.5506,0.6051,0.591,267,314,670,0.5506,consistent_positive,0.5795,3415,1956
+side,tag_weak_leader,tag_weak_leader_fade_watch,yes,0.2,1557,926,0.5947,0.499,0.5763,1.8437,9.5733,0.6017,0.6188,0.5704,585,404,568,0.5704,consistent_positive,0.589,3109,1763
+side,tag_live_rebound,tag_live_rebound_watch,yes,0.2,846,485,0.5733,0.499,0.5763,-0.3011,7.4286,0.5429,0.6043,0.5714,210,230,406,0.5429,consistent_positive,0.5654,3820,2204
+side,tag_strong_vs_vuln_starter,tag_strong_offense_vs_vulnerable_starter,yes,0.2,102,39,0.3824,0.499,0.5763,-19.3944,-11.6647,,0.3611,0.3939,0,36,66,0.3611,negative,0.4401,4564,2650
+side,tag_home_scoring,tag_home_scoring_spot,yes,0.2,34,17,0.5,0.499,0.5763,-7.6297,0.1,0.4815,0.0,0.6667,27,1,6,0.0,mixed,0.4993,4632,2672
+side,opp_starter_excellent,opponent_starter_xfip_bucket,excellent_lt_3_75,0.2,0,0,,0.499,0.5763,,,,,,0,0,0,,insufficient_sample,,4666,2689
+side,opp_starter_very_bad,opponent_starter_xfip_bucket,very_bad_5_25_plus,0.2,82,54,0.6585,0.499,0.5763,8.224,15.9537,,0.0,0.675,0,2,80,0.0,mixed,0.5709,4584,2635
