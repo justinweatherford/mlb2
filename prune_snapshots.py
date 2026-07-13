@@ -49,22 +49,21 @@ def prune(db_path: str, execute: bool) -> None:
     #   1. snapped_at >= NOW - 48h  (recent, keep for live analysis)
     #   2. snapped_at >= close_time - 4h AND snapped_at <= close_time  (pregame window)
 
-    count_sql = """
-        SELECT COUNT(*)
+    # SQLite requires DELETE ... WHERE rowid IN (subquery) — no DELETE...JOIN syntax.
+    candidate_sql = """
+        SELECT s.rowid
         FROM kalshi_orderbook_snapshots s
         LEFT JOIN kalshi_markets m ON s.market_ticker = m.market_ticker
         WHERE
-            -- older than 48 hours
             s.snapped_at < datetime('now', '-48 hours')
             AND NOT (
-                -- within pregame window: up to 4 hours before close_time
                 m.close_time IS NOT NULL
                 AND s.snapped_at >= datetime(m.close_time, '-4 hours')
                 AND s.snapped_at <= m.close_time
             )
     """
 
-    cur.execute(count_sql)
+    cur.execute(f"SELECT COUNT(*) FROM ({candidate_sql})")
     to_delete = cur.fetchone()[0]
 
     log.info("Total snapshots: %s", f"{total_before:,}")
@@ -81,9 +80,8 @@ def prune(db_path: str, execute: bool) -> None:
         conn.close()
         return
 
-    delete_sql = count_sql.replace("SELECT COUNT(*)", "DELETE")
     log.info("Deleting %s rows...", f"{to_delete:,}")
-    cur.execute(delete_sql)
+    cur.execute(f"DELETE FROM kalshi_orderbook_snapshots WHERE rowid IN ({candidate_sql})")
     conn.commit()
 
     cur.execute("SELECT COUNT(*) FROM kalshi_orderbook_snapshots")
