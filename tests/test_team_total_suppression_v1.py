@@ -6,7 +6,9 @@ import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 
+import sqlite3
 import sys
+from datetime import timedelta
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import team_total_suppression_v1 as tts
@@ -534,6 +536,107 @@ class TestNoMarketFireInAuditNotShadow(unittest.TestCase):
             with open(audit_path) as f:
                 audit_rows = list(csv.DictReader(f))
             self.assertEqual(len(audit_rows), 3)
+
+
+# ── New tests — ticker time audit fix (outputs/kalshi_time_audit/) ────────────
+# Ticker HHMM is not reliably UTC (audited ~4h off from mlb_games.game_start_time_utc).
+# Authoritative game start now comes only from mlb_games via game_pk; doubleheader
+# ambiguity is refused rather than guessed.
+
+class TestParseTeam5TickerNoUtcAssumption(unittest.TestCase):
+    def test_does_not_derive_game_start_utc_from_ticker(self):
+        result = tts._parse_team5_ticker("KXMLBTEAMTOTAL-26JUN232145ATHSF-ATH5")
+        self.assertIsNotNone(result)
+        self.assertNotIn("game_start_utc", result)
+
+    def test_parses_team_codes(self):
+        result = tts._parse_team5_ticker("KXMLBTEAMTOTAL-26JUN232145ATHSF-ATH5")
+        self.assertEqual(result["team_code"], "ATH")
+        self.assertEqual(result["away_team"], "ATH")
+        self.assertEqual(result["home_team"], "SF")
+
+
+class TestLoadGameStartsByPk(unittest.TestCase):
+    def _make_conn(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(":memory:")
+        conn.execute("CREATE TABLE mlb_games (game_pk INT, game_start_time_utc TEXT)")
+        return conn
+
+    def test_loads_authoritative_start_from_mlb_games(self):
+        conn = self._make_conn()
+        conn.execute("INSERT INTO mlb_games VALUES (?, ?)", (823521, "2026-07-19T23:20"))
+        conn.commit()
+        starts = tts._load_game_starts_by_pk(conn)
+        conn.close()
+        self.assertEqual(starts["823521"], datetime(2026, 7, 19, 23, 20, tzinfo=timezone.utc))
+
+
+class TestFindTeam5Ticker(unittest.TestCase):
+    def _make_conn(self, ticker_snap_dates: list[tuple[str, str]]) -> sqlite3.Connection:
+        conn = sqlite3.connect(":memory:")
+        conn.execute(
+            "CREATE TABLE kalshi_orderbook_snapshots "
+            "(market_ticker TEXT, market_type TEXT, snapped_at TEXT)"
+        )
+        conn.executemany(
+            "INSERT INTO kalshi_orderbook_snapshots VALUES (?, 'team_total', ?)",
+            ticker_snap_dates,
+        )
+        conn.commit()
+        return conn
+
+    def test_matches_team5_ticker(self):
+        conn = self._make_conn([
+            ("KXMLBTEAMTOTAL-26JUL191410SDKC-SD5", "2026-07-19T17:40:00+00:00"),
+        ])
+        starts = {"1": datetime(2026, 7, 19, 18, 10, tzinfo=timezone.utc)}
+        ticker, start, status = tts._find_team5_ticker(conn, "SD", "2026-07-19", "1", starts)
+        conn.close()
+        self.assertEqual(status, "ok")
+        self.assertEqual(ticker, "KXMLBTEAMTOTAL-26JUL191410SDKC-SD5")
+        self.assertEqual(start, starts["1"])
+
+    def test_no_game_start_match_refuses_not_guesses(self):
+        conn = self._make_conn([
+            ("KXMLBTEAMTOTAL-26JUL191410SDKC-SD5", "2026-07-19T17:40:00+00:00"),
+        ])
+        ticker, start, status = tts._find_team5_ticker(conn, "SD", "2026-07-19", "unknown_pk", {})
+        conn.close()
+        self.assertIsNone(ticker)
+        self.assertIsNone(start)
+        self.assertEqual(status, "no_game_start_match")
+
+    def test_no_market_match_when_no_ticker_exists(self):
+        conn = self._make_conn([])
+        starts = {"1": datetime(2026, 7, 19, 18, 10, tzinfo=timezone.utc)}
+        ticker, start, status = tts._find_team5_ticker(conn, "SD", "2026-07-19", "1", starts)
+        conn.close()
+        self.assertIsNone(ticker)
+        self.assertEqual(status, "no_market_match")
+
+    def test_doubleheader_ambiguity_refused_not_guessed(self):
+        # Two distinct tickers for the same team, snapshots collected within the
+        # game_date-1..+1 window -- a real doubleheader case found in production
+        # data (LAD@NYY on 2026-07-19). Must refuse, never silently pick one.
+        conn = self._make_conn([
+            ("KXMLBTEAMTOTAL-26JUL191920LADNYY-LAD5", "2026-07-19T17:40:00+00:00"),
+            ("KXMLBTEAMTOTAL-26JUL182008LADNYY-LAD5", "2026-07-19T18:00:00+00:00"),
+        ])
+        starts = {"823521": datetime(2026, 7, 19, 23, 20, tzinfo=timezone.utc)}
+        ticker, start, status = tts._find_team5_ticker(conn, "LAD", "2026-07-19", "823521", starts)
+        conn.close()
+        self.assertIsNone(ticker)
+        self.assertEqual(status, "ambiguous_multiple_tickers")
+
+    def test_applies_brain_to_kalshi_mapping(self):
+        conn = self._make_conn([
+            ("KXMLBTEAMTOTAL-26JUL191605WSHATH-WSH5", "2026-07-19T17:40:00+00:00"),
+        ])
+        starts = {"1": datetime(2026, 7, 19, 20, 5, tzinfo=timezone.utc)}
+        ticker, start, status = tts._find_team5_ticker(conn, "WSN", "2026-07-19", "1", starts)
+        conn.close()
+        self.assertEqual(status, "ok")
+        self.assertEqual(ticker, "KXMLBTEAMTOTAL-26JUL191605WSHATH-WSH5")
 
 
 if __name__ == "__main__":

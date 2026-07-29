@@ -116,6 +116,16 @@ def _brain_to_kalshi(team: str) -> str:
 
 
 def _parse_team5_ticker(ticker: str) -> dict | None:
+    """Parse team codes from a [TEAM]5 ticker.
+
+    Does NOT treat the ticker's embedded HHMM as UTC — audited and found to be
+    off by ~4 hours from mlb_games.game_start_time_utc (the authoritative MLB
+    Stats API value) across every game checked, consistent with US Eastern time
+    rather than UTC despite the ticker's naming convention. See
+    outputs/kalshi_time_audit/. Authoritative game start time must come from
+    mlb_games via game_pk (see _load_game_starts_by_pk), never from this
+    ticker's time component.
+    """
     m = TEAM5_RE.match(ticker)
     if not m:
         return None
@@ -133,18 +143,24 @@ def _parse_team5_ticker(ticker: str) -> dict | None:
         return None
     if not away_team or not home_team:
         return None
-    try:
-        game_start = datetime(
-            2000 + int(yr), month, int(day),
-            int(time4[:2]), int(time4[2:]),
-            tzinfo=timezone.utc,
-        )
-    except ValueError:
-        return None
-    return {
-        "team_code": team_code, "away_team": away_team, "home_team": home_team,
-        "game_start_utc": game_start,
-    }
+    return {"team_code": team_code, "away_team": away_team, "home_team": home_team}
+
+
+def _load_game_starts_by_pk(conn: sqlite3.Connection) -> dict[str, datetime]:
+    """Authoritative game_start_utc per game_pk, from mlb_games (MLB Stats API
+    gameDate field, genuine UTC) — never from Kalshi ticker time."""
+    out: dict[str, datetime] = {}
+    for game_pk, start in conn.execute(
+        "SELECT game_pk, game_start_time_utc FROM mlb_games WHERE game_start_time_utc IS NOT NULL"
+    ):
+        try:
+            dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
+        except (ValueError, AttributeError):
+            continue
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        out[str(game_pk)] = dt
+    return out
 
 
 def _fill_quality_no(snap: dict, game_start_utc: datetime) -> tuple[str, str]:
@@ -314,21 +330,49 @@ def _load_shadow_log() -> list[dict]:
 # ── Kalshi DB queries ──────────────────────────────────────────────────────────
 
 def _find_team5_ticker(
-    conn: sqlite3.Connection, team: str, game_date: str
-) -> tuple[str | None, dict | None]:
-    """Find the [TEAM]5 ticker for a given team on a given date."""
+    conn: sqlite3.Connection,
+    team: str,
+    game_date: str,
+    game_pk: str,
+    game_starts_by_pk: dict[str, datetime],
+) -> tuple[str | None, datetime | None, str]:
+    """Find the [TEAM]5 ticker for a given team/game, and its authoritative
+    game_start_utc (from mlb_games via game_pk — never from ticker time, see
+    _parse_team5_ticker's docstring).
+
+    Returns (ticker, game_start_utc, status). status is "ok",
+    "no_market_match", "ambiguous_multiple_tickers" (a doubleheader that can't
+    be disambiguated and is refused rather than guessed), or
+    "no_game_start_match" (game_pk not found in mlb_games).
+
+    Candidate tickers are searched over the actual snapshot collection date
+    (date(snapped_at), reliable UTC) for game_date-1..+1, not the ticker's own
+    embedded date (unreliable — see outputs/kalshi_time_audit/).
+    """
+    game_start_utc = game_starts_by_pk.get(str(game_pk))
+    if game_start_utc is None:
+        return None, None, "no_game_start_match"
+
+    try:
+        base = datetime.strptime(game_date, "%Y-%m-%d").date()
+    except ValueError:
+        return None, game_start_utc, "no_market_match"
+
     kalshi_code = _brain_to_kalshi(team)
+    date_strs = [(base + timedelta(days=off)).isoformat() for off in (-1, 0, 1)]
+    placeholders = ",".join("?" * len(date_strs))
     cur = conn.execute(
-        "SELECT DISTINCT market_ticker FROM kalshi_orderbook_snapshots "
-        "WHERE market_ticker LIKE 'KXMLBTEAMTOTAL-%' || ? || '5' "
-        "AND market_type = 'team_total' LIMIT 20",
-        (kalshi_code,),
+        f"SELECT DISTINCT market_ticker FROM kalshi_orderbook_snapshots "
+        f"WHERE market_ticker LIKE 'KXMLBTEAMTOTAL-%' || ? || '5' "
+        f"AND market_type = 'team_total' AND date(snapped_at) IN ({placeholders})",
+        (kalshi_code, *date_strs),
     )
-    for (ticker,) in cur.fetchall():
-        parsed = _parse_team5_ticker(ticker)
-        if parsed and parsed["game_start_utc"].strftime("%Y-%m-%d") == game_date:
-            return ticker, parsed
-    return None, None
+    tickers = {r[0] for r in cur.fetchall() if _parse_team5_ticker(r[0])}
+    if not tickers:
+        return None, game_start_utc, "no_market_match"
+    if len(tickers) > 1:
+        return None, game_start_utc, "ambiguous_multiple_tickers"
+    return next(iter(tickers)), game_start_utc, "ok"
 
 
 def _get_pregame_snap(
@@ -478,12 +522,11 @@ def _append_audit_log(rows: list[dict], path: Path, dry_run: bool) -> int:
 def _build_candidate(
     card_row: dict,
     ticker: str,
-    parsed_ticker: dict,
+    game_start: datetime,
     snap: dict,
     sbr_index: dict,
     now_utc: datetime,
 ) -> dict:
-    game_start = parsed_ticker["game_start_utc"]
 
     fill_quality, fill_quality_reason = _fill_quality_no(snap, game_start)
 
@@ -774,6 +817,8 @@ def main() -> None:
         return
 
     conn = sqlite3.connect(KALSHI_DB)
+    game_starts_by_pk = _load_game_starts_by_pk(conn)
+    print(f"[tts_v1] Loaded {len(game_starts_by_pk):,} authoritative game starts from mlb_games")
 
     # 2. For each brain fire: look up market, assess fill quality, build audit row
     for card in fires:
@@ -797,23 +842,25 @@ def main() -> None:
             "created_at":               now_utc.isoformat(),
         }
 
-        ticker, parsed = _find_team5_ticker(conn, team, date)
+        ticker, game_start, match_status = _find_team5_ticker(
+            conn, team, date, card.get("game_pk", ""), game_starts_by_pk
+        )
         if ticker is None:
+            ar.update({"fill_quality": match_status, "block_reason": match_status})
             audit_rows.append(ar)
             continue
 
         ar.update({"matched_market_ticker": ticker, "fill_quality": "no_snapshot", "block_reason": "no_snapshot"})
 
-        snap = _get_pregame_snap(conn, ticker, parsed["game_start_utc"])
+        snap = _get_pregame_snap(conn, ticker, game_start)
         if snap is None:
             audit_rows.append(ar)
             continue
 
-        fq, fq_reason = _fill_quality_no(snap, parsed["game_start_utc"])
+        fq, fq_reason = _fill_quality_no(snap, game_start)
         no_ask = snap.get("no_ask")
         no_bid = snap.get("no_bid")
         spread = (no_ask - no_bid) if (no_ask is not None and no_bid is not None) else None
-        game_start = parsed["game_start_utc"]
         hours_fp   = (game_start - now_utc).total_seconds() / 3600.0
 
         ar.update({
@@ -835,7 +882,7 @@ def main() -> None:
         if not _passes_shadow_gates(gate_row):
             continue
 
-        candidate = _build_candidate(card, ticker, parsed, snap, sbr_index, now_utc)
+        candidate = _build_candidate(card, ticker, game_start, snap, sbr_index, now_utc)
         candidates.append(candidate)
 
     conn.close()

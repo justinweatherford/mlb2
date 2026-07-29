@@ -11,6 +11,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from team_runs_5plus_no_kalshi_validation import (
     _parse_team5_ticker,
+    _load_game_starts_by_pk,
+    _build_ticker_index,
     _no_fill_price,
     _no_spread_cents,
     _assess_fill_quality_no,
@@ -49,13 +51,15 @@ class TestParseTeam5Ticker(unittest.TestCase):
         self.assertEqual(result["away_team"], "ATH")
         self.assertEqual(result["home_team"], "SF")
 
-    def test_parses_game_start_utc(self):
+    def test_does_not_derive_game_start_utc_from_ticker(self):
+        # Fixed per outputs/kalshi_time_audit/: ticker HHMM is not reliably UTC
+        # (audited ~4h off from mlb_games.game_start_time_utc). The parser must
+        # no longer manufacture a "game_start_utc" from ticker time at all —
+        # authoritative start time comes only from mlb_games via game_pk
+        # (see _load_game_starts_by_pk).
         result = _parse_team5_ticker("KXMLBTEAMTOTAL-26JUN232145ATHSF-ATH5")
         self.assertIsNotNone(result)
-        self.assertEqual(
-            result["game_start_utc"],
-            datetime(2026, 6, 23, 21, 45, tzinfo=timezone.utc),
-        )
+        self.assertNotIn("game_start_utc", result)
 
     def test_returns_none_for_team4(self):
         self.assertIsNone(_parse_team5_ticker("KXMLBTEAMTOTAL-26JUN232145ATHSF-ATH4"))
@@ -66,13 +70,35 @@ class TestParseTeam5Ticker(unittest.TestCase):
     def test_returns_none_for_garbage(self):
         self.assertIsNone(_parse_team5_ticker("GARBAGE"))
 
-    def test_parses_date_correctly(self):
-        result = _parse_team5_ticker("KXMLBTEAMTOTAL-26JUN161915SFATL-SF5")
-        self.assertIsNotNone(result)
-        self.assertEqual(result["game_start_utc"].day, 16)
-        self.assertEqual(result["game_start_utc"].month, 6)
-        self.assertEqual(result["game_start_utc"].hour, 19)
-        self.assertEqual(result["game_start_utc"].minute, 15)
+
+class TestLoadGameStartsByPk(unittest.TestCase):
+    def _make_conn(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(":memory:")
+        conn.execute(
+            "CREATE TABLE mlb_games (game_pk INT, game_start_time_utc TEXT)"
+        )
+        return conn
+
+    def test_loads_authoritative_start_from_mlb_games(self):
+        conn = self._make_conn()
+        conn.execute(
+            "INSERT INTO mlb_games VALUES (?, ?)",
+            (823521, "2026-07-19T23:20"),
+        )
+        conn.commit()
+        starts = _load_game_starts_by_pk(conn)
+        conn.close()
+        self.assertEqual(
+            starts["823521"], datetime(2026, 7, 19, 23, 20, tzinfo=timezone.utc)
+        )
+
+    def test_skips_null_start_time(self):
+        conn = self._make_conn()
+        conn.execute("INSERT INTO mlb_games VALUES (?, ?)", (1, None))
+        conn.commit()
+        starts = _load_game_starts_by_pk(conn)
+        conn.close()
+        self.assertEqual(starts, {})
 
 
 class TestNoFillPrice(unittest.TestCase):
@@ -238,58 +264,111 @@ class TestIsHitKalshi(unittest.TestCase):
 
 
 # ── New tests — ticker matching ────────────────────────────────────────────────
+# Rewritten per outputs/kalshi_time_audit/: game start time now comes only from
+# mlb_games via game_pk (authoritative), never from ticker time. The ticker
+# index is keyed by team_code -> {actual snapshot collection date: {tickers}},
+# and doubleheader ambiguity (>1 distinct ticker for a team in the date window)
+# is refused rather than guessed.
 
 class TestFindCandidateTicker(unittest.TestCase):
+    GAME_PK = "823521"
     GAME_START = datetime(2026, 6, 23, 21, 45, tzinfo=timezone.utc)
+    STARTS = {GAME_PK: GAME_START}
     INDEX = {
-        ("2026-06-23", "ATH"): [("KXMLBTEAMTOTAL-26JUN232145ATHSF-ATH5", datetime(2026, 6, 23, 21, 45, tzinfo=timezone.utc))],
-        ("2026-06-23", "SF"):  [("KXMLBTEAMTOTAL-26JUN232145ATHSF-SF5",  datetime(2026, 6, 23, 21, 45, tzinfo=timezone.utc))],
+        "ATH": {"2026-06-23": {"KXMLBTEAMTOTAL-26JUN232145ATHSF-ATH5"}},
+        "SF":  {"2026-06-23": {"KXMLBTEAMTOTAL-26JUN232145ATHSF-SF5"}},
     }
 
     def test_matches_away_team(self):
-        result = _find_candidate_ticker({"game_date": "2026-06-23", "team": "ATH"}, self.INDEX)
-        self.assertIsNotNone(result)
-        self.assertEqual(result[0], "KXMLBTEAMTOTAL-26JUN232145ATHSF-ATH5")
+        ticker, start, status = _find_candidate_ticker(
+            {"game_date": "2026-06-23", "team": "ATH", "game_pk": self.GAME_PK},
+            self.INDEX, self.STARTS,
+        )
+        self.assertEqual(status, "ok")
+        self.assertEqual(ticker, "KXMLBTEAMTOTAL-26JUN232145ATHSF-ATH5")
+        self.assertEqual(start, self.GAME_START)
 
     def test_matches_home_team(self):
-        result = _find_candidate_ticker({"game_date": "2026-06-23", "team": "SF"}, self.INDEX)
-        self.assertIsNotNone(result)
-        self.assertEqual(result[0], "KXMLBTEAMTOTAL-26JUN232145ATHSF-SF5")
+        ticker, start, status = _find_candidate_ticker(
+            {"game_date": "2026-06-23", "team": "SF", "game_pk": self.GAME_PK},
+            self.INDEX, self.STARTS,
+        )
+        self.assertEqual(status, "ok")
+        self.assertEqual(ticker, "KXMLBTEAMTOTAL-26JUN232145ATHSF-SF5")
 
     def test_no_match_wrong_date(self):
-        result = _find_candidate_ticker({"game_date": "2026-06-24", "team": "ATH"}, self.INDEX)
-        self.assertIsNone(result)
+        ticker, start, status = _find_candidate_ticker(
+            {"game_date": "2026-06-25", "team": "ATH", "game_pk": self.GAME_PK},
+            self.INDEX, self.STARTS,
+        )
+        self.assertIsNone(ticker)
+        self.assertEqual(status, "no_market_match")
 
     def test_no_match_wrong_team(self):
-        result = _find_candidate_ticker({"game_date": "2026-06-23", "team": "NYY"}, self.INDEX)
-        self.assertIsNone(result)
+        ticker, start, status = _find_candidate_ticker(
+            {"game_date": "2026-06-23", "team": "NYY", "game_pk": self.GAME_PK},
+            self.INDEX, self.STARTS,
+        )
+        self.assertIsNone(ticker)
+        self.assertEqual(status, "no_market_match")
 
     def test_no_match_empty_index(self):
-        result = _find_candidate_ticker({"game_date": "2026-06-23", "team": "ATH"}, {})
-        self.assertIsNone(result)
+        ticker, start, status = _find_candidate_ticker(
+            {"game_date": "2026-06-23", "team": "ATH", "game_pk": self.GAME_PK},
+            {}, self.STARTS,
+        )
+        self.assertIsNone(ticker)
+        self.assertEqual(status, "no_market_match")
+
+    def test_no_game_start_match_when_pk_unknown(self):
+        # game_pk not present in mlb_games -> refuse, no fallback to ticker time
+        ticker, start, status = _find_candidate_ticker(
+            {"game_date": "2026-06-23", "team": "ATH", "game_pk": "999999"},
+            self.INDEX, self.STARTS,
+        )
+        self.assertIsNone(ticker)
+        self.assertIsNone(start)
+        self.assertEqual(status, "no_game_start_match")
 
     def test_applies_brain_to_kalshi_mapping(self):
         # WSN (brain) → WSH (Kalshi)
-        index = {
-            ("2026-06-23", "WSH"): [
-                ("KXMLBTEAMTOTAL-26JUN232110WSHPIT-WSH5",
-                 datetime(2026, 6, 23, 21, 10, tzinfo=timezone.utc))
-            ]
-        }
-        result = _find_candidate_ticker({"game_date": "2026-06-23", "team": "WSN"}, index)
-        self.assertIsNotNone(result)
-        self.assertEqual(result[0], "KXMLBTEAMTOTAL-26JUN232110WSHPIT-WSH5")
+        index = {"WSH": {"2026-06-23": {"KXMLBTEAMTOTAL-26JUN232110WSHPIT-WSH5"}}}
+        ticker, start, status = _find_candidate_ticker(
+            {"game_date": "2026-06-23", "team": "WSN", "game_pk": self.GAME_PK},
+            index, self.STARTS,
+        )
+        self.assertEqual(status, "ok")
+        self.assertEqual(ticker, "KXMLBTEAMTOTAL-26JUN232110WSHPIT-WSH5")
 
     def test_non_candidate_team_not_in_index_returns_none(self):
         # Ticker exists in index for NYY but candidate is CWS — no match
+        index = {"NYY": {"2026-06-23": {"KXMLBTEAMTOTAL-26JUN232145CWSNYY-NYY5"}}}
+        ticker, start, status = _find_candidate_ticker(
+            {"game_date": "2026-06-23", "team": "CWS", "game_pk": self.GAME_PK},
+            index, self.STARTS,
+        )
+        self.assertIsNone(ticker)
+        self.assertEqual(status, "no_market_match")
+
+    def test_doubleheader_ambiguity_refused_not_guessed(self):
+        # Two distinct tickers for the same team on/around the same date (a real
+        # doubleheader case found in production data) must be refused, never
+        # silently resolved to one of them.
         index = {
-            ("2026-06-23", "NYY"): [
-                ("KXMLBTEAMTOTAL-26JUN232145CWSNYY-NYY5",
-                 datetime(2026, 6, 23, 21, 45, tzinfo=timezone.utc))
-            ]
+            "LAD": {
+                "2026-07-19": {
+                    "KXMLBTEAMTOTAL-26JUL191920LADNYY-LAD5",
+                    "KXMLBTEAMTOTAL-26JUL182008LADNYY-LAD5",
+                }
+            }
         }
-        result = _find_candidate_ticker({"game_date": "2026-06-23", "team": "CWS"}, index)
-        self.assertIsNone(result)
+        starts = {"823521": datetime(2026, 7, 19, 23, 20, tzinfo=timezone.utc)}
+        ticker, start, status = _find_candidate_ticker(
+            {"game_date": "2026-07-19", "team": "LAD", "game_pk": "823521"},
+            index, starts,
+        )
+        self.assertIsNone(ticker)
+        self.assertEqual(status, "ambiguous_multiple_tickers")
 
     def test_ticker_threshold_is_team5_not_team4(self):
         # The ticker in the index must be a [TEAM]5 ticker (enforced by _build_ticker_index
@@ -298,6 +377,34 @@ class TestFindCandidateTicker(unittest.TestCase):
         from team_runs_5plus_no_kalshi_validation import _parse_team5_ticker as p
         self.assertIsNone(p("KXMLBTEAMTOTAL-26JUN232145ATHSF-ATH4"))
         self.assertIsNotNone(p("KXMLBTEAMTOTAL-26JUN232145ATHSF-ATH5"))
+
+
+class TestBuildTickerIndex(unittest.TestCase):
+    def _make_conn(self, rows):
+        conn = sqlite3.connect(":memory:")
+        conn.execute(
+            "CREATE TABLE kalshi_orderbook_snapshots "
+            "(market_ticker TEXT, market_type TEXT, snapped_at TEXT)"
+        )
+        conn.executemany(
+            "INSERT INTO kalshi_orderbook_snapshots VALUES (?, 'team_total', ?)",
+            rows,
+        )
+        conn.commit()
+        return conn
+
+    def test_indexes_by_team_and_actual_snapshot_date_not_ticker_date(self):
+        # Ticker embeds date 26JUL18, but snapshots were actually collected on
+        # 2026-07-19 (the real, reliable UTC date) — index must key off that,
+        # not the ticker's own (unreliable) embedded date.
+        conn = self._make_conn([
+            ("KXMLBTEAMTOTAL-26JUL182008LADNYY-LAD5", "2026-07-19T17:40:00+00:00"),
+        ])
+        index = _build_ticker_index(conn)
+        conn.close()
+        self.assertIn("LAD", index)
+        self.assertIn("2026-07-19", index["LAD"])
+        self.assertIn("KXMLBTEAMTOTAL-26JUL182008LADNYY-LAD5", index["LAD"]["2026-07-19"])
 
 
 # ── New tests — candidate loading from CSV ─────────────────────────────────────
@@ -423,22 +530,36 @@ class TestEmptyCandidateSet(unittest.TestCase):
 
     def test_empty_list_returns_empty(self):
         conn = self._make_conn()
-        result = _match_candidates([], conn, {})
+        result = _match_candidates([], conn, {}, {})
         conn.close()
         self.assertEqual(result, [])
 
     def test_candidate_with_no_market_match(self):
         conn = self._make_conn()
+        # game_pk known to mlb_games (so match fails at the ticker-index stage,
+        # specifically "no_market_match", not "no_game_start_match")
+        game_starts = {"823999": datetime(2023, 5, 17, 20, 0, tzinfo=timezone.utc)}
         candidates = [{"game_date": "2023-05-17", "game_id": "COL@AZ", "team": "AZ",
                        "home_away": "home", "team_runs_5plus_no_score": "0.45",
-                       "actual_team_runs_5plus": "0", "top_positive_reasons": ""}]
-        rows = _match_candidates(candidates, conn, {})
+                       "actual_team_runs_5plus": "0", "top_positive_reasons": "",
+                       "game_pk": "823999"}]
+        rows = _match_candidates(candidates, conn, {}, game_starts)
         conn.close()
         self.assertEqual(len(rows), 1)
-        self.assertEqual(rows[0]["match_status"], "no_market")
-        self.assertEqual(rows[0]["fill_quality"], "no_market")
+        self.assertEqual(rows[0]["match_status"], "no_market_match")
+        self.assertEqual(rows[0]["fill_quality"], "no_market_match")
         self.assertEqual(rows[0]["net_edge_at_calib"], "")
         self.assertEqual(rows[0]["would_be_positive_edge"], "")
+
+    def test_candidate_with_unknown_game_pk_refuses_not_guesses(self):
+        conn = self._make_conn()
+        candidates = [{"game_date": "2023-05-17", "game_id": "COL@AZ", "team": "AZ",
+                       "home_away": "home", "team_runs_5plus_no_score": "0.45",
+                       "actual_team_runs_5plus": "0", "top_positive_reasons": "",
+                       "game_pk": "unknown_pk"}]
+        rows = _match_candidates(candidates, conn, {}, {})
+        conn.close()
+        self.assertEqual(rows[0]["match_status"], "no_game_start_match")
 
 
 if __name__ == "__main__":

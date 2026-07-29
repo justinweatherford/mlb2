@@ -102,6 +102,16 @@ def _is_hit(row: dict) -> Optional[bool]:
 
 
 def _parse_team5_ticker(ticker: str) -> Optional[dict]:
+    """Parse team codes from a [TEAM]5 ticker.
+
+    Does NOT treat the ticker's embedded HHMM as UTC — audited and found to be
+    off by ~4 hours from mlb_games.game_start_time_utc (the authoritative MLB
+    Stats API value) across every game checked, consistent with US Eastern time
+    rather than UTC despite the ticker's naming convention. See
+    outputs/kalshi_time_audit/ for the audit. Authoritative game start time must
+    come from mlb_games via game_pk (see _load_game_starts_by_pk), never from
+    this ticker's time component.
+    """
     m = TEAM5_PATTERN.match(ticker)
     if not m:
         return None
@@ -119,20 +129,28 @@ def _parse_team5_ticker(ticker: str) -> Optional[dict]:
         return None
     if not away_team or not home_team:
         return None
-    try:
-        game_start = datetime(
-            2000 + int(yr), month, int(day),
-            int(time4[:2]), int(time4[2:]),
-            tzinfo=timezone.utc,
-        )
-    except ValueError:
-        return None
     return {
         "team_code":      team_code,
         "away_team":      away_team,
         "home_team":      home_team,
-        "game_start_utc": game_start,
     }
+
+
+def _load_game_starts_by_pk(conn: sqlite3.Connection) -> dict[str, datetime]:
+    """Authoritative game_start_utc per game_pk, from mlb_games (MLB Stats API
+    gameDate field, genuine UTC) — never from Kalshi ticker time."""
+    out: dict[str, datetime] = {}
+    for game_pk, start in conn.execute(
+        "SELECT game_pk, game_start_time_utc FROM mlb_games WHERE game_start_time_utc IS NOT NULL"
+    ):
+        try:
+            dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
+        except (ValueError, AttributeError):
+            continue
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        out[str(game_pk)] = dt
+    return out
 
 
 def _no_fill_price(snap: dict) -> Optional[int]:
@@ -207,40 +225,70 @@ def _load_candidates(cards_path: Path = CARDS_PATH) -> list[dict]:
 
 def _build_ticker_index(
     conn: sqlite3.Connection,
-) -> dict[tuple[str, str], list[tuple[str, datetime]]]:
-    """Build (game_date, kalshi_team_code) → [(ticker, game_start_utc)] index.
+) -> dict[str, dict[str, set[str]]]:
+    """Build kalshi_team_code -> {snapshot_collection_date: {tickers}} index.
 
-    Only [TEAM]5 tickers that parse cleanly are included. Does not iterate over
-    all tickers for all candidates — candidates drive the lookup, not the DB.
+    Keyed on the *actual UTC date snapshots were collected* (date(snapped_at),
+    reliable — it's a real DB timestamp) rather than the ticker's own embedded
+    date/time, which is NOT reliably UTC (audited ~4h off from
+    mlb_games.game_start_time_utc; see outputs/kalshi_time_audit/). Only used
+    to find candidate tickers for a team on/around a date — final disambiguation
+    happens in _find_candidate_ticker against the candidate's actual game_date,
+    with doubleheaders refused rather than guessed.
     """
     cur = conn.execute(
-        "SELECT DISTINCT market_ticker FROM kalshi_orderbook_snapshots "
+        "SELECT DISTINCT market_ticker, date(snapped_at) as snap_date "
+        "FROM kalshi_orderbook_snapshots "
         "WHERE market_ticker LIKE 'KXMLBTEAMTOTAL%5' AND market_type = 'team_total'"
     )
-    index: dict[tuple[str, str], list[tuple[str, datetime]]] = defaultdict(list)
-    for (ticker,) in cur.fetchall():
+    index: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
+    for ticker, snap_date in cur.fetchall():
         parsed = _parse_team5_ticker(ticker)
-        if not parsed:
+        if not parsed or not snap_date:
             continue
-        date_str = parsed["game_start_utc"].strftime("%Y-%m-%d")
-        key = (date_str, parsed["team_code"])
-        index[key].append((ticker, parsed["game_start_utc"]))
-    return dict(index)
+        index[parsed["team_code"]][snap_date].add(ticker)
+    return {k: dict(v) for k, v in index.items()}
 
 
 def _find_candidate_ticker(
     candidate: dict,
-    ticker_index: dict[tuple[str, str], list[tuple[str, datetime]]],
-) -> Optional[tuple[str, datetime]]:
-    """Return (ticker, game_start_utc) for a candidate, or None if no match.
+    ticker_index: dict[str, dict[str, set[str]]],
+    game_starts_by_pk: dict[str, datetime],
+) -> tuple[Optional[str], Optional[datetime], str]:
+    """Return (ticker, game_start_utc, status).
 
-    Matches by game_date + kalshi team code only. Does NOT use event_ticker
-    because moneyline and team_total event tickers differ on Kalshi.
+    status is "ok", "no_market_match", "ambiguous_multiple_tickers", or
+    "no_game_start_match". game_start_utc always comes from mlb_games via
+    game_pk (authoritative) — never derived from ticker time. Ticker candidates
+    are gathered from a game_date-1..+1 collection-date window (to tolerate
+    snapshot collection starting the evening before for late/next-day games)
+    and must resolve to exactly one distinct ticker; doubleheaders that can't
+    be disambiguated this way are refused, not guessed.
     """
-    date_str    = candidate.get("game_date", "")
+    game_pk = str(candidate.get("game_pk", ""))
+    game_start_utc = game_starts_by_pk.get(game_pk)
+    if game_start_utc is None:
+        return None, None, "no_game_start_match"
+
     kalshi_team = _to_kalshi_team(candidate.get("team", ""))
-    matches     = ticker_index.get((date_str, kalshi_team), [])
-    return matches[0] if matches else None
+    by_date = ticker_index.get(kalshi_team, {})
+
+    game_date = candidate.get("game_date", "")
+    try:
+        base = datetime.strptime(game_date, "%Y-%m-%d").date()
+    except ValueError:
+        return None, game_start_utc, "no_market_match"
+
+    tickers: set[str] = set()
+    for offset in (-1, 0, 1):
+        d = (base + timedelta(days=offset)).isoformat()
+        tickers |= by_date.get(d, set())
+
+    if not tickers:
+        return None, game_start_utc, "no_market_match"
+    if len(tickers) > 1:
+        return None, game_start_utc, "ambiguous_multiple_tickers"
+    return next(iter(tickers)), game_start_utc, "ok"
 
 
 def _get_best_pregame_snapshot(
@@ -276,7 +324,8 @@ def _get_best_pregame_snapshot(
 def _match_candidates(
     candidates: list[dict],
     conn: sqlite3.Connection,
-    ticker_index: dict[tuple[str, str], list[tuple[str, datetime]]],
+    ticker_index: dict[str, dict[str, set[str]]],
+    game_starts_by_pk: dict[str, datetime],
 ) -> list[dict]:
     """For each candidate, find its [TEAM]5 ticker, fetch snapshot, compute edge."""
     breakeven_max = CALIBRATED_PROB * 100 - FEE_BUFFER_CENTS
@@ -291,7 +340,8 @@ def _match_candidates(
         actual_runs5 = cand.get("actual_team_runs_5plus", "")
         hit          = _is_hit(cand)
 
-        match = _find_candidate_ticker(cand, ticker_index)
+        ticker, game_start, match_reason = _find_candidate_ticker(cand, ticker_index, game_starts_by_pk)
+        match = (ticker, game_start) if match_reason == "ok" else None
 
         if match is None:
             rows_out.append({
@@ -302,13 +352,17 @@ def _match_candidates(
                 "home_away":              home_away,
                 "score":                  f"{score:.4f}",
                 "market_ticker":          "",
-                "match_status":           "no_market",
+                "match_status":           match_reason,
                 "snap_at":                "",
                 "secs_before_game":       "",
                 "yes_bid": "", "yes_ask": "", "no_bid": "", "no_ask": "",
                 "spread_cents_no":        "",
-                "fill_quality":           "no_market",
-                "fill_quality_reason":    "no_team5_ticker_in_db",
+                "fill_quality":           match_reason,
+                "fill_quality_reason":    {
+                    "no_market_match": "no_team5_ticker_in_db",
+                    "ambiguous_multiple_tickers": "doubleheader_ticker_ambiguous_not_guessed",
+                    "no_game_start_match": "game_pk_not_found_in_mlb_games",
+                }.get(match_reason, match_reason),
                 "realistic_no_ask":       "",
                 "calibrated_probability": f"{CALIBRATED_PROB:.3f}",
                 "breakeven_max_no_ask":   f"{breakeven_max:.1f}",
@@ -607,9 +661,12 @@ def main() -> None:
 
     print("[kalshi] Building [TEAM]5 ticker index...")
     ticker_index = _build_ticker_index(conn)
-    print(f"[kalshi] Index: {len(ticker_index):,} (date, team) keys")
+    print(f"[kalshi] Index: {len(ticker_index):,} team codes")
 
-    rows = _match_candidates(candidates, conn, ticker_index)
+    game_starts_by_pk = _load_game_starts_by_pk(conn)
+    print(f"[kalshi] Loaded {len(game_starts_by_pk):,} authoritative game starts from mlb_games")
+
+    rows = _match_candidates(candidates, conn, ticker_index, game_starts_by_pk)
     conn.close()
 
     _write_rows_csv(rows)
