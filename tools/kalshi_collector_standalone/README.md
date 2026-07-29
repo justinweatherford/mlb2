@@ -61,7 +61,18 @@ store it as a literal newline, that also works.
 
 ---
 
-## Usage
+## One-click usage (recommended for unattended multi-day runs)
+
+1. **`START_COLLECTOR.bat`** — launches the collector in its own window.
+   Auto-restarts if it crashes. Automatically rolls over to a new
+   `kalshi_tape_YYYY-MM-DD.jsonl` file at each UTC midnight, so a run left
+   going for many days produces one file per day instead of one giant file.
+2. Let it run. Ignore the machine for as long as you need.
+3. **`STOP_AND_PACKAGE.bat`** — stops the collector and zips everything in
+   `output/` into a single dated archive (`kalshi_tape_export_<timestamp>.zip`)
+   in this folder, ready to upload. It does not delete `output/`.
+
+## Usage (manual / advanced)
 
 ### 2-minute test run
 

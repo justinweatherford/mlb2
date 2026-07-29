@@ -20,6 +20,7 @@ import argparse
 import json
 import sqlite3
 import sys
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -72,6 +73,10 @@ def _row_params(row: dict) -> tuple:
     )
 
 
+_COMMIT_EVERY = 5000  # rows between commits — bounds how much work a crash/interrupt can lose
+_HEARTBEAT_EVERY = 5000  # rows between progress prints
+
+
 def import_jsonl(
     jsonl_path: str,
     db_path: str,
@@ -82,20 +87,27 @@ def import_jsonl(
 
     Returns a summary dict: {total, inserted, skipped, errors}.
     Idempotent: rows already present are skipped (not counted as errors).
+    Commits every _COMMIT_EVERY rows and prints a heartbeat, so a large
+    import shows progress and an interruption only loses the current batch.
     """
     path = Path(jsonl_path)
     if not path.exists():
         raise FileNotFoundError(f"JSONL file not found: {jsonl_path}")
 
+    file_size = path.stat().st_size
+
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
 
     total = inserted = skipped = errors = 0
+    bytes_read = 0
+    start_time = time.monotonic()
 
     try:
         with open(path, encoding="utf-8") as fh:
-            for lineno, line in enumerate(fh, 1):
-                line = line.strip()
+            for lineno, raw_line in enumerate(fh, 1):
+                bytes_read += len(raw_line.encode("utf-8"))
+                line = raw_line.strip()
                 if not line:
                     continue
                 total += 1
@@ -128,6 +140,20 @@ def import_jsonl(
                     print(f"  [WARN] line {lineno}: DB error — {exc}", file=sys.stderr)
                     errors += 1
                     continue
+
+                if total % _COMMIT_EVERY == 0:
+                    conn.commit()
+
+                if total % _HEARTBEAT_EVERY == 0:
+                    elapsed = time.monotonic() - start_time
+                    rate = total / elapsed if elapsed > 0 else 0
+                    pct = (bytes_read / file_size * 100) if file_size else 0
+                    print(
+                        f"  [progress] {total:,} lines  "
+                        f"(inserted={inserted:,} skipped={skipped:,} errors={errors:,})  "
+                        f"{pct:.1f}% of file  {rate:.0f} rows/s",
+                        flush=True,
+                    )
 
         conn.commit()
     finally:

@@ -485,6 +485,10 @@ def main() -> None:
 
     _load_dotenv(args.env_file)
 
+    # Auto-rollover: if --date wasn't pinned explicitly, the output file switches
+    # to the new UTC date automatically at midnight. Without this, an unattended
+    # multi-day run keeps appending to one file named for the very first day.
+    auto_rollover = args.date is None
     date_str = args.date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -546,6 +550,14 @@ def main() -> None:
         while True:
             cycle += 1
             cycle_start = time.monotonic()
+
+            # Daily rollover — switch output file when the UTC date changes
+            if auto_rollover:
+                current_date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+                if current_date_str != date_str:
+                    date_str = current_date_str
+                    jsonl_path = os.path.join(out_dir, f"kalshi_tape_{date_str}.jsonl")
+                    print(f"[collector] Date rolled over — now writing {jsonl_path}", flush=True)
 
             # Periodic re-discovery (markets open/close as games approach)
             if cycle > 1 and (cycle - 1) % args.rediscover_interval == 0:

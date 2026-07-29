@@ -266,6 +266,7 @@ CREATE INDEX IF NOT EXISTS idx_kalshi_markets_event   ON kalshi_markets(event_ti
 CREATE INDEX IF NOT EXISTS idx_kalshi_markets_type    ON kalshi_markets(market_type);
 CREATE INDEX IF NOT EXISTS idx_kalshi_markets_game_id ON kalshi_markets(game_id);
 CREATE INDEX IF NOT EXISTS idx_kalshi_ob_ticker       ON kalshi_orderbook_snapshots(market_ticker);
+CREATE INDEX IF NOT EXISTS idx_kalshi_ob_dedup        ON kalshi_orderbook_snapshots(market_ticker, snapped_at, source);
 
 CREATE TABLE IF NOT EXISTS kalshi_market_trades (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
