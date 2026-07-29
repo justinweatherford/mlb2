@@ -1,0 +1,31 @@
+run_timestamp,source_date_start,source_date_end,source_row_count,category,bucket_name,market_type,rows,graded_rows,actual_hit_rate,implied_breakeven,actual_minus_implied_pp,pnl_cents,avg_fill_price,avg_spread,notes
+2026-07-29T00:00:40Z,2026-07-19,2026-07-26,9822,run_differential_context,team_totals_roughly_even_matchup,team totals,168,154.0,56.49,47.89,8.6,1325.0,47.89,4.27,
+2026-07-29T00:00:40Z,2026-07-19,2026-07-26,9822,expensive_yes,expensive_yes_56_65c,ALL,350,350.0,54.0,60.3,-6.3,-2206.0,60.3,4.2,
+2026-07-29T00:00:40Z,2026-07-19,2026-07-26,9822,expensive_yes,expensive_yes_66_80c,ALL,456,456.0,71.27,72.99,-1.72,-785.0,72.99,4.53,
+2026-07-29T00:00:40Z,2026-07-19,2026-07-26,9822,expensive_yes,expensive_yes_81_99c,ALL,686,686.0,87.76,90.02,-2.27,-1554.0,90.02,6.82,
+2026-07-29T00:00:40Z,2026-07-19,2026-07-26,9822,team_runs_5plus_no,team_runs_5plus_no_official_threshold,,0,0.0,,,,,,,no rows matched this bucket in this run window (bucket defined but empty)
+2026-07-29T00:00:40Z,2026-07-19,2026-07-26,9822,team_runs_5plus_no,team_runs_5plus_no_below_threshold_watch,team_total,194,186.0,57.53,57.84,-0.32,-59.0,57.84,5.31,
+2026-07-29T00:00:40Z,2026-07-19,2026-07-26,9822,brain_market_disagreement,brain_high_market_high,ALL,368,368.0,56.52,59.68,-3.16,-1163.0,59.68,4.91,
+2026-07-29T00:00:40Z,2026-07-19,2026-07-26,9822,brain_market_disagreement,brain_high_market_low,ALL,60,60.0,46.67,45.38,1.28,77.0,45.38,3.87,
+2026-07-29T00:00:40Z,2026-07-19,2026-07-26,9822,team_coverage_gaps,wsh_no_coverage_games,,14,,,,,,,,"7 games / 14 team-game rows with zero Kalshi ticker match, WSN involved"
+2026-07-29T00:00:40Z,2026-07-19,2026-07-26,9822,team_coverage_gaps,partial_collection_day_gaps,,8,,,,,,,,4 games / 8 team-game rows with zero pregame snapshots; dates: 2026-07-19
+2026-07-29T00:01:26Z,2026-07-19,2026-07-26,9822,run_differential_context,team_totals_roughly_even_matchup,team totals,168,154.0,56.49,47.89,8.6,1325.0,47.89,4.27,
+2026-07-29T00:01:26Z,2026-07-19,2026-07-26,9822,expensive_yes,expensive_yes_56_65c,ALL,350,350.0,54.0,60.3,-6.3,-2206.0,60.3,4.2,
+2026-07-29T00:01:26Z,2026-07-19,2026-07-26,9822,expensive_yes,expensive_yes_66_80c,ALL,456,456.0,71.27,72.99,-1.72,-785.0,72.99,4.53,
+2026-07-29T00:01:26Z,2026-07-19,2026-07-26,9822,expensive_yes,expensive_yes_81_99c,ALL,686,686.0,87.76,90.02,-2.27,-1554.0,90.02,6.82,
+2026-07-29T00:01:26Z,2026-07-19,2026-07-26,9822,team_runs_5plus_no,team_runs_5plus_no_official_threshold,,0,0.0,,,,,,,no rows matched this bucket in this run window (bucket defined but empty)
+2026-07-29T00:01:26Z,2026-07-19,2026-07-26,9822,team_runs_5plus_no,team_runs_5plus_no_below_threshold_watch,team_total,194,186.0,57.53,57.84,-0.32,-59.0,57.84,5.31,
+2026-07-29T00:01:26Z,2026-07-19,2026-07-26,9822,brain_market_disagreement,brain_high_market_high,ALL,368,368.0,56.52,59.68,-3.16,-1163.0,59.68,4.91,
+2026-07-29T00:01:26Z,2026-07-19,2026-07-26,9822,brain_market_disagreement,brain_high_market_low,ALL,60,60.0,46.67,45.38,1.28,77.0,45.38,3.87,
+2026-07-29T00:01:26Z,2026-07-19,2026-07-26,9822,team_coverage_gaps,wsh_no_coverage_games,,14,,,,,,,,"7 games / 14 team-game rows with zero Kalshi ticker match, WSN involved"
+2026-07-29T00:01:26Z,2026-07-19,2026-07-26,9822,team_coverage_gaps,partial_collection_day_gaps,,8,,,,,,,,4 games / 8 team-game rows with zero pregame snapshots; dates: 2026-07-19
+2026-07-29T04:53:11Z,2026-07-19,2026-07-26,9822,run_differential_context,team_totals_roughly_even_matchup,team totals,168,154.0,56.49,47.89,8.6,1325.0,47.89,4.27,
+2026-07-29T04:53:11Z,2026-07-19,2026-07-26,9822,expensive_yes,expensive_yes_56_65c,ALL,350,350.0,54.0,60.3,-6.3,-2206.0,60.3,4.2,
+2026-07-29T04:53:11Z,2026-07-19,2026-07-26,9822,expensive_yes,expensive_yes_66_80c,ALL,456,456.0,71.27,72.99,-1.72,-785.0,72.99,4.53,
+2026-07-29T04:53:11Z,2026-07-19,2026-07-26,9822,expensive_yes,expensive_yes_81_99c,ALL,686,686.0,87.76,90.02,-2.27,-1554.0,90.02,6.82,
+2026-07-29T04:53:11Z,2026-07-19,2026-07-26,9822,team_runs_5plus_no,team_runs_5plus_no_official_threshold,,0,0.0,,,,,,,no rows matched this bucket in this run window (bucket defined but empty)
+2026-07-29T04:53:11Z,2026-07-19,2026-07-26,9822,team_runs_5plus_no,team_runs_5plus_no_below_threshold_watch,team_total,194,186.0,57.53,57.84,-0.32,-59.0,57.84,5.31,
+2026-07-29T04:53:11Z,2026-07-19,2026-07-26,9822,brain_market_disagreement,brain_high_market_high,ALL,368,368.0,56.52,59.68,-3.16,-1163.0,59.68,4.91,
+2026-07-29T04:53:11Z,2026-07-19,2026-07-26,9822,brain_market_disagreement,brain_high_market_low,ALL,60,60.0,46.67,45.38,1.28,77.0,45.38,3.87,
+2026-07-29T04:53:11Z,2026-07-19,2026-07-26,9822,team_coverage_gaps,wsh_no_coverage_games,,14,,,,,,,,"7 games / 14 team-game rows with zero Kalshi ticker match, WSN involved"
+2026-07-29T04:53:11Z,2026-07-19,2026-07-26,9822,team_coverage_gaps,partial_collection_day_gaps,,8,,,,,,,,4 games / 8 team-game rows with zero pregame snapshots; dates: 2026-07-19
