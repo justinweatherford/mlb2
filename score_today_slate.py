@@ -11,8 +11,15 @@ features are omitted (no starters available for unplayed games).
 
 Prerequisite: run historical_team_context_preview_v2.py --season 2026 first.
 
+Historical reconstruction mode (--historical-reconstruction) scores a past, already-completed
+date instead of today's unplayed slate — e.g. to validate cards against known outcomes. It
+requires --date and --out-dir, never writes to the live Slate Monitor directory, and applies an
+as_of_date cutoff to rolling team/starter state and team context so nothing from after the
+slate date leaks into the features (see build_final_state's as_of_date parameter).
+
 Usage:
   python score_today_slate.py [--date YYYY-MM-DD] [--db DB]
+  python score_today_slate.py --date 2026-06-26 --out-dir outputs/reconstructed_pregame_cards/2026-06-26/ --historical-reconstruction
 """
 
 import argparse
@@ -68,7 +75,26 @@ def _merge(existing: list[dict], new_rows: list[dict], slate_date: str) -> list[
     return kept + new_rows
 
 
-def _score_live_row(feat_row: dict, rules_by_outcome: dict, max_rules_per_side: int, cp) -> dict:
+def _load_slate_schedule(conn: sqlite3.Connection, slate_date: str, historical: bool) -> list:
+    """Live mode: only unplayed games for slate_date. Historical mode: only completed
+    games for slate_date. Both branches still filter strictly by slate_date."""
+    if historical:
+        return conn.execute(
+            "SELECT game_pk, game_date, away_abbr, home_abbr, game_start_time_utc "
+            "FROM mlb_games WHERE game_date = ? AND final_away_score IS NOT NULL "
+            "ORDER BY COALESCE(game_start_time_utc, ''), game_pk",
+            [slate_date],
+        ).fetchall()
+    return conn.execute(
+        "SELECT game_pk, game_date, away_abbr, home_abbr, game_start_time_utc "
+        "FROM mlb_games WHERE game_date = ? AND final_away_score IS NULL "
+        "ORDER BY COALESCE(game_start_time_utc, ''), game_pk",
+        [slate_date],
+    ).fetchall()
+
+
+def _score_live_row(feat_row: dict, rules_by_outcome: dict, max_rules_per_side: int, cp,
+                     validation_mode: str = "live_slate") -> dict:
     """Score a feature row for an unplayed game (no outcome actuals required)."""
     outcome_scores: dict[str, dict] = {}
     for outcome in cp.TARGET_OUTCOMES:
@@ -152,7 +178,7 @@ def _score_live_row(feat_row: dict, rules_by_outcome: dict, max_rules_per_side: 
         "actual_team_f5_runs_2plus": "",
         "actual_game_total_9plus": "",
         "actual_lw_tied_or_led": "",
-        "validation_mode": "live_slate",
+        "validation_mode": validation_mode,
     }
 
 
@@ -377,8 +403,39 @@ def main() -> None:
     parser.add_argument("--min-count", type=int, default=100)
     parser.add_argument("--min-abs-lift", type=float, default=0.04)
     parser.add_argument("--max-rules-per-side", type=int, default=12)
+    parser.add_argument(
+        "--out-dir", default=None,
+        help=(
+            "Write card outputs to this directory instead of the shared live "
+            "outputs/pregame_identifier_card_preview dir (use for historical/"
+            "reconstruction runs so live Slate Monitor output isn't touched)"
+        ),
+    )
+    parser.add_argument(
+        "--historical-reconstruction", action="store_true",
+        help=(
+            "Score an already-completed past date instead of today's unplayed slate. "
+            "Requires --date and --out-dir. Never writes to the live Slate Monitor "
+            "directory. Applies an as-of-date cutoff to rolling state and team context "
+            "so no post-slate-date data leaks into pregame features."
+        ),
+    )
     args = parser.parse_args()
     args.allow_mixed_sign_rules = False  # match pregame_identifier_card_preview default
+
+    if args.historical_reconstruction:
+        if not args.date:
+            parser.error("--historical-reconstruction requires --date")
+        if not args.out_dir:
+            parser.error("--historical-reconstruction requires --out-dir")
+
+    out_dir = Path(args.out_dir) if args.out_dir else OUT_DIR
+
+    if args.historical_reconstruction and out_dir.resolve() == OUT_DIR.resolve():
+        parser.error(
+            "--historical-reconstruction must not write to the live Slate Monitor "
+            f"output directory ({OUT_DIR}); choose a different --out-dir"
+        )
 
     slate_date = args.date or date.today().isoformat()
     print(f"Scoring slate: {slate_date}")
@@ -409,10 +466,13 @@ def main() -> None:
     for r in rules:
         rules_by_outcome[r["outcome"]].append(r)
 
-    # Build current-season rolling state (no lookahead — only completed games)
-    print("Building 2026 rolling state...")
+    # Build current-season rolling state (no lookahead — only completed games).
+    # In historical mode, cut off at slate_date so games played after the reconstructed
+    # date (already final in the DB today) can't leak into rolling team/starter stats.
+    as_of = slate_date if args.historical_reconstruction else None
+    print("Building 2026 rolling state..." + (f" (as of {as_of})" if as_of else ""))
     team_hist, starter_hist, lhr, xfip_const = ff.build_final_state(
-        conn, "2026", args.rolling_games, args.rolling_starts
+        conn, "2026", args.rolling_games, args.rolling_starts, as_of_date=as_of
     )
     print(f"  Teams with rolling history: {len(team_hist)}")
     print(f"  Pitchers with 2026 start history: {len(starter_hist)}")
@@ -426,28 +486,47 @@ def main() -> None:
     )
     print(f"  Pitchers with 2025 fallback history: {len(starter_hist_prev)}")
 
-    # Latest context per team from 2026 context CSV (use most recent game entry per team)
+    # Latest context per team from 2026 context CSV (use most recent game entry per team).
+    # In historical mode, "most recent" means most recent strictly before slate_date —
+    # the CSV is a full time series (one row per team per game), and blindly taking the
+    # last row in the file would pull in context from after the reconstructed date once
+    # the file itself gets refreshed further into the season.
     latest_ctx: dict[str, dict] = {}
     if CTX_2026.exists():
-        for row in ff.read_csv_rows(CTX_2026):
-            abbr = ff.norm_team(row.get("team_abbr") or "")
-            if abbr:
-                latest_ctx[abbr] = row
+        if args.historical_reconstruction:
+            best_by_team: dict[str, tuple[str, dict]] = {}
+            for row in ff.read_csv_rows(CTX_2026):
+                abbr = ff.norm_team(row.get("team_abbr") or "")
+                row_date = row.get("game_date") or ""
+                if not abbr or not row_date or row_date >= slate_date:
+                    continue
+                cur = best_by_team.get(abbr)
+                if cur is None or row_date > cur[0]:
+                    best_by_team[abbr] = (row_date, row)
+            latest_ctx = {abbr: row for abbr, (_, row) in best_by_team.items()}
+        else:
+            for row in ff.read_csv_rows(CTX_2026):
+                abbr = ff.norm_team(row.get("team_abbr") or "")
+                if abbr:
+                    latest_ctx[abbr] = row
         print(f"  Context loaded for {len(latest_ctx)} teams")
     else:
         print(f"  WARNING: {CTX_2026} not found — run historical_team_context_preview_v2.py --season 2026 first")
 
-    # Load today's scheduled (unplayed) games
-    schedule = conn.execute(
-        "SELECT game_pk, game_date, away_abbr, home_abbr, game_start_time_utc "
-        "FROM mlb_games WHERE game_date = ? AND final_away_score IS NULL "
-        "ORDER BY COALESCE(game_start_time_utc, ''), game_pk",
-        [slate_date],
-    ).fetchall()
-    print(f"  Scheduled games: {len(schedule)}")
+    # Load games for slate_date. Live mode: only unplayed games (today's real slate).
+    # Historical mode: only already-completed games for that date (reconstruction target).
+    schedule = _load_slate_schedule(conn, slate_date, args.historical_reconstruction)
+    if args.historical_reconstruction:
+        print(f"  Completed games (historical reconstruction): {len(schedule)}")
+    else:
+        print(f"  Scheduled games: {len(schedule)}")
 
     if not schedule:
-        print("No unplayed games found for this date. Nothing to score.")
+        msg = (
+            "No completed games found for this date." if args.historical_reconstruction
+            else "No unplayed games found for this date."
+        )
+        print(f"{msg} Nothing to score.")
         return
 
     # Load probable pitchers for today's games (stored by seed_tonight / fetch_and_store_schedule)
@@ -481,15 +560,18 @@ def main() -> None:
                 starter_hist_prev=starter_hist_prev, lhr_prev=lhr_prev, xfip_const_prev=xfip_const_prev,
                 pp_by_game=pp_by_game,
             )
-            card = _score_live_row(feat, rules_by_outcome, args.max_rules_per_side, cp)
+            card = _score_live_row(
+                feat, rules_by_outcome, args.max_rules_per_side, cp,
+                validation_mode="historical_reconstruction" if args.historical_reconstruction else "live_slate",
+            )
             card_rows.append(card)
 
     print(f"  Scored {len(card_rows)} team-game rows")
 
     # Merge into existing output CSVs (deduplicated by game_date)
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    out_dir.mkdir(parents=True, exist_ok=True)
 
-    cards_path = OUT_DIR / "pregame_identifier_cards.csv"
+    cards_path = out_dir / "pregame_identifier_cards.csv"
     merged_cards = _merge(_read_csv(cards_path), card_rows, slate_date)
     _write_csv(cards_path, merged_cards)
     print(f"  pregame_identifier_cards.csv: {len(merged_cards)} total rows ({len(card_rows)} for {slate_date})")
@@ -504,7 +586,7 @@ def main() -> None:
         ("full_avoid_list.csv",            "avoid_score",              cp.CARD_THRESHOLDS["avoid_score"]),
     ]
     for fname, score_col, threshold in filter_specs:
-        path = OUT_DIR / fname
+        path = out_dir / fname
         existing_f = _read_csv(path)
         today_q = sorted(
             [r for r in card_rows if (cp.as_float(r.get(score_col)) or 0.0) >= threshold],

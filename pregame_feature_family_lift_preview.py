@@ -356,7 +356,18 @@ def pick_col(cols: list[str], candidates: list[str]) -> str | None:
     return None
 
 
-def load_final_games(conn: sqlite3.Connection, season: str, regular_start: str | None) -> dict:
+def load_final_games(
+    conn: sqlite3.Connection,
+    season: str,
+    regular_start: str | None,
+    as_of_date: str | None = None,
+) -> dict:
+    """
+    as_of_date: if given, excludes games with game_date >= as_of_date (strict cutoff).
+    Used by historical reconstruction so rolling state reflects only games strictly
+    before the slate date being scored, not the season's current end. None (default)
+    preserves prior behavior for all existing callers.
+    """
     rows = conn.execute(
         """
         SELECT
@@ -377,6 +388,8 @@ def load_final_games(conn: sqlite3.Connection, season: str, regular_start: str |
     for r in rows:
         game_date = str(r[1])
         if regular_start and game_date < regular_start:
+            continue
+        if as_of_date and game_date >= as_of_date:
             continue
 
         away = norm_team(r[2])
@@ -1172,14 +1185,21 @@ def build_final_state(
     season: str,
     rolling_games: int,
     rolling_starts: int,
+    as_of_date: str | None = None,
 ) -> tuple:
     """
     Return (team_hist, starter_hist, league_hr_per_fb, xfip_constant) after processing all
     completed games for a season. Used by score_today_slate.py to score today's unplayed games
     without building output rows. No lookahead — only completed games (final scores present).
+
+    as_of_date: if given, only games strictly before this date feed the rolling state. Required
+    for historical reconstruction of a past date once later games in the same season are also
+    final, otherwise rolling team/starter stats would include games played after the slate date.
+    None (default) preserves prior behavior — safe for live use since nothing "final" is ever
+    in the future.
     """
     regular_start = DEFAULT_REGULAR_START.get(str(season))
-    games = load_final_games(conn, str(season), regular_start)
+    games = load_final_games(conn, str(season), regular_start, as_of_date=as_of_date)
     events_by_game, _ = load_events(conn, games)
     pitching_lines, starter_by_game_team = aggregate_pitching_by_game_team(games, events_by_game)
 
