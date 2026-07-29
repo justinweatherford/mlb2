@@ -27,3 +27,13 @@ node_modules/
 __pycache__/
 .pytest_cache/
 frontend/dist/
+
+# DB backup snapshots (can be many GB, never belong in git)
+*.bak
+*.bak-shm
+*.bak-wal
+
+# Generated research artifacts (regenerable, kept local only)
+.cache/
+outputs/kalshi_import_reconstruction_audit/
+outputs/reconstructed_pregame_cards/
