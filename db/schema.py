@@ -266,7 +266,6 @@ CREATE INDEX IF NOT EXISTS idx_kalshi_markets_event   ON kalshi_markets(event_ti
 CREATE INDEX IF NOT EXISTS idx_kalshi_markets_type    ON kalshi_markets(market_type);
 CREATE INDEX IF NOT EXISTS idx_kalshi_markets_game_id ON kalshi_markets(game_id);
 CREATE INDEX IF NOT EXISTS idx_kalshi_ob_ticker       ON kalshi_orderbook_snapshots(market_ticker);
-CREATE INDEX IF NOT EXISTS idx_kalshi_ob_dedup        ON kalshi_orderbook_snapshots(market_ticker, snapped_at, source);
 
 CREATE TABLE IF NOT EXISTS kalshi_market_trades (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -828,6 +827,8 @@ def _apply_migrations(conn: sqlite3.Connection) -> None:
         "ALTER TABLE kalshi_orderbook_snapshots ADD COLUMN volume INTEGER",
         "ALTER TABLE kalshi_orderbook_snapshots ADD COLUMN open_interest INTEGER",
         "ALTER TABLE kalshi_orderbook_snapshots ADD COLUMN source TEXT NOT NULL DEFAULT 'rest_poll'",
+        # Dedup lookup for import idempotency — must come after the source column is added
+        "CREATE INDEX IF NOT EXISTS idx_kalshi_ob_dedup ON kalshi_orderbook_snapshots(market_ticker, snapped_at, source)",
         # Rolling scoring-form windows (L1 / L5 / L10)
         "ALTER TABLE mlb_team_context ADD COLUMN l1_rpg REAL",
         "ALTER TABLE mlb_team_context ADD COLUMN l5_rpg REAL",
